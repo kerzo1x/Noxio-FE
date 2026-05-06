@@ -11,7 +11,7 @@
     --color-link: var(--text-link-color);
     --color-error: var(--color-error);
     --color-surface: var(--brand-gray-light);
-    --font-sans: "Roboto", sans-serif;
+    --font-sans: "Inter", sans-serif;
     --radius-auth: var(--radius-auth);
 
     --color-panel-bg: var(--panel-bg);
@@ -23,9 +23,7 @@
 }
 
 @layer components {
-    * {
-        background-color: black;
-    }
+
     .field-input {
         @apply mt-1 w-full px-4 py-3 rounded-auth outline-none border-none bg-panel-input-bg text-panel-text placeholder:text-panel-placeholder transition-all duration-200;
     }

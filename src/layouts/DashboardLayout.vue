@@ -44,12 +44,12 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="flex flex-col h-dvh overflow-hidden">
+  <div class="flex flex-col h-dvh overflow-hidden bg-black">
     <HeaderComponent class="flex-none" />
     <BannerComponent class="flex-none" />
     <div class="flex flex-1 min-h-0">
       <SidebarLayout class="flex-none" />
-      <main class="flex-1 min-h-0 overflow-auto p-6">
+      <main class="flex-1 min-h-0 overflow-auto">
         <div class="ml-[112px] mt-[25px] mr-[172px]">
           <router-view />
         </div>
