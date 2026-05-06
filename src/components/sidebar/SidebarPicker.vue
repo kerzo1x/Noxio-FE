@@ -136,7 +136,6 @@ const handlePickWorkspace = (workspace) => {
 <style scoped>
 .picker-root {
   position: relative;
-  width: 100%;
 }
 
 .loading-placeholder {
@@ -167,7 +166,7 @@ button.workspace-switcher {
 }
 
 .workspace-switcher:hover {
-  background: #252525;
+  background: rgba(255, 255, 255, 0.084);
 }
 
 .avatar {

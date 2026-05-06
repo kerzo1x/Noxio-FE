@@ -11,26 +11,36 @@ const active = ref('')
 
 <template>
   <aside class="sidebar">
-    <nav class="grow">
+    <nav class="grow sidebar-content">
       <SidebarNav />
       <SidebarWorkspace
         v-if="workspaceStore.workspaces.length > 0"
         v-model:active="active"
       />
     </nav>
-    <SidebarPicker />
+    <SidebarPicker class="w-[203px] ml-[61px] mb-[49px]"/>
   </aside>
 </template>
 
 <style scoped>
 .sidebar {
   width: 283px;
+  min-width: 283px;
+  max-width: 283px;
   height: 100dvh;
   background: #000;
   display: flex;
   flex-direction: column;
-  padding: 24px 16px;
-  border-right: 1px solid rgba(255, 255, 255, 0.1);
   box-sizing: border-box;
 }
+
+.sidebar-content {
+  display: flex;
+  flex-direction: column;
+  margin-left: 56px;
+  margin-top: 51px;
+  font-size: 14px;
+  margin-right: 81px;
+}
+
 </style>
