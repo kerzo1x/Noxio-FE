@@ -7,7 +7,35 @@ const routes: Array<RouteRecordRaw> = [
     {
         path: '/dashboard',
         name: 'DashboardLayout',
-        component: DashboardLayout
+        component: DashboardLayout,
+        redirect: '/dashboard/home',
+        children: [
+            {
+                path: 'home',
+                name: 'DashboardHome',
+                component: () => import('../pages/dashboard/HomePage.vue')
+            },
+            {
+                path: 'folders',
+                name: 'DashboardFolders',
+                component: () => import('../pages/dashboard/FolderPage.vue')
+            },
+            {
+                path: 'todo',
+                name: 'DashboardTodo',
+                component: () => import('../pages/dashboard/TodoPage.vue')
+            },
+            {
+                path: 'noxio-ai',
+                name: 'DashboardNoxioAi',
+                component: () => import('../pages/dashboard/NoxioAiPage.vue')
+            },
+            {
+                path: 'settings',
+                name: 'DashboardSettings',
+                component: () => import('../pages/dashboard/SettingsPage.vue')
+            }
+        ]
     },
 
     // /auth

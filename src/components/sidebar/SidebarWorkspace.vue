@@ -1,34 +1,54 @@
-<script setup>
+<script setup lang="ts">
+import { computed, reactive } from 'vue'
+import { useFoldersStore } from '@/stores/folders'
+import { useTodoListsStore } from '@/stores/todoLists'
 import folderIcon from '@/assets/img/folder.svg'
 import todoIcon from '@/assets/img/todo.svg'
-import taskIcon from '@/assets/img/task.svg'
 import selectorIcon from '@/assets/img/selector.svg'
+
+type WorkspaceTab = 'folders' | 'todo'
 
 const props = defineProps({
   active: {
     type: String,
     default: '',
   },
-  items: {
-    type: Array,
-    default: () => ([
-      { id: 'folders', label: 'Folders', icon: folderIcon },
-      { id: 'todo', label: 'To do', icon: todoIcon },
-    ]),
-  },
-  todoTasks: {
-    type: Array,
-    default: () => ([
-      { id: 'todo-1', label: 'To do' },
-      { id: 'todo-2', label: 'To do' },
-    ]),
-  },
 })
 
 const emit = defineEmits(['update:active'])
+const foldersStore = useFoldersStore()
+const todoListsStore = useTodoListsStore()
 
-const setActive = (id) => {
+const sectionItems = [
+  { id: 'folders' as const, label: 'Folders', icon: folderIcon },
+  { id: 'todo' as const, label: 'To do', icon: todoIcon },
+]
+
+const folderSubItems = computed(() =>
+  foldersStore.folders.map((folder) => ({
+    id: folder.id,
+    label: folder.name
+  }))
+)
+
+const todoSubItems = computed(() =>
+  todoListsStore.todoLists.map((todoList) => ({
+    id: todoList.id,
+    label: todoList.name
+  }))
+)
+
+const expandedSections = reactive<Record<WorkspaceTab, boolean>>({
+  folders: false,
+  todo: false
+})
+
+const setActive = (id: WorkspaceTab) => {
   emit('update:active', id)
+}
+
+const toggleExpanded = (id: WorkspaceTab) => {
+  expandedSections[id] = !expandedSections[id]
 }
 </script>
 
@@ -36,30 +56,55 @@ const setActive = (id) => {
   <p class="section-label">Your workspace</p>
 
   <div
-    v-for="item in props.items"
+    v-for="item in sectionItems"
     :key="item.id"
-    class="nav-link workspace"
-    :class="{ active: props.active === item.id }"
-    @click="setActive(item.id)"
+    class="workspace-section"
   >
-    <img :src="item.icon" :alt="item.label" class="icon" />
-    <span>{{ item.label }}</span>
-    <img
-      :src="selectorIcon"
-      class="selector"
+    <div
+      class="nav-link workspace"
       :class="{ active: props.active === item.id }"
-      :alt="`${item.label} selector`"
-    />
-  </div>
-
-  <template v-if="props.active === 'todo'">
-    <div class="subtasks">
-      <div v-for="task in props.todoTasks" :key="task.id" class="nav-link">
-        <img :src="taskIcon" alt="task" class="icon small" />
-        <span>{{ task.label }}</span>
-      </div>
+    >
+      <button type="button" class="workspace-main" @click="setActive(item.id)">
+        <img :src="item.icon" :alt="item.label" class="icon" />
+        <span>{{ item.label }}</span>
+      </button>
+      <button
+        type="button"
+        class="selector-button"
+        :aria-label="`Toggle ${item.label} list`"
+        @click.stop="toggleExpanded(item.id)"
+      >
+        <img
+          :src="selectorIcon"
+          class="selector"
+          :class="{ open: expandedSections[item.id] }"
+          :alt="`${item.label} selector`"
+        />
+      </button>
     </div>
-  </template>
+
+    <template v-if="item.id === 'folders' && expandedSections.folders">
+      <div class="subtasks">
+        <div v-if="foldersStore.isLoading" class="nav-link substate">Loading folders...</div>
+        <div v-else-if="folderSubItems.length === 0" class="nav-link substate">No folders</div>
+        <div v-for="folder in folderSubItems" v-else :key="folder.id" class="nav-link">
+          <img :src="folderIcon" alt="folder item" class="icon small" />
+          <span>{{ folder.label }}</span>
+        </div>
+      </div>
+    </template>
+
+    <template v-else-if="item.id === 'todo' && expandedSections.todo">
+      <div class="subtasks">
+        <div v-if="todoListsStore.isLoading" class="nav-link substate">Loading todo lists...</div>
+        <div v-else-if="todoSubItems.length === 0" class="nav-link substate">No todo lists</div>
+        <div v-for="todo in todoSubItems" v-else :key="todo.id" class="nav-link">
+          <img :src="todoIcon" alt="todo item" class="icon small" />
+          <span>{{ todo.label }}</span>
+        </div>
+      </div>
+    </template>
+  </div>
 </template>
 
 <style scoped>
@@ -92,22 +137,46 @@ const setActive = (id) => {
 
 .nav-link.workspace {
   justify-content: space-between;
+  padding: 0;
 }
 
-.nav-link.workspace:hover {
+.workspace-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  padding: 8px 12px;
+  border: none;
   background: transparent;
-  color: rgba(255, 255, 255, 0.5);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 
-.nav-link.workspace.active {
-  color: #fff;
-  background: rgba(255, 255, 255, 0.05);
+.selector-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  margin-right: 6px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
 }
 
 .subtasks {
   margin-left: 20px;
   border-left: 1px solid rgba(255, 255, 255, 0.1);
   margin-top: 4px;
+}
+
+.substate {
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.workspace-section + .workspace-section {
+  margin-top: 2px;
 }
 
 .icon {
@@ -127,25 +196,20 @@ const setActive = (id) => {
   opacity: 1;
 }
 
-.nav-link.workspace:hover .icon {
-  opacity: 0.7;
-}
-
-.nav-link.workspace.active .icon {
-  opacity: 1;
-}
-
 .selector {
   width: 16px;
   height: 16px;
-  margin-left: auto;
-  opacity: 0;
-  transform: rotate(180deg);
+  opacity: 0.5;
+  transform: rotate(0deg);
   transition: transform 0.3s, opacity 0.2s;
 }
 
-.selector.active {
+.selector.open {
+  transform: rotate(180deg);
+}
+
+.nav-link.workspace:hover .selector,
+.nav-link.workspace.active .selector {
   opacity: 1;
-  transform: rotate(360deg);
 }
 </style>

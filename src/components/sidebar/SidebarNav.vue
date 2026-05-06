@@ -1,13 +1,25 @@
-<script setup>
+<script setup lang="ts">
+import { useRoute, useRouter } from 'vue-router'
 import homeIcon from '@/assets/img/home.svg'
 import noxioIcon from '@/assets/img/noxioai.svg'
 import settingsIcon from '@/assets/img/settings.svg'
 
 const topNav = [
-  { label: 'Home', icon: homeIcon },
-  { label: 'Noxio AI', icon: noxioIcon },
-  { label: 'Settings', icon: settingsIcon },
+  { label: 'Home', icon: homeIcon, routeName: 'DashboardHome' },
+  { label: 'Noxio AI', icon: noxioIcon, routeName: 'DashboardNoxioAi' },
+  { label: 'Settings', icon: settingsIcon, routeName: 'DashboardSettings' },
 ]
+
+const route = useRoute()
+const router = useRouter()
+
+const handleClick = (item: (typeof topNav)[number]) => {
+  if (!item.routeName) return
+  router.push({ name: item.routeName })
+}
+
+const isActive = (item: (typeof topNav)[number]) =>
+  item.routeName != null && route.name === item.routeName
 </script>
 
 <template>
@@ -15,6 +27,8 @@ const topNav = [
     v-for="item in topNav"
     :key="item.label"
     class="nav-link"
+    :class="{ active: isActive(item) }"
+    @click="handleClick(item)"
   >
     <img :src="item.icon" :alt="item.label" class="icon" />
     <span>{{ item.label }}</span>
