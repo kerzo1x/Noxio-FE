@@ -1,8 +1,9 @@
 <template>
-  <section>
+  <section class="flex flex-col items-center justify-center h-full ">
+    <img src="../../assets/img/noxioai.svg" class="w-30 h-30">
     <h1 class="text-2xl font-semibold text-white">Noxio AI</h1>
     <p class="mt-2 text-sm text-white/60">
-      Noxio AI page is ready for implementation.
+      Noxio AI will be implemented in the future.
     </p>
   </section>
 </template>

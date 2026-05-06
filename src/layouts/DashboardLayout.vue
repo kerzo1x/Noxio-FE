@@ -21,12 +21,11 @@ async function syncWorkspaceScopedData(workspaceId: string | null) {
     return
   }
 
-  const shouldFetchFolders = foldersStore.loadedWorkspaceId !== workspaceId
-  const shouldFetchTodoLists = todoListsStore.loadedWorkspaceId !== workspaceId
-
   await Promise.all([
-    shouldFetchFolders ? foldersStore.fetchFolders(workspaceId) : Promise.resolve(),
-    shouldFetchTodoLists
+    foldersStore.loadedWorkspaceId !== workspaceId && !foldersStore.isLoading
+      ? foldersStore.fetchFolders(workspaceId)
+      : Promise.resolve(),
+    todoListsStore.loadedWorkspaceId !== workspaceId && !todoListsStore.isLoading
       ? todoListsStore.fetchTodoLists(workspaceId)
       : Promise.resolve()
   ])
@@ -34,15 +33,13 @@ async function syncWorkspaceScopedData(workspaceId: string | null) {
 
 watch(
   () => workspaceStore.activeWorkspace?.id ?? null,
-  async (workspaceId) => {
-    await syncWorkspaceScopedData(workspaceId)
-  }
+  (workspaceId) => syncWorkspaceScopedData(workspaceId)
 )
 
 onMounted(async () => {
   userStore.fetchUser()
-  workspaceStore.hydrateActiveWorkspaceFromLocalStorage()
   await workspaceStore.fetchWorkspaces()
+  await syncWorkspaceScopedData(workspaceStore.activeWorkspace?.id ?? null)
 })
 </script>
 
@@ -52,8 +49,10 @@ onMounted(async () => {
     <BannerComponent class="flex-none" />
     <div class="flex flex-1 min-h-0">
       <SidebarLayout class="flex-none" />
-      <main class="flex-1 min-h-0 overflow-auto">
-        <router-view />
+      <main class="flex-1 min-h-0 overflow-auto p-6">
+        <div class="ml-[112px] mt-[25px] mr-[172px]">
+          <router-view />
+        </div>
       </main>
     </div>
 

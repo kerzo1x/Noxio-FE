@@ -42,4 +42,22 @@
         @apply w-full bg-brand-white text-brand-black px-4 py-3 rounded-auth font-semibold hover:opacity-90 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer;
     }
 
+    .sidebar-link {
+        @apply flex items-center gap-3 rounded-lg cursor-pointer text-white/50 text-sm font-medium transition-colors duration-200;
+    }
+
+    .sidebar-link:hover,
+    .sidebar-link.active {
+        @apply text-white bg-white/5;
+    }
+
+    .sidebar-icon {
+        @apply w-5 h-5 shrink-0 opacity-70 transition-opacity duration-200;
+    }
+
+    .sidebar-link:hover .sidebar-icon,
+    .sidebar-link.active .sidebar-icon {
+        @apply opacity-100;
+    }
+
 }

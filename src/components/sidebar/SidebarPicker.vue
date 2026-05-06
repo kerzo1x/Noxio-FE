@@ -49,17 +49,17 @@ const handlePickWorkspace = (workspace) => {
 </script>
 
 <template>
-  <div ref="rootRef" class="picker-root">
+  <div ref="rootRef" class="relative">
     <div
       v-if="workspaceStore.isLoading && workspaceStore.workspaces.length === 0"
-      class="loading-placeholder"
+      class="p-3 text-white/45 text-sm"
     >
       Checking workspaces...
     </div>
 
     <template v-else-if="workspaceStore.workspaces.length > 0">
       <div
-        class="workspace-switcher"
+        class="group flex items-center gap-3 w-full p-3 rounded-xl cursor-pointer transition-[background] duration-200 hover:bg-white/[0.084]"
         role="button"
         tabindex="0"
         :aria-expanded="dropdownOpen"
@@ -68,55 +68,52 @@ const handlePickWorkspace = (workspace) => {
         @keydown.enter.prevent="toggleDropdown"
         @keydown.space.prevent="toggleDropdown"
       >
-        <div class="avatar">
+        <div class="w-8 h-8 bg-[#4a4a4a] rounded-md flex items-center justify-center text-white font-semibold shrink-0">
           {{ workspaceStore.activeWorkspace?.name?.charAt(0) || '?' }}
         </div>
-        <span class="truncate">
+        <span class="flex-1 min-w-0 text-white text-sm font-medium truncate">
           {{ workspaceStore.activeWorkspace?.name || 'Loading...' }}
         </span>
         <img
           :src="selectorIcon"
           alt=""
-          class="icon"
-          :class="{ 'icon--open': dropdownOpen }"
+          class="w-5 h-5 shrink-0 ml-auto opacity-70 transition-[opacity,transform] duration-200 group-hover:opacity-100"
+          :class="{ 'rotate-180': dropdownOpen }"
         />
       </div>
 
       <div
         v-show="dropdownOpen"
-        class="dropdown"
+        class="absolute left-0 right-0 bottom-[calc(100%+4px)] z-40 p-1 rounded-xl bg-[#1a1a1a] border border-white/[0.08] shadow-[0_-8px_32px_rgba(0,0,0,0.45)]"
         role="listbox"
         @click.stop
       >
         <button
           type="button"
-          class="dropdown-item dropdown-item--action"
+          class="flex items-center gap-2.5 w-full pt-2 px-2.5 pb-1 rounded-lg text-white/85 text-sm font-medium text-left cursor-pointer transition-[background] duration-150 hover:bg-white/[0.06]"
           @click.stop="openCreateWorkspaceModal"
         >
-          <span class="dropdown-item-label">New workspace</span>
-          <img :src="addIcon" alt="" class="dropdown-add-icon" />
+          <span class="flex-1 min-w-0 truncate">New workspace</span>
+          <img :src="addIcon" alt="" class="w-[18px] h-[18px] shrink-0 ml-auto opacity-75" />
         </button>
 
         <template v-if="workspaceStore.workspaces.length > 1">
-          <div class="dropdown-divider" />
-          <div class="workspace-list-scroll">
+          <div class="h-px mx-1 mt-px mb-[3px] bg-white/10" />
+          <div class="max-h-44 overflow-y-auto">
             <button
               v-for="ws in workspaceStore.workspaces"
               :key="ws.id"
               type="button"
-              class="dropdown-item dropdown-item--workspace"
-              :class="{
-                'is-current':
-                  workspaceStore.activeWorkspace?.id === ws.id,
-              }"
+              class="flex items-center gap-2.5 w-full pt-2 px-2.5 pb-1 rounded-lg text-white/85 text-sm font-medium text-left cursor-pointer transition-[background] duration-150 hover:bg-white/[0.06]"
+              :class="{ 'bg-white/[0.08]': workspaceStore.activeWorkspace?.id === ws.id }"
               role="option"
               :aria-selected="workspaceStore.activeWorkspace?.id === ws.id"
               @click="handlePickWorkspace(ws)"
             >
-              <div class="avatar avatar--sm">
+              <div class="w-7 h-7 bg-[#4a4a4a] rounded-md flex items-center justify-center text-white font-semibold shrink-0 text-[13px]">
                 {{ ws.name?.charAt(0) || '?' }}
               </div>
-              <span class="dropdown-item-label">{{ ws.name }}</span>
+              <span class="flex-1 min-w-0 truncate">{{ ws.name }}</span>
             </button>
           </div>
         </template>
@@ -126,169 +123,11 @@ const handlePickWorkspace = (workspace) => {
     <button
       v-else
       type="button"
-      class="workspace-switcher workspace-switcher--create"
+      class="flex items-center gap-3 w-full p-3 rounded-xl cursor-pointer text-left transition-[background] duration-200 hover:bg-white/[0.084]"
       @click.stop="workspaceStore.openCreateWorkspacePopup()"
     >
-      <span class="truncate">Create workspace</span>
-      <img :src="addIcon" alt="" class="icon" />
+      <span class="flex-1 min-w-0 text-white text-sm font-medium truncate">Create workspace</span>
+      <img :src="addIcon" alt="" class="w-5 h-5 shrink-0 ml-auto opacity-70" />
     </button>
   </div>
 </template>
-
-<style scoped>
-.picker-root {
-  position: relative;
-}
-
-.loading-placeholder {
-  padding: 12px;
-  color: rgba(255, 255, 255, 0.45);
-  font-size: 14px;
-}
-
-.workspace-switcher {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  width: 100%;
-  box-sizing: border-box;
-  padding: 12px;
-  border-radius: 12px;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-button.workspace-switcher {
-  border: none;
-  margin: 0;
-  background: transparent;
-  font: inherit;
-  color: inherit;
-  text-align: left;
-}
-
-.workspace-switcher:hover {
-  background: rgba(255, 255, 255, 0.084);
-}
-
-.avatar {
-  width: 32px;
-  height: 32px;
-  background: #4a4a4a;
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-  font-weight: 600;
-  flex-shrink: 0;
-}
-
-.avatar--sm {
-  width: 28px;
-  height: 28px;
-  font-size: 13px;
-}
-
-.truncate {
-  flex: 1;
-  min-width: 0;
-  color: #fff;
-  font-size: 14px;
-  font-weight: 500;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.icon {
-  width: 20px;
-  height: 20px;
-  flex-shrink: 0;
-  margin-left: auto;
-  opacity: 0.7;
-  transition:
-    opacity 0.2s,
-    transform 0.2s;
-}
-
-.icon--open {
-  transform: rotate(180deg);
-}
-
-.workspace-switcher:hover .icon {
-  opacity: 1;
-}
-
-.dropdown {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: calc(100% + 4px);
-  top: auto;
-  z-index: 40;
-  padding: 4px;
-  border-radius: 12px;
-  background: #1a1a1a;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.45);
-}
-
-.dropdown-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  box-sizing: border-box;
-  padding: 8px 10px 4px;
-  border: none;
-  border-radius: 8px;
-  background: transparent;
-  color: rgba(255, 255, 255, 0.85);
-  font: inherit;
-  font-size: 14px;
-  font-weight: 500;
-  text-align: left;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-
-.dropdown-item:hover {
-  background: rgba(255, 255, 255, 0.06);
-}
-
-.dropdown-item--action {
-  justify-content: flex-start;
-}
-
-.dropdown-add-icon {
-  width: 18px;
-  height: 18px;
-  flex-shrink: 0;
-  margin-left: auto;
-  opacity: 0.75;
-}
-
-.dropdown-item--workspace.is-current {
-  background: rgba(255, 255, 255, 0.08);
-}
-
-.dropdown-item-label {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.dropdown-divider {
-  height: 1px;
-  margin: 1px 4px 3px;
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.workspace-list-scroll {
-  max-height: 176px;
-  overflow-y: auto;
-}
-</style>

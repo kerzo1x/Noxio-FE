@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive } from 'vue'
+import { computed, reactive, watch } from 'vue'
 import { useFoldersStore } from '@/stores/folders'
 import { useTodoListsStore } from '@/stores/todoLists'
 import folderIcon from '@/assets/img/folder.svg'
@@ -8,14 +8,30 @@ import selectorIcon from '@/assets/img/selector.svg'
 
 type WorkspaceTab = 'folders' | 'todo'
 
-const props = defineProps({
+interface SubItem {
+  id: string
+  label: string
+}
+
+interface SectionMeta {
+  items: SubItem[]
+  isLoading: boolean
+  error: string | null
+  icon: string
+  emptyLabel: string
+}
+
+defineProps({
   active: {
     type: String,
     default: '',
   },
 })
 
-const emit = defineEmits(['update:active'])
+const emit = defineEmits<{
+  'update:active': [tab: WorkspaceTab]
+}>()
+
 const foldersStore = useFoldersStore()
 const todoListsStore = useTodoListsStore()
 
@@ -24,24 +40,56 @@ const sectionItems = [
   { id: 'todo' as const, label: 'To do', icon: todoIcon },
 ]
 
-const folderSubItems = computed(() =>
-  foldersStore.folders.map((folder) => ({
-    id: folder.id,
-    label: folder.name
-  }))
-)
+const sectionData = computed<Record<WorkspaceTab, SectionMeta>>(() => ({
+  folders: {
+    items: foldersStore.folders.map((f) => ({ id: f.id, label: f.name })),
+    isLoading: foldersStore.isLoading,
+    error: foldersStore.error,
+    icon: folderIcon,
+    emptyLabel: 'No folders',
+  },
+  todo: {
+    items: todoListsStore.todoLists.map((t) => ({ id: t.id, label: t.name })),
+    isLoading: todoListsStore.isLoading,
+    error: todoListsStore.error,
+    icon: todoIcon,
+    emptyLabel: 'No todo lists',
+  },
+}))
 
-const todoSubItems = computed(() =>
-  todoListsStore.todoLists.map((todoList) => ({
-    id: todoList.id,
-    label: todoList.name
-  }))
-)
+const expandedSectionsStorageKey = 'sidebar-workspace-expanded-sections'
 
-const expandedSections = reactive<Record<WorkspaceTab, boolean>>({
-  folders: false,
-  todo: false
-})
+function readExpandedSections(): Record<WorkspaceTab, boolean> {
+  if (typeof window === 'undefined') {
+    return { folders: false, todo: false }
+  }
+
+  const raw = window.localStorage.getItem(expandedSectionsStorageKey)
+  if (!raw) {
+    return { folders: false, todo: false }
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as Partial<Record<WorkspaceTab, boolean>>
+    return {
+      folders: parsed.folders === true,
+      todo: parsed.todo === true,
+    }
+  } catch {
+    return { folders: false, todo: false }
+  }
+}
+
+const expandedSections = reactive<Record<WorkspaceTab, boolean>>(readExpandedSections())
+
+watch(
+  expandedSections,
+  (value) => {
+    if (typeof window === 'undefined') return
+    window.localStorage.setItem(expandedSectionsStorageKey, JSON.stringify(value))
+  },
+  { deep: true }
+)
 
 const setActive = (id: WorkspaceTab) => {
   emit('update:active', id)
@@ -53,164 +101,57 @@ const toggleExpanded = (id: WorkspaceTab) => {
 </script>
 
 <template>
-  <p class="section-label">Your workspace</p>
+  <p class="text-sm font-medium text-white/30 mt-6 mb-2 px-3">Your workspace</p>
 
-  <div
-    v-for="item in sectionItems"
-    :key="item.id"
-    class="workspace-section"
-  >
-    <div
-      class="nav-link workspace"
-      :class="{ active: props.active === item.id }"
-    >
-      <button type="button" class="workspace-main" @click="setActive(item.id)">
-        <img :src="item.icon" :alt="item.label" class="icon" />
-        <span>{{ item.label }}</span>
-      </button>
-      <button
-        type="button"
-        class="selector-button"
-        :aria-label="`Toggle ${item.label} list`"
-        @click.stop="toggleExpanded(item.id)"
+  <div class="space-y-0.5">
+    <div v-for="item in sectionItems" :key="item.id">
+      <div
+        class="sidebar-link group justify-between"
+        :class="{ active: active === item.id }"
       >
-        <img
-          :src="selectorIcon"
-          class="selector"
-          :class="{ open: expandedSections[item.id] }"
-          :alt="`${item.label} selector`"
-        />
-      </button>
+        <button
+          type="button"
+          class="flex items-center gap-3 flex-1 px-3 py-2 text-left cursor-pointer"
+          @click="setActive(item.id)"
+        >
+          <img :src="item.icon" :alt="item.label" class="sidebar-icon" />
+          <span>{{ item.label }}</span>
+        </button>
+        <button
+          type="button"
+          class="inline-flex items-center justify-center w-8 mr-1.5 cursor-pointer"
+          :aria-label="`Toggle ${item.label} list`"
+          @click.stop="toggleExpanded(item.id)"
+        >
+          <img
+            :src="selectorIcon"
+            class="w-4 h-4 transition-all duration-300 group-hover:opacity-100"
+            :class="[
+              expandedSections[item.id] ? 'rotate-180' : '',
+              active === item.id ? 'opacity-100' : 'opacity-50'
+            ]"
+            :alt="`${item.label} selector`"
+          />
+        </button>
+      </div>
+
+      <div v-if="expandedSections[item.id]" class="ml-5 border-l border-white/10 mt-1">
+        <div v-if="sectionData[item.id].isLoading" class="flex items-center gap-3 px-3 py-2 text-sm text-white/45">
+          Loading...
+        </div>
+        <div v-else-if="sectionData[item.id].error" class="flex items-center gap-3 px-3 py-2 text-sm text-red-400/70">
+          {{ sectionData[item.id].error }}
+        </div>
+        <div v-else-if="sectionData[item.id].items.length === 0" class="flex items-center gap-3 px-3 py-2 text-sm text-white/45">
+          {{ sectionData[item.id].emptyLabel }}
+        </div>
+        <template v-else>
+          <div v-for="sub in sectionData[item.id].items" :key="sub.id" class="sidebar-link px-3 py-2">
+            <img :src="sectionData[item.id].icon" alt="" class="sidebar-icon scale-90" />
+            <span>{{ sub.label }}</span>
+          </div>
+        </template>
+      </div>
     </div>
-
-    <template v-if="item.id === 'folders' && expandedSections.folders">
-      <div class="subtasks">
-        <div v-if="foldersStore.isLoading" class="nav-link substate">Loading folders...</div>
-        <div v-else-if="folderSubItems.length === 0" class="nav-link substate">No folders</div>
-        <div v-for="folder in folderSubItems" v-else :key="folder.id" class="nav-link">
-          <img :src="folderIcon" alt="folder item" class="icon small" />
-          <span>{{ folder.label }}</span>
-        </div>
-      </div>
-    </template>
-
-    <template v-else-if="item.id === 'todo' && expandedSections.todo">
-      <div class="subtasks">
-        <div v-if="todoListsStore.isLoading" class="nav-link substate">Loading todo lists...</div>
-        <div v-else-if="todoSubItems.length === 0" class="nav-link substate">No todo lists</div>
-        <div v-for="todo in todoSubItems" v-else :key="todo.id" class="nav-link">
-          <img :src="todoIcon" alt="todo item" class="icon small" />
-          <span>{{ todo.label }}</span>
-        </div>
-      </div>
-    </template>
   </div>
 </template>
-
-<style scoped>
-.section-label {
-  font-size: 14px;
-  font-weight: 500;
-  color: rgba(255, 255, 255, 0.3);
-  margin: 24px 0 8px;
-  padding: 0 12px;
-}
-
-.nav-link {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 8px 12px;
-  border-radius: 8px;
-  cursor: pointer;
-  color: rgba(255, 255, 255, 0.5);
-  font-size: 14px;
-  font-weight: 500;
-  transition: color 0.2s, background 0.2s;
-}
-
-.nav-link:hover,
-.nav-link.active {
-  color: #fff;
-  background: rgba(255, 255, 255, 0.05);
-}
-
-.nav-link.workspace {
-  justify-content: space-between;
-  padding: 0;
-}
-
-.workspace-main {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex: 1;
-  padding: 8px 12px;
-  border: none;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.selector-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  margin-right: 0;
-  padding-right: 10px;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-}
-
-.subtasks {
-  margin-left: 20px;
-  border-left: 1px solid rgba(255, 255, 255, 0.1);
-  margin-top: 4px;
-}
-
-.substate {
-  color: rgba(255, 255, 255, 0.45);
-}
-
-.workspace-section + .workspace-section {
-  margin-top: 2px;
-}
-
-.icon {
-  width: 20px;
-  height: 20px;
-  flex-shrink: 0;
-  opacity: 0.7;
-  transition: opacity 0.2s;
-}
-
-.icon.small {
-  transform: scale(0.9);
-}
-
-.nav-link:hover .icon,
-.nav-link.active .icon {
-  opacity: 1;
-}
-
-.selector {
-  width: 16px;
-  height: 16px;
-  opacity: 0.5;
-  transform: rotate(0deg);
-  transition: transform 0.3s, opacity 0.2s;
-}
-
-.selector.open {
-  transform: rotate(180deg);
-}
-
-.nav-link.workspace:hover .selector,
-.nav-link.workspace.active .selector {
-  opacity: 1;
-}
-</style>

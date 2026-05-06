@@ -1,19 +1,6 @@
 import { defineStore } from 'pinia'
 import api from '@/api'
-
-interface PaginationMeta {
-  totalCount: number
-  currentPage: number
-  totalPages: number
-  pageSize: number
-}
-
-interface ApiSuccess<T> {
-  success: boolean
-  message: string
-  data: T
-  meta?: PaginationMeta
-}
+import type { ApiSuccess, PaginationMeta } from '@/types/api'
 
 export interface TodoList {
   id: string
@@ -68,8 +55,6 @@ export const useTodoListsStore = defineStore('todo-lists', {
 
       this.isLoading = true
       this.error = null
-      this.todoLists = []
-      this.meta = null
 
       try {
         const response = await api.get<ApiSuccess<TodoList[]>>(
