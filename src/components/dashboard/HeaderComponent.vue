@@ -26,21 +26,24 @@ const sharedUsers = [1, 2, 3];
 </script>
 
 <template>
-  <header class="h-16 flex items-center bg-panel-bg border-b border-panel-input-border/50">
+  <header class="relative h-16 flex items-center bg-panel-bg border-b border-panel-input-border/50">
     
-    <div class=""></div>
-
-    <div class="relative group w-[335px] ml-[395px]">
-      <svg class="absolute left-3.5 top-1/2 -translate-y-1/2 text-panel-placeholder group-focus-within:text-panel-text transition-colors pointer-events-none" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="11" cy="11" r="8" />
-        <path d="m21 21-4.3-4.3" />
-      </svg>
-      <input
-        v-model="searchQuery"
-        type="text"
-        placeholder="Search items"
-        class="field-input mt-0! pl-10 h-10 py-0 text-sm w-full"
-      />
+    <div class="w-[283px] shrink-0"></div>
+    <div class="absolute inset-y-0 left-[283px] right-0 flex items-center justify-center">
+      <div class="w-[873px] ml-[5.83vw] mr-[8.96vw] flex justify-start shrink-0">
+        <div class="relative group w-[335px]">
+        <svg class="absolute left-3.5 top-1/2 -translate-y-1/2 text-panel-placeholder group-focus-within:text-panel-text transition-colors pointer-events-none" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8" />
+          <path d="m21 21-4.3-4.3" />
+        </svg>
+        <input
+          v-model="searchQuery"
+          type="text"
+          placeholder="Search items"
+          class="field-input mt-0! pl-10 h-10 py-0 text-sm w-full"
+        />
+        </div>
+      </div>
     </div>
 
     <div class="flex-1 flex items-center justify-end">

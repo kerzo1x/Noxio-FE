@@ -50,7 +50,7 @@ onMounted(async () => {
     <div class="flex flex-1 min-h-0">
       <SidebarLayout class="flex-none" />
       <main class="flex-1 min-h-0 overflow-auto">
-        <div class="ml-[112px] mt-[25px] mr-[172px]">
+        <div class="ml-[5.83vw] mt-[25px] mr-[8.96vw] flex justify-center">
           <router-view />
         </div>
       </main>

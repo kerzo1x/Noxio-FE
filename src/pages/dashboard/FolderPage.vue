@@ -10,7 +10,7 @@ const handleAddFolder = () => {
 </script>
 
 <template>
-  <section class="max-w-[858px]">
+  <section class="max-w-[858px] w-full">
     <div class="flex items-center justify-between">
       <h1 class="text-[20px] font-medium tracking-[-0.011em] text-white">Folders</h1>
       <div class="w-[203px] h-[29px]">
