@@ -158,8 +158,9 @@ const toggleExpanded = (id: WorkspaceTab) => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  margin-right: 6px;
+  width: 28px;
+  margin-right: 0;
+  padding-right: 10px;
   border: none;
   background: transparent;
   cursor: pointer;
