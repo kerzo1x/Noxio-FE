@@ -80,10 +80,10 @@ const prefill = () => {
 <template>
     <div class="min-h-screen flex bg-surface text-text-main">
 
-        <AuthBannerComponent />
+        <AuthBannerComponent mode="login" />
 
         <div class="w-full lg:w-1/2 flex items-center justify-center p-10 bg-panel-bg">
-            <div class="w-full max-w-md space-y-6">
+            <div class="auth-form-panel w-full max-w-md space-y-6">
 
                 <h1 class="text-4xl font-bold text-panel-text">Log In</h1>
                 <base-button text="autologin" @click="prefill"/>
