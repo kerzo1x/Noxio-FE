@@ -28,7 +28,7 @@ const routes: Array<RouteRecordRaw> = [
             {
                 path: 'noxio-ai',
                 name: 'DashboardNoxioAi',
-                component: () => import('../pages/dashboard/NoxioAiPage.vue')
+                component: () => import('../pages/dashboard/NoxioaiPage.vue')
             },
             {
                 path: 'settings',
