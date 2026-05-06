@@ -99,24 +99,26 @@ const handlePickWorkspace = (workspace) => {
 
         <template v-if="workspaceStore.workspaces.length > 1">
           <div class="dropdown-divider" />
-          <button
-            v-for="ws in workspaceStore.workspaces"
-            :key="ws.id"
-            type="button"
-            class="dropdown-item dropdown-item--workspace"
-            :class="{
-              'is-current':
-                workspaceStore.activeWorkspace?.id === ws.id,
-            }"
-            role="option"
-            :aria-selected="workspaceStore.activeWorkspace?.id === ws.id"
-            @click="handlePickWorkspace(ws)"
-          >
-            <div class="avatar avatar--sm">
-              {{ ws.name?.charAt(0) || '?' }}
-            </div>
-            <span class="dropdown-item-label">{{ ws.name }}</span>
-          </button>
+          <div class="workspace-list-scroll">
+            <button
+              v-for="ws in workspaceStore.workspaces"
+              :key="ws.id"
+              type="button"
+              class="dropdown-item dropdown-item--workspace"
+              :class="{
+                'is-current':
+                  workspaceStore.activeWorkspace?.id === ws.id,
+              }"
+              role="option"
+              :aria-selected="workspaceStore.activeWorkspace?.id === ws.id"
+              @click="handlePickWorkspace(ws)"
+            >
+              <div class="avatar avatar--sm">
+                {{ ws.name?.charAt(0) || '?' }}
+              </div>
+              <span class="dropdown-item-label">{{ ws.name }}</span>
+            </button>
+          </div>
         </template>
       </div>
     </template>
@@ -283,5 +285,10 @@ button.workspace-switcher {
   height: 1px;
   margin: 1px 4px 3px;
   background: rgba(255, 255, 255, 0.1);
+}
+
+.workspace-list-scroll {
+  max-height: 176px;
+  overflow-y: auto;
 }
 </style>
