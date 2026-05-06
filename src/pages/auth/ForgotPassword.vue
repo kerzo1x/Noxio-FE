@@ -53,7 +53,8 @@ const handleSendCode = async () => {
 
 <template>
   <div class="min-h-screen flex items-center justify-center p-6 bg-brand-black font-sans">
-    <div class="w-full max-w-sm text-center space-y-8">
+    <Transition name="auth-fade" appear>
+    <div class="forgot-form-shell w-full max-w-sm text-center space-y-8">
       
       <div class="space-y-2 max-w-xs mx-auto text-center">
         <h1 class="text-4xl font-bold text-brand-white">Forgot password</h1>
@@ -70,10 +71,8 @@ const handleSendCode = async () => {
             label="Email" 
             place-holder="Placeholder" 
             :is-error="isError"
-            @clear-error="isError = false; 
-            // message=''
-            "
-        />
+            @clear-error="isError = false"
+          />
       </div>
       <!-- TODO: normal error  -->
 
@@ -89,11 +88,25 @@ const handleSendCode = async () => {
         </p>
       </div>
     </div>
+    </Transition>
   </div>
 </template>
 
 <style scoped>
 @reference "../../assets/styles/main.css";
+
+.forgot-form-shell {
+  transition: opacity 500ms ease-in-out;
+}
+
+.auth-fade-enter-active {
+  transition: opacity 500ms ease-in-out;
+}
+
+.auth-fade-enter-from {
+  opacity: 0;
+}
+
 .btn-primary {
   @apply bg-brand-white text-brand-black py-3 rounded-auth font-semibold
          hover:opacity-90 hover:scale-[1.01] active:scale-[0.99]

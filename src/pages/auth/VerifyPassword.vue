@@ -134,9 +134,10 @@ const handleVerify = async () => {
 
 <template>
     <div class="min-h-screen flex bg-surface text-text-main font-sans">
-        <AuthBannerComponent />
+        <AuthBannerComponent mode="login" />
 
         <div class="w-full lg:w-1/2 flex items-center justify-center p-10 bg-panel-bg">
+            <Transition name="auth-fade" appear>
             <div class="w-full max-w-sm text-center space-y-8">
 
                 <div class="space-y-2">
@@ -193,6 +194,7 @@ const handleVerify = async () => {
                 </div>
 
             </div>
+            </Transition>
         </div>
     </div>
 </template>
@@ -230,5 +232,13 @@ const handleVerify = async () => {
 
 .resend-link:not(:disabled):hover {
     @apply text-brand-white underline;
+}
+
+.auth-fade-enter-active {
+    transition: opacity 500ms ease-in-out;
+}
+
+.auth-fade-enter-from {
+    opacity: 0;
 }
 </style>

@@ -12,6 +12,8 @@ const email = ref('')
 const password = ref('')
 const message = ref('')
 const isError = ref(false)
+const isForgotAnimating = ref(false)
+const FORGOT_GRADIENT_ANIM_MS = 850
 
 const handleLogin = async () => {
     if (!email.value || !password.value) {
@@ -75,14 +77,24 @@ const prefill = () => {
     handleLogin()
 }
 
+const handleForgotPasswordClick = () => {
+    if (isForgotAnimating.value) return
+
+    isForgotAnimating.value = true
+    window.setTimeout(() => {
+        router.push('/auth/forgot-password')
+    }, FORGOT_GRADIENT_ANIM_MS)
+}
+
 </script>
 
 <template>
-    <div class="min-h-screen flex bg-surface text-text-main">
+    <div class="min-h-screen flex bg-surface text-text-main" :class="{ 'forgot-transitioning': isForgotAnimating }">
 
-        <AuthBannerComponent mode="login" />
+        <AuthBannerComponent mode="login" :forgot-animating="isForgotAnimating" />
 
         <div class="w-full lg:w-1/2 flex items-center justify-center p-10 bg-panel-bg">
+            <Transition name="auth-fade" appear>
             <div class="auth-form-panel w-full max-w-md space-y-6">
 
                 <h1 class="text-4xl font-bold text-panel-text">Log In</h1>
@@ -114,9 +126,13 @@ const prefill = () => {
                     </div>
 
                     <div class="flex justify-end">
-                        <router-link to="/auth/forgot-password" class="text-sm text-panel-label hover:text-panel-text transition-colors duration-200">
+                        <button
+                            type="button"
+                            class="text-sm text-panel-label hover:text-panel-text transition-colors duration-200 cursor-pointer"
+                            @click="handleForgotPasswordClick"
+                        >
                             Forgot Password?
-                        </router-link>
+                        </button>
                     </div>
 
                     <base-button 
@@ -148,6 +164,7 @@ const prefill = () => {
                 </div>
 
             </div>
+            </Transition>
         </div>
     </div>
 </template>
@@ -157,5 +174,22 @@ const prefill = () => {
 
 .google-btn {
     @apply w-full flex items-center justify-center gap-3 px-4 py-3 rounded-auth font-semibold text-panel-text border border-panel-input-border hover:bg-white/5 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 cursor-pointer;
+}
+
+.auth-form-panel {
+    transition: opacity 850ms ease-in-out, transform 850ms ease-in-out;
+}
+
+.forgot-transitioning .auth-form-panel {
+    opacity: 0;
+    transform: translateX(-18px);
+}
+
+.auth-fade-enter-active {
+    transition: opacity 500ms ease-in-out;
+}
+
+.auth-fade-enter-from {
+    opacity: 0;
 }
 </style>

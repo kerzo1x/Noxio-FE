@@ -74,6 +74,7 @@ const handleGoogleLogin = () => {
 
     <!-- Right dark panel -->
     <div class="w-full lg:w-1/2 flex items-center justify-center p-10 bg-panel-bg">
+      <Transition name="auth-fade" appear>
       <div class="auth-form-panel w-full max-w-md space-y-6">
 
         <h1 class="text-4xl font-bold text-panel-text">Sign Up</h1>
@@ -146,6 +147,7 @@ const handleGoogleLogin = () => {
         </div>
 
       </div>
+      </Transition>
     </div>
   </div>
 </template>
@@ -155,5 +157,17 @@ const handleGoogleLogin = () => {
 
 .google-btn {
   @apply w-full flex items-center justify-center gap-3 px-4 py-3 rounded-auth font-semibold text-panel-text border border-panel-input-border hover:bg-white/5 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 cursor-pointer;
+}
+
+.auth-form-panel {
+  transition: opacity 850ms ease-in-out, transform 850ms ease-in-out;
+}
+
+.auth-fade-enter-active {
+  transition: opacity 500ms ease-in-out;
+}
+
+.auth-fade-enter-from {
+  opacity: 0;
 }
 </style>

@@ -67,6 +67,7 @@ const handleResetPassword = async () => {
 
 <template>
   <div class="min-h-screen flex items-center justify-center p-6 bg-brand-black font-sans">
+    <Transition name="auth-fade" appear>
     <div class="w-full max-w-sm space-y-8">
 
       <div class="space-y-2 max-w-xs mx-auto text-center">
@@ -112,9 +113,18 @@ const handleResetPassword = async () => {
         </p>
       </div>
     </div>
+    </Transition>
   </div>
 </template>
 
 <style scoped>
 @reference "../../assets/styles/main.css";
+
+.auth-fade-enter-active {
+  transition: opacity 500ms ease-in-out;
+}
+
+.auth-fade-enter-from {
+  opacity: 0;
+}
 </style>
