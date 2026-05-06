@@ -4,6 +4,7 @@ import { useUserStore } from '@/stores/user';
 import HeaderComponent from '@/components/dashboard/HeaderComponent.vue';
 import BannerComponent from '@/components/dashboard/BannerComponent.vue';
 import SidebarLayout from './SidebarLayout.vue';
+import WorkspacePopup from '@/components/dashboard/WorkspacePopup.vue';
 import { useWorkspaceStore } from '@/stores/workspace';
 
 const userStore = useUserStore();
@@ -22,6 +23,7 @@ onMounted(() => {
     <HeaderComponent class="flex-none" />
     <BannerComponent class="flex-none" />
     <SidebarLayout class="flex-1 min-h-0" />
-    
+
+    <WorkspacePopup />
   </div>
 </template>

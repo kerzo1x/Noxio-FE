@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useWorkspaceStore } from '@/stores/workspace'
 import selectorIcon from '@/assets/img/selector.svg'
 import addIcon from '@/assets/img/add.svg'
@@ -7,11 +7,7 @@ import addIcon from '@/assets/img/add.svg'
 const workspaceStore = useWorkspaceStore()
 
 const rootRef = ref(null)
-const createNameInputRef = ref(null)
 const dropdownOpen = ref(false)
-const isCreatingWorkspace = ref(false)
-const newWorkspaceName = ref('')
-const createSubmitting = ref(false)
 
 const toggleDropdown = (e) => {
   e.stopPropagation()
@@ -20,28 +16,21 @@ const toggleDropdown = (e) => {
 
 const closeDropdown = () => {
   dropdownOpen.value = false
-  isCreatingWorkspace.value = false
-  newWorkspaceName.value = ''
+}
+
+const openCreateWorkspaceModal = () => {
+  closeDropdown()
+  workspaceStore.openCreateWorkspacePopup()
 }
 
 const onDocumentClick = (e) => {
   if (!rootRef.value) return
   if (rootRef.value.contains(e.target)) return
   if (dropdownOpen.value) closeDropdown()
-  else if (isCreatingWorkspace.value) {
-    isCreatingWorkspace.value = false
-    newWorkspaceName.value = ''
-  }
 }
 
 const onDocumentKeydown = (e) => {
-  if (e.key === 'Escape') {
-    if (dropdownOpen.value) closeDropdown()
-    else if (isCreatingWorkspace.value) {
-      isCreatingWorkspace.value = false
-      newWorkspaceName.value = ''
-    }
-  }
+  if (e.key === 'Escape' && dropdownOpen.value) closeDropdown()
 }
 
 onMounted(() => {
@@ -52,40 +41,6 @@ onUnmounted(() => {
   document.removeEventListener('click', onDocumentClick)
   document.removeEventListener('keydown', onDocumentKeydown)
 })
-
-const focusCreateInput = () => {
-  nextTick(() => {
-    createNameInputRef.value?.focus?.()
-  })
-}
-
-const startCreateWorkspace = () => {
-  newWorkspaceName.value = ''
-  isCreatingWorkspace.value = true
-  focusCreateInput()
-}
-
-const submitNewWorkspace = async () => {
-  const name = newWorkspaceName.value.trim()
-  if (!name || createSubmitting.value) return
-
-  createSubmitting.value = true
-  try {
-    await workspaceStore.createWorkspace(name)
-    closeDropdown()
-  } catch (err) {
-    console.error('Create workspace failed:', err)
-  } finally {
-    createSubmitting.value = false
-  }
-}
-
-const onCreateInputKeydown = (e) => {
-  if (e.key === 'Enter') {
-    e.preventDefault()
-    submitNewWorkspace()
-  }
-}
 
 const handlePickWorkspace = (workspace) => {
   workspaceStore.selectWorkspace(workspace)
@@ -133,36 +88,10 @@ const handlePickWorkspace = (workspace) => {
         role="listbox"
         @click.stop
       >
-        <div
-          v-if="isCreatingWorkspace"
-          class="dropdown-item dropdown-item--create-inline"
-          @click.stop
-        >
-          <input
-            ref="createNameInputRef"
-            v-model="newWorkspaceName"
-            type="text"
-            class="create-name-input"
-            placeholder="Workspace name"
-            autocomplete="off"
-            :disabled="createSubmitting"
-            @keydown="onCreateInputKeydown"
-          />
-          <button
-            type="button"
-            class="create-submit-btn"
-            :disabled="createSubmitting || !newWorkspaceName.trim()"
-            aria-label="Create workspace"
-            @click="submitNewWorkspace"
-          >
-            <img :src="addIcon" alt="" class="dropdown-add-icon" />
-          </button>
-        </div>
         <button
-          v-else
           type="button"
           class="dropdown-item dropdown-item--action"
-          @click.stop="startCreateWorkspace"
+          @click.stop="openCreateWorkspaceModal"
         >
           <span class="dropdown-item-label">New workspace</span>
           <img :src="addIcon" alt="" class="dropdown-add-icon" />
@@ -192,36 +121,11 @@ const handlePickWorkspace = (workspace) => {
       </div>
     </template>
 
-    <div
-      v-else-if="isCreatingWorkspace"
-      class="workspace-switcher workspace-switcher--create-inline"
-      @click.stop
-    >
-      <input
-        ref="createNameInputRef"
-        v-model="newWorkspaceName"
-        type="text"
-        class="create-name-input create-name-input--root"
-        placeholder="Workspace name"
-        autocomplete="off"
-        :disabled="createSubmitting"
-        @keydown="onCreateInputKeydown"
-      />
-      <button
-        type="button"
-        class="create-submit-btn"
-        :disabled="createSubmitting || !newWorkspaceName.trim()"
-        aria-label="Create workspace"
-        @click="submitNewWorkspace"
-      >
-        <img :src="addIcon" alt="" class="icon" />
-      </button>
-    </div>
     <button
       v-else
       type="button"
       class="workspace-switcher workspace-switcher--create"
-      @click.stop="startCreateWorkspace"
+      @click.stop="workspaceStore.openCreateWorkspacePopup()"
     >
       <span class="truncate">Create workspace</span>
       <img :src="addIcon" alt="" class="icon" />
@@ -380,82 +284,5 @@ button.workspace-switcher {
   height: 1px;
   margin: 1px 4px 3px;
   background: rgba(255, 255, 255, 0.1);
-}
-
-.dropdown-item--create-inline {
-  cursor: default;
-  gap: 8px;
-  padding: 8px 10px 4px;
-  width: 100%;
-  box-sizing: border-box;
-}
-
-.dropdown-item--create-inline:hover {
-  background: transparent;
-}
-
-.workspace-switcher--create-inline {
-  cursor: default;
-  width: 100%;
-  box-sizing: border-box;
-}
-
-.workspace-switcher--create-inline:hover {
-  background: transparent;
-}
-
-.create-name-input {
-  flex: 1 1 auto;
-  min-width: 0;
-  width: 0;
-  box-sizing: border-box;
-  height: 1.625rem;
-  padding: 2px 8px;
-  border-radius: 6px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(0, 0, 0, 0.25);
-  color: #fff;
-  font: inherit;
-  font-size: 13px;
-  line-height: 1.2;
-  outline: none;
-}
-
-.create-name-input:focus {
-  border-color: rgba(255, 255, 255, 0.22);
-}
-
-.create-name-input:disabled {
-  opacity: 0.6;
-}
-
-.create-name-input--root {
-  margin-right: 4px;
-}
-
-.create-submit-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  align-self: center;
-  padding: 4px;
-  border: none;
-  border-radius: 8px;
-  background: transparent;
-  cursor: pointer;
-  color: inherit;
-  opacity: 0.85;
-  transition: opacity 0.15s, background 0.15s;
-}
-
-.create-submit-btn:hover:not(:disabled) {
-  opacity: 1;
-  background: rgba(255, 255, 255, 0.08);
-}
-
-.create-submit-btn:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
 }
 </style>

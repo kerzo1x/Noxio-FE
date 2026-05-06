@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import router from '@/router'
 import BaseInput from '@/components/ui/inputs/BaseInput.vue'
 import BaseButton from '@/components/ui/buttons/BaseButton.vue'
+import AuthBannerComponent from '@/components/auth/AuthBannerComponent.vue'
 
 const isLoading = ref(false)
 const firstName = ref('')
@@ -69,8 +70,7 @@ const handleGoogleLogin = () => {
 <template>
   <div class="min-h-screen flex bg-surface text-text-main">
 
-    <!-- Left branding panel (light) -->
-    <div class="hidden lg:block lg:w-1/2 bg-surface" />
+    <AuthBannerComponent />
 
     <!-- Right dark panel -->
     <div class="w-full lg:w-1/2 flex items-center justify-center p-10 bg-panel-bg">

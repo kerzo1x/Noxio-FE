@@ -4,6 +4,7 @@ import router from '@/router'
 import { RouterLink } from 'vue-router'
 import BaseInput from '@/components/ui/inputs/BaseInput.vue'
 import BaseButton from '@/components/ui/buttons/BaseButton.vue'
+import AuthBannerComponent from '@/components/auth/AuthBannerComponent.vue'
 
 
 const isLoading = ref(false)
@@ -79,7 +80,7 @@ const prefill = () => {
 <template>
     <div class="min-h-screen flex bg-surface text-text-main">
 
-        <div class="hidden lg:block lg:w-1/2 bg-surface"/>
+        <AuthBannerComponent />
 
         <div class="w-full lg:w-1/2 flex items-center justify-center p-10 bg-panel-bg">
             <div class="w-full max-w-md space-y-6">

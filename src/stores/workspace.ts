@@ -67,10 +67,18 @@ export const useWorkspaceStore = defineStore('workspace', {
   state: () => ({
     workspaces: [] as Workspace[],
     activeWorkspace: null as Workspace | null,
-    isLoading: false
+    isLoading: false,
+    showCreateWorkspacePopup: false
   }),
 
   actions: {
+    openCreateWorkspacePopup() {
+      this.showCreateWorkspacePopup = true
+    },
+
+    closeCreateWorkspacePopup() {
+      this.showCreateWorkspacePopup = false
+    },
     /** Синхронно подставить activeWorkspace из LS до ответа API (dashboard после логина). */
     hydrateActiveWorkspaceFromLocalStorage() {
       const meta = readCachedWorkspaceMeta()

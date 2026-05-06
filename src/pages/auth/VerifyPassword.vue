@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import AuthBannerComponent from '@/components/auth/AuthBannerComponent.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -133,7 +134,7 @@ const handleVerify = async () => {
 
 <template>
     <div class="min-h-screen flex bg-surface text-text-main font-sans">
-        <div class="hidden lg:block lg:w-1/2 bg-surface" />
+        <AuthBannerComponent />
 
         <div class="w-full lg:w-1/2 flex items-center justify-center p-10 bg-panel-bg">
             <div class="w-full max-w-sm text-center space-y-8">
