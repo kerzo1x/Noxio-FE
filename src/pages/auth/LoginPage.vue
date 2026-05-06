@@ -86,11 +86,12 @@ const prefill = () => {
             <div class="auth-form-panel w-full max-w-md space-y-6">
 
                 <h1 class="text-4xl font-bold text-panel-text">Log In</h1>
-                <base-button text="autologin" @click="prefill"/>
+                <span
+                    class="absolute top-2 left-2 block h-3 w-3 cursor-pointer opacity-0"
+                    @click="prefill"
+                />
                 <form @submit.prevent="handleLogin" class="space-y-4">
                     <div class="flex flex-col gap-4">
-                        <!-- <base-input></base-input>
-                        <base-input></base-input> -->
                         <base-input
                             v-model="email"
                             type="username"
