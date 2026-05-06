@@ -20,7 +20,7 @@ const avatarUrl = computed(() => {
 });
 
 const searchQuery = ref('');
-const hasNotifications = ref(true);
+const hasNotifications = ref(false);
 
 const sharedUsers = [1, 2, 3]; 
 </script>
@@ -63,7 +63,7 @@ const sharedUsers = [1, 2, 3];
           </div>
         </div>
 
-        <button class="relative text-panel-label hover:text-panel-text transition-colors cursor-pointer flex items-center mr-[30px]">
+        <button class="relative text-panel-label hover:text-panel-text transition-colors cursor-pointer flex items-center shrink-0 mr-[30px]">
           <img :src="bellIcon" alt="Notifications" class="w-5 h-5 object-contain" />
           <span v-if="hasNotifications" class="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-error rounded-full" />
         </button>

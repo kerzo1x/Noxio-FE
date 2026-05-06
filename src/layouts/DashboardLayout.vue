@@ -52,7 +52,7 @@ onMounted(async () => {
     <BannerComponent class="flex-none" />
     <div class="flex flex-1 min-h-0">
       <SidebarLayout class="flex-none" />
-      <main class="flex-1 min-h-0 overflow-auto p-6">
+      <main class="flex-1 min-h-0 overflow-auto">
         <router-view />
       </main>
     </div>
