@@ -5,6 +5,7 @@ import { RouterLink } from 'vue-router'
 import BaseInput from '@/components/ui/inputs/BaseInput.vue'
 import BaseButton from '@/components/ui/buttons/BaseButton.vue'
 import AuthBannerComponent from '@/components/auth/AuthBannerComponent.vue'
+import { persistAuthTokensFromEnvelope } from '@/utils/authTokens'
 
 
 const isLoading = ref(false)
@@ -41,7 +42,7 @@ const handleLogin = async () => {
         if (result.success) {
             // no 2fa
             if (result.data.requires2fa === false && result.data.accessToken) {
-                localStorage.setItem('access_token', result.data.accessToken)
+                persistAuthTokensFromEnvelope(result as Record<string, unknown>)
                 isError.value = false
                 message.value = result.message
 

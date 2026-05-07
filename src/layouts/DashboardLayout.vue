@@ -49,9 +49,15 @@ onMounted(async () => {
     <BannerComponent class="flex-none" />
     <div class="flex flex-1 min-h-0">
       <SidebarLayout class="flex-none" />
-      <main class="flex-1 min-h-0 overflow-auto">
-        <div class="ml-[5.83vw] mt-[25px] mr-[8.96vw] flex justify-center">
-          <router-view />
+      <main class="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div
+          class="ml-[5.83vw] mt-[25px] mr-[8.96vw] mb-[2px] flex min-h-0 flex-1 flex-col overflow-hidden"
+        >
+          <div
+            class="flex min-h-0 flex-1 justify-center overflow-y-auto overflow-x-hidden"
+          >
+            <router-view />
+          </div>
         </div>
       </main>
     </div>

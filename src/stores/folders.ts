@@ -82,6 +82,39 @@ export const useFoldersStore = defineStore('folders', {
       } finally {
         this.isLoading = false
       }
+    },
+
+    async createFolder(workspaceId: string, name: string) {
+      const trimmed = name.trim()
+      if (!workspaceId) {
+        throw new Error('No workspace selected')
+      }
+      if (!trimmed) {
+        throw new Error('Enter a folder name')
+      }
+
+      try {
+        const response = await api.post<ApiSuccess<Folder>>(
+          `/workspaces/${workspaceId}/folders`,
+          { name: trimmed }
+        )
+        const payload = response.data
+        if (!payload?.success) {
+          throw new Error(payload?.message || 'Failed to create folder')
+        }
+        await this.fetchFolders(workspaceId)
+        return payload.data
+      } catch (error: unknown) {
+        if (error && typeof error === 'object' && 'response' in error) {
+          const data = (error as { response?: { data?: { message?: string } } })
+            .response?.data
+          if (data?.message) {
+            throw new Error(data.message)
+          }
+        }
+        if (error instanceof Error) throw error
+        throw new Error('Failed to create folder')
+      }
     }
   }
 })

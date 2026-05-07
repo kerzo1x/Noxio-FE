@@ -2,6 +2,7 @@
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import AuthBannerComponent from '@/components/auth/AuthBannerComponent.vue'
+import { persistAuthTokensFromEnvelope } from '@/utils/authTokens'
 
 const router = useRouter()
 const route = useRoute()
@@ -110,7 +111,7 @@ const handleVerify = async () => {
             } else {
                 if (result.data.accessToken) {
                     console.log('2 part')
-                    localStorage.setItem('access_token', result.data.accessToken)
+                    persistAuthTokensFromEnvelope(result as Record<string, unknown>)
                     localStorage.removeItem('session_token')
                     router.push(route.query.from === "register" ? '/auth/edupage' : '/dashboard')
                     console.log('router push fucked up')

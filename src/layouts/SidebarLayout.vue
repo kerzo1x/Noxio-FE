@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import SidebarNav from '@/components/sidebar/SidebarNav.vue'
 import SidebarWorkspace from '@/components/sidebar/SidebarWorkspace.vue'
@@ -21,22 +21,12 @@ const routeToTab: Partial<Record<string, WorkspaceTab>> = {
 const workspaceStore = useWorkspaceStore()
 const route = useRoute()
 const router = useRouter()
-const lastActiveWorkspaceTab = ref<WorkspaceTab>('folders')
 
-watch(
-  () => route.name as string | undefined,
-  (routeName) => {
-    const mappedTab = routeName ? routeToTab[routeName] : undefined
-    if (mappedTab) {
-      lastActiveWorkspaceTab.value = mappedTab
-    }
-  },
-  { immediate: true }
-)
-
+/** Only highlight Folders / To do when that route is active — not on Home or other dashboard pages. */
 const activeWorkspaceTab = computed(() => {
-  const mappedTab = routeToTab[route.name as string]
-  return mappedTab ?? lastActiveWorkspaceTab.value
+  const name = route.name as string | undefined
+  if (!name) return ''
+  return routeToTab[name] ?? ''
 })
 
 function handleWorkspaceTabChange(tab: WorkspaceTab) {
@@ -45,11 +35,12 @@ function handleWorkspaceTabChange(tab: WorkspaceTab) {
 </script>
 
 <template>
-  <aside class="w-[283px] shrink-0 h-full bg-black flex flex-col">
-    <nav class="grow flex flex-col ml-[56px] mt-[51px] text-sm mr-[81px]">
+  <aside class="flex h-full min-h-0 w-[283px] shrink-0 flex-col bg-black">
+    <nav class="min-h-0 grow flex flex-col ml-[56px] mt-[51px] text-sm mr-[81px]">
       <SidebarNav />
       <SidebarWorkspace
         v-if="workspaceStore.workspaces.length > 0"
+        class="min-h-0 min-w-0 flex-1 overflow-hidden"
         :active="activeWorkspaceTab"
         @update:active="handleWorkspaceTabChange"
       />
