@@ -1,1 +1,1 @@
-change hardcoded size values to %
+check notificatuions logic can be bad response handling also no read logic
