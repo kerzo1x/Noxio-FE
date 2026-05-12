@@ -2,7 +2,6 @@
 import { ref, watch, onMounted, onUnmounted } from 'vue'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useFoldersStore } from '@/stores/folders'
-import BaseInput from '@/components/ui/inputs/BaseInput.vue'
 import BaseButton from '@/components/ui/buttons/BaseButton.vue'
 
 const open = defineModel<boolean>({ default: false })
@@ -68,6 +67,11 @@ const handleSubmit = async () => {
     isSubmitting.value = false
   }
 }
+
+const clearError = () => {
+  isError.value = false
+  message.value = ''
+}
 </script>
 
 <template>
@@ -81,31 +85,34 @@ const handleSubmit = async () => {
     >
       <div class="add-folder-popup-backdrop" aria-hidden="true" @click="close" />
       <div class="add-folder-popup-card" @click.stop>
-        <h2 id="add-folder-popup-title" class="add-folder-popup-title">
-          New folder
-        </h2>
-
         <form class="add-folder-popup-form" @submit.prevent="handleSubmit">
-          <base-input
+          <h2 id="add-folder-popup-title" class="sr-only">New folder</h2>
+
+          <input
             v-model="name"
             type="text"
-            label="Name"
             name="folder-name"
-            place-holder="Folder name"
-            :is-error="isError"
-            @clear-error="isError = false; message = ''"
+            placeholder="Folder name:"
+            class="popup-input mt-[19px]"
+            :class="{ 'popup-input-error': isError }"
+            autocomplete="off"
+            @input="clearError"
           />
 
-          <p v-if="message" class="add-folder-popup-error">{{ message }}</p>
+          <textarea
+            name="folder-description"
+            placeholder="Desctription:"
+            class="popup-description mt-[28px]"
+          />
 
-          <div class="add-folder-popup-actions">
-            <button type="button" class="btn-back" @click="close">Back</button>
+          <div class="popup-button-wrap mt-[100px]">
             <base-button
-              class="btn-create"
+              class="popup-create-button"
               :is-loading="isSubmitting"
               text="Create folder"
             />
           </div>
+          <p v-if="message" class="add-folder-popup-error">{{ message }}</p>
         </form>
       </div>
     </div>
@@ -116,7 +123,7 @@ const handleSubmit = async () => {
 @reference '@/assets/styles/main.css';
 
 .add-folder-popup-overlay {
-  @apply fixed inset-0 z-[100] flex items-center justify-center p-6;
+  @apply fixed inset-0 z-100 flex items-center justify-center p-6;
 }
 
 .add-folder-popup-backdrop {
@@ -124,30 +131,37 @@ const handleSubmit = async () => {
 }
 
 .add-folder-popup-card {
-  @apply relative z-[1] w-full max-w-md rounded-auth border border-panel-input-border bg-panel-bg p-8 shadow-2xl;
-}
-
-.add-folder-popup-title {
-  @apply text-2xl font-bold text-panel-text mb-6;
+  @apply relative z-1 h-[487px] w-[578px] rounded-[22px] border border-white/10 shadow-2xl;
+  background-color: #1a1a1a;
 }
 
 .add-folder-popup-form {
-  @apply flex flex-col gap-4;
+  @apply flex h-full flex-col items-center;
+}
+
+.popup-input {
+  @apply h-[52px] w-[539px] rounded-[10px] border border-white/10 px-[20px] text-[16px] font-semibold text-white placeholder:text-[#7D7D7D] focus:outline-none;
+  background-color: #262626;
+}
+
+.popup-input-error {
+  @apply border-red-500;
+}
+
+.popup-description {
+  @apply h-[205px] w-[539px] resize-none rounded-[10px] border border-white/10 px-[20px] py-[17px] text-[16px] font-semibold text-white placeholder:text-[#7D7D7D] focus:outline-none;
+  background-color: #262626;
+}
+
+.popup-button-wrap {
+  @apply w-[460px];
+}
+
+.popup-create-button {
+  @apply h-[56px]! w-full! rounded-[14px]! text-[16px]! font-semibold! leading-[100%]!;
 }
 
 .add-folder-popup-error {
-  @apply text-sm text-error font-medium;
-}
-
-.add-folder-popup-actions {
-  @apply flex gap-3 mt-2;
-}
-
-.btn-back {
-  @apply w-24 py-3 rounded-auth font-semibold text-panel-label border border-panel-input-border hover:bg-white/5 hover:text-panel-text hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 cursor-pointer shrink-0;
-}
-
-:deep(.btn-base) {
-  @apply flex-1;
+  @apply mt-3 text-sm font-medium text-red-400;
 }
 </style>

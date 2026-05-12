@@ -99,7 +99,9 @@ const handlePickWorkspace = (workspace) => {
 
         <template v-if="workspaceStore.workspaces.length > 1">
           <div class="h-px mx-1 mt-px mb-[3px] bg-white/10" />
-          <div class="max-h-44 overflow-y-auto">
+          <div
+            class="max-h-44 overflow-y-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          >
             <button
               v-for="ws in workspaceStore.workspaces"
               :key="ws.id"

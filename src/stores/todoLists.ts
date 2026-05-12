@@ -79,6 +79,52 @@ export const useTodoListsStore = defineStore('todo-lists', {
       } finally {
         this.isLoading = false
       }
+    },
+
+    async createTodoList(
+      workspaceId: string,
+      payload: { name: string; description?: string; color: string }
+    ) {
+      const trimmedName = payload.name.trim()
+      if (!workspaceId) {
+        throw new Error('No workspace selected.')
+      }
+      if (!trimmedName) {
+        throw new Error('Enter a todo list name.')
+      }
+
+      const colorRaw = payload.color.trim().replace(/^#/, '')
+      if (!/^[0-9A-Fa-f]{6}$/.test(colorRaw)) {
+        throw new Error('Invalid color.')
+      }
+      const color = colorRaw.toUpperCase()
+
+      try {
+        const response = await api.post<ApiSuccess<TodoList>>(
+          `/workspaces/${workspaceId}/todo-lists`,
+          {
+            name: trimmedName,
+            description: (payload.description ?? '').trim(),
+            color
+          }
+        )
+        const envelope = response.data
+        if (!envelope?.success) {
+          throw new Error(envelope?.message || 'Failed to create todo list.')
+        }
+        this.todoLists = [...this.todoLists, envelope.data]
+        return envelope.data
+      } catch (error: unknown) {
+        if (error && typeof error === 'object' && 'response' in error) {
+          const data = (error as { response?: { data?: { message?: string } } })
+            .response?.data
+          if (data?.message) {
+            throw new Error(data.message)
+          }
+        }
+        if (error instanceof Error) throw error
+        throw new Error('Failed to create todo list.')
+      }
     }
   }
 })
