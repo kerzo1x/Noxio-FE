@@ -59,7 +59,7 @@ const handlePickWorkspace = (workspace) => {
 
     <template v-else-if="workspaceStore.workspaces.length > 0">
       <div
-        class="group flex items-center gap-3 w-full p-3 rounded-xl cursor-pointer transition-[background] duration-200 hover:bg-white/[0.084]"
+        class="group flex items-center gap-3 w-full p-3 rounded-xl cursor-pointer transition-[color,opacity] duration-200"
         role="button"
         tabindex="0"
         :aria-expanded="dropdownOpen"
@@ -71,13 +71,13 @@ const handlePickWorkspace = (workspace) => {
         <div class="w-8 h-8 bg-[#4a4a4a] rounded-md flex items-center justify-center text-white font-semibold shrink-0">
           {{ workspaceStore.activeWorkspace?.name?.charAt(0) || '?' }}
         </div>
-        <span class="flex-1 min-w-0 text-white text-sm font-medium truncate">
+        <span class="flex-1 min-w-0 truncate text-sm font-medium text-white/50 transition-colors duration-200 group-hover:text-white">
           {{ workspaceStore.activeWorkspace?.name || 'Loading...' }}
         </span>
         <img
           :src="selectorIcon"
           alt=""
-          class="w-5 h-5 shrink-0 ml-auto opacity-70 transition-[opacity,transform] duration-200 group-hover:opacity-100"
+          class="w-5 h-5 shrink-0 ml-auto opacity-50 transition-[opacity,transform] duration-200 group-hover:opacity-100"
           :class="{ 'rotate-180': dropdownOpen }"
         />
       </div>
@@ -90,11 +90,11 @@ const handlePickWorkspace = (workspace) => {
       >
         <button
           type="button"
-          class="flex items-center gap-2.5 w-full pt-2 px-2.5 pb-1 rounded-lg text-white/85 text-sm font-medium text-left cursor-pointer transition-[background] duration-150 hover:bg-white/[0.06]"
+          class="group flex items-center gap-2.5 w-full pt-2 px-2.5 pb-1 rounded-lg text-sm font-medium text-left cursor-pointer text-white/50 transition-colors duration-150 hover:text-white"
           @click.stop="openCreateWorkspaceModal"
         >
           <span class="flex-1 min-w-0 truncate">New workspace</span>
-          <img :src="addIcon" alt="" class="w-[18px] h-[18px] shrink-0 ml-auto opacity-75" />
+          <img :src="addIcon" alt="" class="w-[18px] h-[18px] shrink-0 ml-auto opacity-50 transition-opacity duration-150 group-hover:opacity-100" />
         </button>
 
         <template v-if="workspaceStore.workspaces.length > 1">
@@ -106,8 +106,8 @@ const handlePickWorkspace = (workspace) => {
               v-for="ws in workspaceStore.workspaces"
               :key="ws.id"
               type="button"
-              class="flex items-center gap-2.5 w-full pt-2 px-2.5 pb-1 rounded-lg text-white/85 text-sm font-medium text-left cursor-pointer transition-[background] duration-150 hover:bg-white/[0.06]"
-              :class="{ 'bg-white/[0.08]': workspaceStore.activeWorkspace?.id === ws.id }"
+              class="group flex items-center gap-2.5 w-full pt-2 px-2.5 pb-1 rounded-lg text-sm font-medium text-left cursor-pointer text-white/50 transition-colors duration-150 hover:text-white"
+              :class="{ 'text-white': workspaceStore.activeWorkspace?.id === ws.id }"
               role="option"
               :aria-selected="workspaceStore.activeWorkspace?.id === ws.id"
               @click="handlePickWorkspace(ws)"
@@ -125,11 +125,11 @@ const handlePickWorkspace = (workspace) => {
     <button
       v-else
       type="button"
-      class="flex items-center gap-3 w-full p-3 rounded-xl cursor-pointer text-left transition-[background] duration-200 hover:bg-white/[0.084]"
+      class="group flex items-center gap-3 w-full p-3 rounded-xl cursor-pointer text-left transition-[color,opacity] duration-200"
       @click.stop="workspaceStore.openCreateWorkspacePopup()"
     >
-      <span class="flex-1 min-w-0 text-white text-sm font-medium truncate">Create workspace</span>
-      <img :src="addIcon" alt="" class="w-5 h-5 shrink-0 ml-auto opacity-70" />
+      <span class="flex-1 min-w-0 text-sm font-medium truncate text-white/50 transition-colors duration-200 group-hover:text-white">Create workspace</span>
+      <img :src="addIcon" alt="" class="w-5 h-5 shrink-0 ml-auto opacity-50 transition-opacity duration-200 group-hover:opacity-100" />
     </button>
   </div>
 </template>

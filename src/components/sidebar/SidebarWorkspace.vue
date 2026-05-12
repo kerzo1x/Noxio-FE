@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
+import { computed, reactive, watch } from 'vue'
 import { useFoldersStore } from '@/stores/folders'
 import { useTodoListsStore } from '@/stores/todoLists'
 import folderIcon from '@/assets/img/folder.svg'
@@ -98,47 +98,6 @@ const setActive = (id: WorkspaceTab) => {
 const toggleExpanded = (id: WorkspaceTab) => {
   expandedSections[id] = !expandedSections[id]
 }
-
-const scrollEl = ref<HTMLElement | null>(null)
-const showScrollTopFade = ref(false)
-const showScrollBottomFade = ref(false)
-
-function updateScrollFades() {
-  const el = scrollEl.value
-  if (!el) {
-    showScrollTopFade.value = false
-    showScrollBottomFade.value = false
-    return
-  }
-  const { scrollTop, scrollHeight, clientHeight } = el
-  const canScroll = scrollHeight > clientHeight + 1
-  if (!canScroll) {
-    showScrollTopFade.value = false
-    showScrollBottomFade.value = false
-    return
-  }
-  showScrollTopFade.value = scrollTop > 2
-  showScrollBottomFade.value = scrollTop < scrollHeight - clientHeight - 2
-}
-
-let ro: ResizeObserver | null = null
-
-onMounted(() => {
-  updateScrollFades()
-  const el = scrollEl.value
-  if (el && typeof ResizeObserver !== 'undefined') {
-    ro = new ResizeObserver(() => updateScrollFades())
-    ro.observe(el)
-  }
-})
-
-onUnmounted(() => {
-  ro?.disconnect()
-  ro = null
-})
-
-watch(expandedSections, () => requestAnimationFrame(updateScrollFades), { deep: true })
-watch(sectionData, () => requestAnimationFrame(updateScrollFades), { deep: true })
 </script>
 
 <template>
@@ -146,13 +105,11 @@ watch(sectionData, () => requestAnimationFrame(updateScrollFades), { deep: true 
   <div
     class="mt-6 flex min-h-0 max-h-[350px] w-full flex-1 flex-col overflow-hidden"
   >
-    <p class="shrink-0 px-3 mb-2 text-sm font-medium text-white/30">Your workspace</p>
+    <p class="shrink-0 px-3 mb-2 text-sm font-medium text-white/50">Your workspace</p>
 
     <div class="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
       <div
-        ref="scrollEl"
         class="workspace-scroll-hide min-h-0 flex-1 overflow-y-auto overflow-x-hidden"
-        @scroll.passive="updateScrollFades"
       >
         <div class="space-y-0.5">
           <div v-for="item in sectionItems" :key="item.id">
@@ -226,17 +183,6 @@ watch(sectionData, () => requestAnimationFrame(updateScrollFades), { deep: true 
           </div>
         </div>
       </div>
-
-      <div
-        v-show="showScrollTopFade"
-        class="pointer-events-none absolute inset-x-0 top-0 z-10 h-7 bg-gradient-to-b from-black via-black/80 to-transparent shadow-[inset_0_10px_10px_-6px_rgba(0,0,0,0.85)]"
-        aria-hidden="true"
-      />
-      <div
-        v-show="showScrollBottomFade"
-        class="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-7 bg-gradient-to-t from-black via-black/80 to-transparent shadow-[inset_0_-10px_10px_-6px_rgba(0,0,0,0.85)]"
-        aria-hidden="true"
-      />
     </div>
   </div>
 </template>
