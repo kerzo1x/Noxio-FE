@@ -4,3 +4,4 @@ dist/
 .cursor/
 .env
 .claude/
+discord-report.ps1

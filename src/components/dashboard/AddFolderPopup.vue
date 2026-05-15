@@ -2,7 +2,6 @@
 import { ref, watch, onMounted, onUnmounted } from 'vue'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useFoldersStore } from '@/stores/folders'
-import BaseButton from '@/components/ui/buttons/BaseButton.vue'
 
 const open = defineModel<boolean>({ default: false })
 
@@ -10,12 +9,14 @@ const workspaceStore = useWorkspaceStore()
 const foldersStore = useFoldersStore()
 
 const name = ref('')
+const description = ref('')
 const isSubmitting = ref(false)
 const isError = ref(false)
 const message = ref('')
 
 const resetForm = () => {
   name.value = ''
+  description.value = ''
   isError.value = false
   message.value = ''
   isSubmitting.value = false
@@ -78,41 +79,64 @@ const clearError = () => {
   <Teleport to="body">
     <div
       v-if="open"
-      class="add-folder-popup-overlay"
+      class="folder-popup-overlay"
       role="dialog"
       aria-modal="true"
       aria-labelledby="add-folder-popup-title"
     >
-      <div class="add-folder-popup-backdrop" aria-hidden="true" @click="close" />
-      <div class="add-folder-popup-card" @click.stop>
-        <form class="add-folder-popup-form" @submit.prevent="handleSubmit">
-          <h2 id="add-folder-popup-title" class="sr-only">New folder</h2>
+      <div
+        class="folder-popup-backdrop"
+        aria-hidden="true"
+        @click="close"
+      />
 
-          <input
-            v-model="name"
-            type="text"
-            name="folder-name"
-            placeholder="Folder name:"
-            class="popup-input mt-[19px]"
-            :class="{ 'popup-input-error': isError }"
-            autocomplete="off"
-            @input="clearError"
-          />
+      <div class="folder-popup-card" @click.stop>
+        <form class="folder-popup-form" @submit.prevent="handleSubmit">
+          <div class="folder-popup-body">
+            <div class="folder-popup-header">
+              <h2 id="add-folder-popup-title" class="folder-popup-title">
+                Create new folder
+              </h2>
+              <button
+                type="button"
+                class="folder-popup-cancel"
+                @click="close"
+              >
+                cancel
+              </button>
+            </div>
 
-          <textarea
-            name="folder-description"
-            placeholder="Desctription:"
-            class="popup-description mt-[28px]"
-          />
+            <div class="folder-popup-fields">
+              <input
+                v-model="name"
+                type="text"
+                name="folder-name"
+                placeholder="Folder name"
+                class="folder-popup-field"
+                :class="{ 'folder-popup-field--error': isError }"
+                autocomplete="off"
+                @input="clearError"
+              />
 
-          <div class="popup-button-wrap mt-[100px]">
-            <base-button
-              class="popup-create-button"
-              :is-loading="isSubmitting"
-              text="Create folder"
-            />
+              <textarea
+                v-model="description"
+                name="folder-description"
+                placeholder="description"
+                class="folder-popup-field folder-popup-field--textarea"
+              />
+            </div>
           </div>
-          <p v-if="message" class="add-folder-popup-error">{{ message }}</p>
+
+          <div class="folder-popup-footer">
+            <button
+              type="submit"
+              class="folder-popup-submit"
+              :disabled="isSubmitting || !name.trim()"
+            >
+              {{ isSubmitting ? 'Loading...' : 'Create folder' }}
+            </button>
+            <p v-if="message" class="folder-popup-error">{{ message }}</p>
+          </div>
         </form>
       </div>
     </div>
@@ -122,46 +146,65 @@ const clearError = () => {
 <style scoped>
 @reference '@/assets/styles/main.css';
 
-.add-folder-popup-overlay {
-  @apply fixed inset-0 z-100 flex items-center justify-center p-6;
+/* Figma 1727:6297 — content 539px + px-18 (72px) ≈ max-w-2xl card */
+.folder-popup-overlay {
+  @apply fixed inset-0 z-100 flex items-center justify-center p-4;
 }
 
-.add-folder-popup-backdrop {
+.folder-popup-backdrop {
   @apply absolute inset-0 bg-black/60 backdrop-blur-sm;
 }
 
-.add-folder-popup-card {
-  @apply relative z-1 h-[487px] w-[578px] rounded-[22px] border border-white/10 shadow-2xl;
-  background-color: #1a1a1a;
+.folder-popup-card {
+  @apply relative z-1 box-border w-full max-w-2xl shrink-0 rounded-xl border-2 border-neutral-900 bg-black px-18 pb-10 pt-9.5;
 }
 
-.add-folder-popup-form {
-  @apply flex h-full flex-col items-center;
+.folder-popup-form {
+  @apply flex w-full flex-col gap-20;
 }
 
-.popup-input {
-  @apply h-[52px] w-[539px] rounded-[10px] border border-white/10 px-[20px] text-[16px] font-semibold text-white placeholder:text-[#7D7D7D] focus:outline-none;
-  background-color: #262626;
+.folder-popup-body {
+  @apply flex w-full flex-col gap-11;
 }
 
-.popup-input-error {
-  @apply border-red-500;
+.folder-popup-header {
+  @apply flex w-full items-center justify-between gap-4;
 }
 
-.popup-description {
-  @apply h-[205px] w-[539px] resize-none rounded-[10px] border border-white/10 px-[20px] py-[17px] text-[16px] font-semibold text-white placeholder:text-[#7D7D7D] focus:outline-none;
-  background-color: #262626;
+.folder-popup-title {
+  @apply text-base font-medium leading-none tracking-wide text-white;
 }
 
-.popup-button-wrap {
-  @apply w-[460px];
+.folder-popup-cancel {
+  @apply shrink-0 text-sm font-medium leading-none tracking-wide text-white/50 transition-colors hover:text-white;
 }
 
-.popup-create-button {
-  @apply h-[56px]! w-full! rounded-[14px]! text-[16px]! font-semibold! leading-[100%]!;
+.folder-popup-fields {
+  @apply flex w-full flex-col gap-5;
 }
 
-.add-folder-popup-error {
-  @apply mt-3 text-sm font-medium text-red-400;
+.folder-popup-field {
+  @apply box-border w-full rounded-xl border-0 bg-neutral-800 px-6 text-sm font-medium leading-normal tracking-tight text-white outline-none transition-shadow placeholder:text-white/50 focus:ring-1 focus:ring-white/20;
+  @apply h-13 py-0;
+}
+
+.folder-popup-field--textarea {
+  @apply h-33 min-h-0 resize-none py-4;
+}
+
+.folder-popup-field--error {
+  @apply ring-2 ring-red-500;
+}
+
+.folder-popup-footer {
+  @apply flex w-full flex-col gap-3;
+}
+
+.folder-popup-submit {
+  @apply flex w-full items-center justify-center rounded-xl bg-white px-3 py-4 text-base font-medium leading-none tracking-wide text-black transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40;
+}
+
+.folder-popup-error {
+  @apply text-center text-sm font-medium text-red-400;
 }
 </style>

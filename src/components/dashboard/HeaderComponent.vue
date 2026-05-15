@@ -1,198 +1,257 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
-import { useRouter } from 'vue-router';
-import { useUserStore } from '@/stores/user';
-import { storeToRefs } from 'pinia';
-import api from '@/api';
+import { ref, computed, watch, onUnmounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { useUserStore } from '@/stores/user'
+import { useWorkspaceStore } from '@/stores/workspace'
+import { storeToRefs } from 'pinia'
+import api from '@/api'
+import NotificationsPopup from '@/components/dashboard/NotificationsPopup.vue'
+import { useWorkspaceMembers } from '@/composables/useWorkspaceMembers'
 
-import defaultAvatar from '@/assets/img/user.svg';
-import bellIcon from '@/assets/img/bell.svg';
-import arrowIcon from '@/assets/img/arrow.svg';
+import defaultAvatar from '@/assets/img/user.svg'
+import bellIcon from '@/assets/img/bell.svg'
+import arrowIcon from '@/assets/img/arrow.svg'
 
-const userStore = useUserStore();
-const { user } = storeToRefs(userStore);
-const router = useRouter();
-const props = defineProps<{
-  hasNotifications: boolean;
-  notifications: Array<{ id: string; title: string; read: boolean }>;
-  isNotificationsLoading: boolean;
-}>();
-const emit = defineEmits<{
-  (event: 'refresh-notifications'): void;
-}>();
+const userStore = useUserStore()
+const workspaceStore = useWorkspaceStore()
+const { user } = storeToRefs(userStore)
+const router = useRouter()
+
+const {
+  isLoading: isMembersLoading,
+  loadError: membersLoadError,
+  searchQuery: membersSearchQuery,
+  filteredMembers,
+  memberDisplayName,
+  memberRoleLabel,
+  reset: resetMembers,
+  fetchMembers,
+} = useWorkspaceMembers()
 
 const userName = computed(() => {
-  if (!user.value) return 'Loading...';
-  return `${user.value.name} ${user.value.surname}`;
-});
+  if (!user.value) return 'Loading...'
+  return `${user.value.name} ${user.value.surname}`
+})
 
-const avatarUrl = computed(() => {
-  return user.value?.avatar || defaultAvatar;
-});
+const avatarUrl = computed(() => user.value?.avatar || defaultAvatar)
 
-const searchQuery = ref('');
-const isProfileMenuOpen = ref(false);
-const isNotificationsMenuOpen = ref(false);
-const isLoggingOut = ref(false);
+const headerSearchQuery = ref('')
+const isProfileMenuOpen = ref(false)
+const isNotificationsMenuOpen = ref(false)
+const notificationsMenuRef = ref<HTMLElement | null>(null)
+const isLoggingOut = ref(false)
 
-const sharedUsers = [1, 2, 3]; 
+const sharedUsers = [1, 2, 3]
+
+const activeWorkspaceId = computed(
+  () => workspaceStore.activeWorkspace?.id ?? null,
+)
+const activeWorkspaceName = computed(
+  () => workspaceStore.activeWorkspace?.name ?? '',
+)
+const activeWorkspaceOwnerId = computed(
+  () => workspaceStore.activeWorkspace?.ownerId ?? '',
+)
 
 async function handleLogout() {
-  if (isLoggingOut.value) return;
+  if (isLoggingOut.value) return
 
-  isLoggingOut.value = true;
+  isLoggingOut.value = true
   try {
-    await api.post('/auth/logout');
+    await api.post('/auth/logout')
   } catch (error) {
-    console.error('Logout request failed:', error);
+    console.error('Logout request failed:', error)
   } finally {
-    localStorage.clear();
-    userStore.user = null;
-    isProfileMenuOpen.value = false;
-    isLoggingOut.value = false;
-    router.push({ name: 'Login' });
+    localStorage.clear()
+    userStore.user = null
+    isProfileMenuOpen.value = false
+    isLoggingOut.value = false
+    router.push({ name: 'Login' })
   }
 }
 
-function handleRefreshNotifications() {
-  emit('refresh-notifications');
+async function openNotificationsMenu() {
+  isProfileMenuOpen.value = false
+  isNotificationsMenuOpen.value = true
+
+  const workspaceId = activeWorkspaceId.value
+  if (!workspaceId) {
+    resetMembers()
+    membersLoadError.value = 'No workspace selected.'
+    return
+  }
+
+  await fetchMembers(workspaceId)
+}
+
+function closeNotificationsMenu() {
+  isNotificationsMenuOpen.value = false
+  resetMembers()
 }
 
 function toggleNotificationsMenu() {
-  isNotificationsMenuOpen.value = !isNotificationsMenuOpen.value;
   if (isNotificationsMenuOpen.value) {
-    isProfileMenuOpen.value = false;
+    closeNotificationsMenu()
+    return
   }
+  void openNotificationsMenu()
 }
 
 function toggleProfileMenu() {
-  isProfileMenuOpen.value = !isProfileMenuOpen.value;
+  isProfileMenuOpen.value = !isProfileMenuOpen.value
   if (isProfileMenuOpen.value) {
-    isNotificationsMenuOpen.value = false;
+    closeNotificationsMenu()
   }
 }
+
+function handleNotificationsPointerDown(event: PointerEvent) {
+  if (!isNotificationsMenuOpen.value) return
+  const root = notificationsMenuRef.value
+  if (root?.contains(event.target as Node)) return
+  closeNotificationsMenu()
+}
+
+watch(isNotificationsMenuOpen, (isOpen) => {
+  if (isOpen) {
+    requestAnimationFrame(() => {
+      document.addEventListener('pointerdown', handleNotificationsPointerDown)
+    })
+    return
+  }
+  document.removeEventListener('pointerdown', handleNotificationsPointerDown)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('pointerdown', handleNotificationsPointerDown)
+})
 </script>
 
 <template>
-  <header class="relative h-16 flex items-center bg-panel-bg border-b border-panel-input-border/50">
-    
-    <div class="w-[283px] shrink-0"></div>
-    <div class="absolute inset-y-0 left-[283px] right-0 flex items-center justify-center">
-      <div class="w-[873px] ml-[5.83vw] mr-[8.96vw] flex justify-start shrink-0">
-        <div class="relative group w-[335px]">
-        <svg class="absolute left-3.5 top-1/2 -translate-y-1/2 text-panel-placeholder group-focus-within:text-panel-text transition-colors pointer-events-none" xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <header
+    class="relative z-20 grid h-16 shrink-0 grid-cols-[283px_minmax(0,1fr)_auto] items-center border-b border-panel-input-border/50 bg-panel-bg"
+    :class="{ 'z-30': isNotificationsMenuOpen || isProfileMenuOpen }"
+  >
+    <!-- Sidebar column spacer -->
+    <div aria-hidden="true" />
+
+    <!-- Center: page search (separate from workspace members search in popup) -->
+    <div class="flex min-w-0 justify-start pl-[5.83vw]">
+      <div class="relative w-full max-w-[335px]">
+        <svg
+          class="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-panel-placeholder"
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
           <circle cx="11" cy="11" r="8" />
           <path d="m21 21-4.3-4.3" />
         </svg>
         <input
-          v-model="searchQuery"
+          v-model="headerSearchQuery"
           type="text"
           placeholder="Search items"
-          class="field-input mt-0! pl-10 h-10 py-0 text-sm w-full"
+          class="field-input mt-0! h-10 w-full py-0 pl-10 text-sm"
         />
-        </div>
       </div>
     </div>
 
-    <div class="flex-1 flex items-center justify-end">
-      
-      <div class="h-[24px] flex items-center justify-between">
-        <div class="flex items-center">
-          <button class="text opacity-50 hover:opacity-100 transition-opacity cursor-pointer leading-none mr-[27px]">
-            Share
-          </button>
-          
-          <div class="flex items-center -space-x-2.5 mr-[64px]">
-            <div 
-              v-for="i in sharedUsers" 
-              :key="i"
-              class="w-6 h-6 rounded-full border-2 border-panel-bg bg-panel-input-bg flex items-center justify-center overflow-hidden"
-              :style="{ zIndex: 10 - i }"
-            >
-              <img :src="defaultAvatar" class="w-full h-full object-cover bg-[#E5E5E5]" />
-            </div>
-          </div>
-        </div>
+    <!-- Right: share, avatars, bell, profile — no overlapping layers -->
+    <div class="flex items-center gap-0 pr-[94px]">
+      <button
+        type="button"
+        class="text mr-[27px] cursor-pointer leading-none opacity-50 transition-opacity hover:opacity-100"
+      >
+        Share
+      </button>
 
-        <button
-          type="button"
-          class="relative text-panel-label hover:text-panel-text transition-colors cursor-pointer flex items-center shrink-0 mr-[30px]"
-          @click="toggleNotificationsMenu"
-        >
-          <img :src="bellIcon" alt="Notifications" class="w-5 h-5 object-contain" />
-          <span v-if="props.hasNotifications" class="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-error rounded-full" />
-        </button>
+      <div class="mr-[64px] flex items-center -space-x-2.5">
         <div
-          v-if="isNotificationsMenuOpen"
-          class="absolute right-[132px] top-12 mt-5 w-[320px] rounded-md border border-panel-input-border bg-panel-bg p-3 shadow-lg z-20"
+          v-for="i in sharedUsers"
+          :key="i"
+          class="flex h-6 w-6 items-center justify-center overflow-hidden rounded-full border-2 border-panel-bg bg-panel-input-bg"
+          :style="{ zIndex: 10 - i }"
         >
-          <div class="mb-3 flex items-center justify-between">
-            <p class="text-sm font-semibold text-panel-text">Notifications</p>
-            <button
-              type="button"
-              class="rounded p-1 text-panel-label hover:bg-panel-input-bg hover:text-panel-text transition-colors disabled:opacity-50"
-              :disabled="props.isNotificationsLoading"
-              @click="handleRefreshNotifications"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M21 2v6h-6" />
-                <path d="M3 12a9 9 0 0 1 15.55-6.36L21 8" />
-                <path d="M3 22v-6h6" />
-                <path d="M21 12a9 9 0 0 1-15.55 6.36L3 16" />
-              </svg>
-            </button>
-          </div>
-
-          <div v-if="props.isNotificationsLoading" class="py-6 text-center text-sm text-panel-label">
-            Loading notifications...
-          </div>
-          <div v-else-if="props.notifications.length === 0" class="py-6 text-center text-sm text-panel-label">
-            No notifications
-          </div>
-          <ul v-else class="max-h-72 overflow-y-auto">
-            <li
-              v-for="notification in props.notifications"
-              :key="notification.id"
-              class="rounded px-2 py-2 text-sm text-panel-text hover:bg-panel-input-bg"
-            >
-              {{ notification.title }}
-            </li>
-          </ul>
+          <img
+            :src="defaultAvatar"
+            class="h-full w-full bg-[#E5E5E5] object-cover"
+            alt=""
+          />
         </div>
       </div>
 
-      <div class="relative mr-[94px]">
+      <div ref="notificationsMenuRef" class="relative mr-[30px]">
         <button
           type="button"
-          class="flex items-center justify-end gap-[7px] cursor-pointer group"
+          class="flex cursor-pointer items-center text-panel-label transition-colors hover:text-panel-text"
+          :aria-expanded="isNotificationsMenuOpen"
+          aria-haspopup="dialog"
+          @click="toggleNotificationsMenu"
+        >
+          <img
+            :src="bellIcon"
+            alt="Notifications"
+            class="h-5 w-5 object-contain"
+          />
+        </button>
+
+        <NotificationsPopup
+          v-if="isNotificationsMenuOpen"
+          :workspace-name="activeWorkspaceName"
+          :owner-id="activeWorkspaceOwnerId"
+          :is-loading="isMembersLoading"
+          :load-error="membersLoadError"
+          :search-query="membersSearchQuery"
+          :filtered-members="filteredMembers"
+          :member-display-name="memberDisplayName"
+          :member-role-label="memberRoleLabel"
+          @update:search-query="membersSearchQuery = $event"
+        />
+      </div>
+
+      <div class="relative">
+        <button
+          type="button"
+          class="group flex cursor-pointer items-center justify-end gap-[7px]"
+          :aria-expanded="isProfileMenuOpen"
           @click="toggleProfileMenu"
         >
-          <div class="w-8 h-8 rounded-full overflow-hidden border border-panel-input-border bg-panel-input-bg">
+          <div
+            class="h-8 w-8 overflow-hidden rounded-full border border-panel-input-border bg-panel-input-bg"
+          >
             <img
               :src="avatarUrl"
               :alt="userName"
-              class="w-full h-full object-cover"
+              class="h-full w-full object-cover"
               @error="($event.target as HTMLImageElement).src = defaultAvatar"
             />
           </div>
 
-          <span class="text truncate opacity-75 group-hover:opacity-100 transition-opacity">
+          <span
+            class="text truncate opacity-75 transition-opacity group-hover:opacity-100"
+          >
             {{ userName }}
           </span>
 
-          <img :src="arrowIcon" class="w-4 h-4 opacity-60 group-hover:opacity-100 transition-opacity" alt="arrow" />
+          <img
+            :src="arrowIcon"
+            class="h-4 w-4 opacity-60 transition-opacity group-hover:opacity-100"
+            alt=""
+          />
         </button>
 
         <div
           v-if="isProfileMenuOpen"
-          class="absolute right-0 mt-5 w-44 rounded-md border border-panel-input-border bg-panel-bg p-3 shadow-lg z-20"
+          class="absolute right-0 top-full z-50 mt-5 w-44 rounded-md border border-panel-input-border bg-panel-bg p-3 shadow-lg"
         >
-          <div class="mb-3 flex items-center justify-between">
-            <p class="text-sm font-semibold text-panel-text">Profile</p>
-          </div>
+          <p class="mb-3 text-sm font-semibold text-panel-text">Profile</p>
           <button
             type="button"
-            class="w-full rounded px-2 py-2 text-left text-sm text-panel-label hover:bg-panel-input-bg hover:text-panel-text transition-colors disabled:opacity-50"
+            class="w-full rounded px-2 py-2 text-left text-sm text-panel-label transition-colors hover:bg-panel-input-bg hover:text-panel-text disabled:opacity-50"
             :disabled="isLoggingOut"
             @click="handleLogout"
           >
@@ -200,7 +259,6 @@ function toggleProfileMenu() {
           </button>
         </div>
       </div>
-
     </div>
   </header>
 </template>
@@ -212,6 +270,6 @@ function toggleProfileMenu() {
   font-size: 12px;
   line-height: 150%;
   letter-spacing: -0.011em;
-  color: var(--color-brand-white); 
+  color: var(--color-brand-white);
 }
 </style>
