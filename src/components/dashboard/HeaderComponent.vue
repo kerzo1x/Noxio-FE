@@ -24,7 +24,8 @@ const {
   filteredMembers,
   memberDisplayName,
   memberRoleLabel,
-  reset: resetMembers,
+  resetSearch: resetMembersSearch,
+  invalidateCache: invalidateMembersCache,
   fetchMembers,
 } = useWorkspaceMembers()
 
@@ -76,7 +77,6 @@ async function openNotificationsMenu() {
 
   const workspaceId = activeWorkspaceId.value
   if (!workspaceId) {
-    resetMembers()
     membersLoadError.value = 'No workspace selected.'
     return
   }
@@ -86,8 +86,14 @@ async function openNotificationsMenu() {
 
 function closeNotificationsMenu() {
   isNotificationsMenuOpen.value = false
-  resetMembers()
+  resetMembersSearch()
 }
+
+watch(activeWorkspaceId, (workspaceId, previousId) => {
+  if (workspaceId !== previousId) {
+    invalidateMembersCache()
+  }
+})
 
 function toggleNotificationsMenu() {
   if (isNotificationsMenuOpen.value) {

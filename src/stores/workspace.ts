@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import api from '@/api'
+import type { WorkspaceMemberRole } from '@/composables/useWorkspaceMembers'
 
 /** Полный снимок для восстановления после логина / рефреша */
 const ACTIVE_WORKSPACE_LS_KEY = 'notion_fe_active_workspace'
@@ -151,6 +152,22 @@ export const useWorkspaceStore = defineStore('workspace', {
       if (next) this.selectWorkspace(next)
 
       return created ?? next
-    }
-  }
+    },
+
+    async createInvitation(
+      workspaceId: string,
+      email: string,
+      role: WorkspaceMemberRole,
+    ) {
+      const response = await api.post(
+        `/workspaces/${workspaceId}/invitations`,
+        { email: email.trim(), role },
+      )
+      const payload = response.data
+      if (!payload?.success && response.status !== 201) {
+        throw new Error(payload?.message || 'Failed to send invitation')
+      }
+      return payload
+    },
+  },
 })

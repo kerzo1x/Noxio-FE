@@ -30,6 +30,7 @@ export function useWorkspaceMembers() {
   const isLoading = ref(false)
   const loadError = ref('')
   const searchQuery = ref('')
+  const loadedWorkspaceId = ref<string | null>(null)
 
   const filteredMembers = computed(() => {
     const query = searchQuery.value.trim().toLowerCase()
@@ -62,14 +63,31 @@ export function useWorkspaceMembers() {
     return labels[member.role] ?? member.role
   }
 
-  function reset() {
+  function resetSearch() {
     searchQuery.value = ''
+  }
+
+  function invalidateCache() {
     members.value = []
     loadError.value = ''
     isLoading.value = false
+    loadedWorkspaceId.value = null
   }
 
-  async function fetchMembers(workspaceId: string) {
+  function reset() {
+    resetSearch()
+    invalidateCache()
+  }
+
+  async function fetchMembers(workspaceId: string, force = false) {
+    if (
+      !force &&
+      loadedWorkspaceId.value === workspaceId &&
+      !loadError.value
+    ) {
+      return
+    }
+
     isLoading.value = true
     loadError.value = ''
 
@@ -84,9 +102,11 @@ export function useWorkspaceMembers() {
       }
 
       members.value = payload.data ?? []
+      loadedWorkspaceId.value = workspaceId
     } catch (error) {
       console.error('Failed to fetch workspace members:', error)
       members.value = []
+      loadedWorkspaceId.value = null
       loadError.value =
         error instanceof Error ? error.message : 'Failed to load members'
     } finally {
@@ -99,9 +119,12 @@ export function useWorkspaceMembers() {
     isLoading,
     loadError,
     searchQuery,
+    loadedWorkspaceId,
     filteredMembers,
     memberDisplayName,
     memberRoleLabel,
+    resetSearch,
+    invalidateCache,
     reset,
     fetchMembers,
   }
