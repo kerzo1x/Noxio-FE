@@ -79,7 +79,7 @@ export const useWorkspaceStore = defineStore('workspace', {
     closeCreateWorkspacePopup() {
       this.showCreateWorkspacePopup = false
     },
-    /** Синхронно подставить activeWorkspace из LS до ответа API (dashboard после логина). */
+    
     hydrateActiveWorkspaceFromLocalStorage() {
       const meta = readCachedWorkspaceMeta()
       if (!meta) return

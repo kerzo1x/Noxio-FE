@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import BaseInput from '@/components/ui/inputs/BaseInput.vue'
 import BaseButton from '@/components/ui/buttons/BaseButton.vue'
+import { apiBaseUrl } from '@/config/api'
 
 
 const router = useRouter()
@@ -20,7 +21,7 @@ const handleSendCode = async () => {
   isError.value = false
 
   try {
-    const response = await fetch('https://hrica.skyro.dev/api/v1/auth/forgot-password', {
+    const response = await fetch(`${apiBaseUrl}/auth/forgot-password`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: email.value })

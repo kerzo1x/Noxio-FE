@@ -1,8 +1,9 @@
 import axios from 'axios';
+import { apiBaseUrl } from '@/config/api';
 import { persistAuthTokensFromEnvelope } from '@/utils/authTokens';
 
 const api = axios.create({
-  baseURL: 'https://hrica.skyro.dev/api/v1',
+  baseURL: apiBaseUrl,
 });
 
 let refreshInFlight: Promise<void> | null = null;
@@ -15,7 +16,7 @@ function runRefresh(): Promise<void> {
   if (!refreshInFlight) {
     refreshInFlight = (async () => {
       const res = await axios.post(
-        'https://hrica.skyro.dev/api/v1/auth/refresh',
+        `${apiBaseUrl}/auth/refresh`,
         { refresh_token },
         { headers: { 'Content-Type': 'application/json' } },
       );

@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import BaseButton from '@/components/ui/buttons/BaseButton.vue'
 import BaseInput from '@/components/ui/inputs/BaseInput.vue'
+import { apiBaseUrl } from '@/config/api'
 const router = useRouter()
 const isLoading = ref(false)
 const email = ref('')
@@ -29,7 +30,7 @@ const handleLogin = async () => {
 
     try {
         const token = localStorage.getItem('access_token');
-        const response = await fetch('https://hrica.skyro.dev/api/v1/integrations/edupage/connect', {
+        const response = await fetch(`${apiBaseUrl}/integrations/edupage/connect`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

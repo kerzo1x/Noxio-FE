@@ -4,6 +4,7 @@ import router from '@/router'
 import BaseInput from '@/components/ui/inputs/BaseInput.vue'
 import BaseButton from '@/components/ui/buttons/BaseButton.vue'
 import AuthBannerComponent from '@/components/auth/AuthBannerComponent.vue'
+import { apiBaseUrl } from '@/config/api'
 
 const isLoading = ref(false)
 const firstName = ref('')
@@ -25,7 +26,7 @@ const handleRegister = async () => {
   isError.value = false
 
   try {
-    const response = await fetch('https://hrica.skyro.dev/api/v1/auth/register', {
+    const response = await fetch(`${apiBaseUrl}/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

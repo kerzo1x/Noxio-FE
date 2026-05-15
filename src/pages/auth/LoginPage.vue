@@ -5,6 +5,7 @@ import { RouterLink } from 'vue-router'
 import BaseInput from '@/components/ui/inputs/BaseInput.vue'
 import BaseButton from '@/components/ui/buttons/BaseButton.vue'
 import AuthBannerComponent from '@/components/auth/AuthBannerComponent.vue'
+import { apiBaseUrl } from '@/config/api'
 import { persistAuthTokensFromEnvelope } from '@/utils/authTokens'
 
 
@@ -28,7 +29,7 @@ const handleLogin = async () => {
     isError.value = false
 
     try {
-        const response = await fetch('https://hrica.skyro.dev/api/v1/auth/login', {
+        const response = await fetch(`${apiBaseUrl}/auth/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
