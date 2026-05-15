@@ -17,7 +17,7 @@ const routeKey = computed(() => {
 </script>
 
 <template>
-  <router-view v-slot="{ Component, route: currentRoute }">
+  <router-view v-slot="{ Component }">
     <transition :name="transitionName" mode="out-in">
       <component :is="Component" :key="routeKey" />
     </transition>

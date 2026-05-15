@@ -1,21 +1,15 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
-import api from '@/api'
-import type { ApiSuccess } from '@/types/api'
-import type { EdupageTimetableData, EdupageTimetableLesson } from '@/types/edupage'
+import { computed, onMounted, watch } from 'vue'
+import type { EdupageTimetableLesson } from '@/types/edupage'
 import { subjectAbbrev } from '@/utils/subjectAbbrev'
 import { useFoldersStore } from '@/stores/folders'
 import { useWorkspaceStore } from '@/stores/workspace'
+import { useTimetableStore } from '@/stores/timetable'
 import bigFolder from '@/assets/img/big-folder.svg'
 
 const workspaceStore = useWorkspaceStore()
 const foldersStore = useFoldersStore()
-
-const isLoading = ref(false)
-const error = ref<string | null>(null)
-const isConnected = ref(true)
-const isSyncing = ref(false)
-const lessons = ref<EdupageTimetableLesson[]>([])
+const timetableStore = useTimetableStore()
 
 interface TimetableSlotGroup {
   slotIndex: number
@@ -59,85 +53,39 @@ function buildSlotGroups(dayLessons: EdupageTimetableLesson[]): TimetableSlotGro
   return clusters.map((group, i) => {
     const start = new Date(group[0].startTime)
     const endMs = Math.max(...group.map((l) => new Date(l.endTime).getTime()))
-    return {
-      slotIndex: i + 1,
-      start,
-      end: new Date(endMs),
-      lessons: group
-    }
+    return { slotIndex: i + 1, start, end: new Date(endMs), lessons: group }
   })
 }
 
 const timetableSlotGroups = computed(() =>
-  buildSlotGroups(lessonsForLocalToday(lessons.value))
+  buildSlotGroups(lessonsForLocalToday(timetableStore.lessons))
 )
 
 const recentFolders = computed(() =>
   [...foldersStore.folders]
-    .sort(
-      (a, b) =>
-        new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
-    )
+    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
     .slice(0, 4)
 )
 
 function formatHm(d: Date): string {
-  return d.toLocaleTimeString(undefined, {
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: false
-  })
+  return d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', hour12: false })
 }
 
 function formatSlotRange(start: Date, end: Date): string {
   return `${formatHm(start)}–${formatHm(end)}`
 }
 
-function resetTimetable() {
-  lessons.value = []
-  isConnected.value = true
-  isSyncing.value = false
-  error.value = null
-}
-
-async function fetchTimetable(workspaceId: string) {
-  isLoading.value = true
-  error.value = null
-  try {
-    const response = await api.get<ApiSuccess<EdupageTimetableData>>(
-      `/workspaces/${workspaceId}/integrations/edupage/timetable`
-    )
-    const payload = response.data
-    if (!payload?.success) {
-      throw new Error(payload?.message || 'Failed to load timetable')
-    }
-    const data = payload.data
-    isConnected.value = data.isConnected
-    isSyncing.value = data.isSyncing
-    lessons.value = data.lessons ?? []
-  } catch (e) {
-    lessons.value = []
-    error.value =
-      e instanceof Error ? e.message : 'Failed to load timetable'
-  } finally {
-    isLoading.value = false
-  }
-}
-
 watch(
   () => workspaceStore.activeWorkspace?.id ?? null,
   (workspaceId) => {
-    if (!workspaceId) {
-      resetTimetable()
-      return
-    }
-    void fetchTimetable(workspaceId)
+    if (!workspaceId) { timetableStore.reset(); return }
+    void timetableStore.fetchTimetable(workspaceId)
   }
 )
 
 onMounted(() => {
   const id = workspaceStore.activeWorkspace?.id
-  if (id) void fetchTimetable(id)
+  if (id) void timetableStore.fetchTimetable(id)
 })
 </script>
 
@@ -151,19 +99,19 @@ onMounted(() => {
         class="mb-8 min-w-0 rounded-[14px] bg-[#1A1A1A] px-1 py-3 sm:px-2 sm:py-4"
       >
         <div
-          v-if="isLoading"
+          v-if="timetableStore.isLoading"
           class="flex min-h-[120px] items-center justify-center px-4 text-sm text-white/50"
         >
           Loading timetable…
         </div>
         <div
-          v-else-if="error"
+          v-else-if="timetableStore.error"
           class="flex min-h-[120px] items-center justify-center px-4 text-center text-sm text-red-400/90"
         >
-          {{ error }}
+          {{ timetableStore.error }}
         </div>
         <div
-          v-else-if="!isConnected"
+          v-else-if="!timetableStore.isConnected"
           class="flex min-h-[120px] flex-col items-center justify-center gap-1 px-4 text-center text-sm text-white/50"
         >
           <span>EduPage is not connected.</span>
@@ -171,7 +119,7 @@ onMounted(() => {
         </div>
         <div v-else class="min-w-0">
           <div
-            v-if="isSyncing"
+            v-if="timetableStore.isSyncing"
             class="mb-2 px-3 text-center text-[11px] text-white/45"
           >
             Syncing timetable…
