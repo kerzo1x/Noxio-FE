@@ -4,6 +4,7 @@ import BaseInput from '@/components/ui/inputs/BaseInput.vue'
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { apiBaseUrl } from '@/config/api'
+import { authFetch } from '@/utils/authFetch'
 
 const router = useRouter()
 const password = ref('')
@@ -35,7 +36,7 @@ const handleResetPassword = async () => {
     isError.value = false
 
     try {
-        const response = await fetch(`${apiBaseUrl}/auth/reset-password`, {
+        const response = await authFetch(`${apiBaseUrl}/auth/reset-password`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 

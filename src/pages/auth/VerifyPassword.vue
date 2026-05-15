@@ -4,6 +4,7 @@ import { useRouter, useRoute } from 'vue-router'
 import AuthBannerComponent from '@/components/auth/AuthBannerComponent.vue'
 import { apiBaseUrl } from '@/config/api'
 import { persistAuthTokensFromEnvelope } from '@/utils/authTokens'
+import { authFetch } from '@/utils/authFetch'
 
 const router = useRouter()
 const route = useRoute()
@@ -47,7 +48,7 @@ const handleResendCode = async () => {
 
     isLoading.value = true
     try {
-        const response = await fetch(`${apiBaseUrl}/auth/2fa/resend`, {
+        const response = await authFetch(`${apiBaseUrl}/auth/2fa/resend`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ sessionToken })
@@ -96,7 +97,7 @@ const handleVerify = async () => {
     }
     isLoading.value = true
     try {
-        const response = await fetch(`${apiBaseUrl}/auth/2fa/verify`, {
+        const response = await authFetch(`${apiBaseUrl}/auth/2fa/verify`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ sessionToken: sessionToken, code: finalCode })

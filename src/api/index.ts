@@ -4,22 +4,15 @@ import { persistAuthTokensFromEnvelope } from '@/utils/authTokens';
 
 const api = axios.create({
   baseURL: apiBaseUrl,
+  withCredentials: true,
 });
 
 let refreshInFlight: Promise<void> | null = null;
 
 function runRefresh(): Promise<void> {
-  const refresh_token = localStorage.getItem('refresh_token');
-  if (!refresh_token) {
-    return Promise.reject(new Error('missing refresh_token'));
-  }
   if (!refreshInFlight) {
     refreshInFlight = (async () => {
-      const res = await axios.post(
-        `${apiBaseUrl}/auth/refresh`,
-        { refresh_token },
-        { headers: { 'Content-Type': 'application/json' } },
-      );
+      const res = await api.post('/auth/refresh');
       persistAuthTokensFromEnvelope(res.data as Record<string, unknown>);
       if (!localStorage.getItem('access_token')) {
         throw new Error('refresh response had no access token');
@@ -29,6 +22,10 @@ function runRefresh(): Promise<void> {
     });
   }
   return refreshInFlight;
+}
+
+function redirectToLogin() {
+  window.location.href = '/auth/login';
 }
 
 api.interceptors.request.use((config) => {
@@ -48,8 +45,8 @@ api.interceptors.response.use(
     }
     const url = String(originalRequest.url ?? '');
     if (url.includes('/auth/refresh')) {
-      localStorage.clear();
-      window.location.href = '/login';
+      localStorage.removeItem('access_token');
+      redirectToLogin();
       return Promise.reject(error);
     }
     originalRequest._retry = true;
@@ -57,8 +54,8 @@ api.interceptors.response.use(
       await runRefresh();
       return api(originalRequest);
     } catch {
-      localStorage.clear();
-      window.location.href = '/login';
+      localStorage.removeItem('access_token');
+      redirectToLogin();
       return Promise.reject(error);
     }
   },

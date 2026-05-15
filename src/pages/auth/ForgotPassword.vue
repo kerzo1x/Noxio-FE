@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import BaseInput from '@/components/ui/inputs/BaseInput.vue'
 import BaseButton from '@/components/ui/buttons/BaseButton.vue'
 import { apiBaseUrl } from '@/config/api'
+import { authFetch } from '@/utils/authFetch'
 
 
 const router = useRouter()
@@ -21,7 +22,7 @@ const handleSendCode = async () => {
   isError.value = false
 
   try {
-    const response = await fetch(`${apiBaseUrl}/auth/forgot-password`, {
+    const response = await authFetch(`${apiBaseUrl}/auth/forgot-password`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: email.value })

@@ -7,6 +7,7 @@ import BaseButton from '@/components/ui/buttons/BaseButton.vue'
 import AuthBannerComponent from '@/components/auth/AuthBannerComponent.vue'
 import { apiBaseUrl } from '@/config/api'
 import { persistAuthTokensFromEnvelope } from '@/utils/authTokens'
+import { authFetch } from '@/utils/authFetch'
 
 
 const isLoading = ref(false)
@@ -29,7 +30,7 @@ const handleLogin = async () => {
     isError.value = false
 
     try {
-        const response = await fetch(`${apiBaseUrl}/auth/login`, {
+        const response = await authFetch(`${apiBaseUrl}/auth/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
