@@ -4,17 +4,22 @@ import { useRoute } from 'vue-router'
 
 const route = useRoute()
 
-const transitionName = computed(() => {
-  const currentRouteName = String(route.name ?? '')
-  const isAuthSwitchRoute = currentRouteName === 'Login' || currentRouteName === 'Register'
-  return isAuthSwitchRoute ? 'auth-switch' : ''
+const currentRouteName = computed(() => String(route.name ?? ''))
+const isAuthSwitchRoute = computed(
+  () => currentRouteName.value === 'Login' || currentRouteName.value === 'Register'
+)
+const transitionName = computed(() => (isAuthSwitchRoute.value ? 'auth-switch' : ''))
+const routeKey = computed(() => {
+  if (isAuthSwitchRoute.value) return route.fullPath
+  if (currentRouteName.value.startsWith('Dashboard')) return 'dashboard'
+  return route.fullPath
 })
 </script>
 
 <template>
   <router-view v-slot="{ Component, route: currentRoute }">
     <transition :name="transitionName" mode="out-in">
-      <component :is="Component" :key="currentRoute.fullPath" />
+      <component :is="Component" :key="routeKey" />
     </transition>
   </router-view>
 </template>
