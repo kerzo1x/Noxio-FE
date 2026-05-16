@@ -6,8 +6,10 @@ import {
   extractNoteFromResponseBody,
   fetchNoteDetailSafe,
   noteDetailFromCreateResponse,
+  openNote as openNoteApi,
+  patchNote,
 } from '@/utils/noteApi'
-import type { NoteDetail, NoteListItem } from '@/types/notes'
+import type { NoteDetail, NoteListItem, NotePatchBody } from '@/types/notes'
 
 interface NotesQuery {
   page?: number
@@ -33,6 +35,8 @@ export const useNotesStore = defineStore('notes', {
     loadedFolderId: null as string | null,
     isLoading: false,
     isCreating: false,
+    isSaving: false,
+    saveError: null as string | null,
     error: null as string | null,
   }),
 
@@ -58,6 +62,8 @@ export const useNotesStore = defineStore('notes', {
       this.error = null
       this.isLoading = false
       this.isCreating = false
+      this.isSaving = false
+      this.saveError = null
     },
 
     async createNote(folderId: string, title = 'Untitled') {
@@ -204,6 +210,37 @@ export const useNotesStore = defineStore('notes', {
         this.noteIds.push(noteId)
       }
       return note
+    },
+
+    async updateNote(noteId: string, patch: NotePatchBody) {
+      this.isSaving = true
+      this.saveError = null
+
+      try {
+        const updated = await patchNote(noteId, patch)
+        const existing = this.notesById[noteId]
+        this.notesById[noteId] = {
+          ...existing,
+          ...updated,
+          recentEditors: updated.recentEditors ?? existing?.recentEditors ?? [],
+          totalEditorCount: updated.totalEditorCount ?? existing?.totalEditorCount ?? 0,
+        }
+        return this.notesById[noteId]
+      } catch (error) {
+        this.saveError =
+          error instanceof Error ? error.message : 'Failed to save note'
+        throw error
+      } finally {
+        this.isSaving = false
+      }
+    },
+
+    async openNote(noteId: string) {
+      try {
+        await openNoteApi(noteId)
+      } catch {
+        // Non-blocking: opening a note is analytics/presence only
+      }
     },
   },
 })

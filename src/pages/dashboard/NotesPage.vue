@@ -68,6 +68,7 @@ watch(
         console.error('Failed to load note:', error)
       }
     }
+    void notesStore.openNote(noteId)
   },
   { immediate: true },
 )

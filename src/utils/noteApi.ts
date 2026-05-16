@@ -1,6 +1,7 @@
 import api from '@/api'
-import type { NoteDetail, NoteListItem } from '@/types/notes'
-import { createDefaultNoteContent } from '@/utils/noteContent'
+import type { ApiSuccess } from '@/types/api'
+import type { NoteDetail, NoteListItem, NotePatchBody } from '@/types/notes'
+import { createDefaultNoteContent, normalizeBlocksForApi } from '@/utils/noteContent'
 
 type NotePayload = Partial<NoteDetail> & { id: string }
 
@@ -24,7 +25,7 @@ export function normalizeNoteDetail(
     folderId: raw.folderId ?? base?.folderId ?? '',
     title: raw.title ?? base?.title ?? 'Untitled',
     content: Array.isArray(raw.content)
-      ? raw.content
+      ? normalizeBlocksForApi(raw.content)
       : (base?.content ?? createDefaultNoteContent()),
     contentVersion: raw.contentVersion ?? base?.contentVersion ?? 0,
     coverMediaId: raw.coverMediaId ?? base?.coverMediaId ?? null,
@@ -130,4 +131,29 @@ export function noteDetailFromCreateResponse(
     },
     undefined,
   )
+}
+
+export async function patchNote(
+  noteId: string,
+  body: NotePatchBody,
+): Promise<NoteDetail> {
+  const payload: NotePatchBody = { ...body }
+  if (payload.content) {
+    payload.content = normalizeBlocksForApi(payload.content)
+  }
+
+  const response = await api.patch<ApiSuccess<NoteDetail>>(`/notes/${noteId}`, payload)
+  const extracted = extractNoteFromResponseBody(response.data)
+
+  if (extracted) {
+    return normalizeNoteDetail(extracted)
+  }
+
+  throw new Error(
+    (response.data as { message?: string })?.message || 'Failed to update note',
+  )
+}
+
+export async function openNote(noteId: string): Promise<void> {
+  await api.post(`/notes/${noteId}/open`)
 }

@@ -1,3 +1,5 @@
+export type NoteBlockSize = 'small' | 'medium' | 'large'
+
 export interface NoteSpan {
   text: string
   bold?: boolean
@@ -5,13 +7,20 @@ export interface NoteSpan {
 
 export interface NoteParagraphBlock {
   type: 'paragraph'
-  size: 'small' | 'medium' | 'large'
+  size: NoteBlockSize
   spans: NoteSpan[]
+}
+
+export interface NoteListItemNode {
+  id: string
+  size: NoteBlockSize
+  spans: NoteSpan[]
+  children: NoteListItemNode[]
 }
 
 export interface NoteBulletedListBlock {
   type: 'bulleted-list'
-  items: Array<{ spans: NoteSpan[] }>
+  items: NoteListItemNode[]
 }
 
 export type NoteBlock = NoteParagraphBlock | NoteBulletedListBlock | Record<string, unknown>
@@ -39,4 +48,9 @@ export interface NoteDetail extends NoteListItem {
   content: NoteBlock[]
   contentVersion: number
   coverMediaId: string | null
+}
+
+export interface NotePatchBody {
+  title?: string
+  content?: NoteBlock[]
 }

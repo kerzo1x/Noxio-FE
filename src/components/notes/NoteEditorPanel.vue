@@ -1,15 +1,69 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { noteBlocksToPlainParagraphs } from '@/utils/noteContent'
-import type { NoteDetail } from '@/types/notes'
+import { computed, ref, toRef } from 'vue'
+import NoteBlockList from '@/components/notes/editor/NoteBlockList.vue'
+import NoteFormatToolbar from '@/components/notes/editor/NoteFormatToolbar.vue'
+import NoteTitleField from '@/components/notes/editor/NoteTitleField.vue'
+import { useNoteEditorDraft } from '@/composables/useNoteEditorDraft'
+import type { NoteBlockSize, NoteDetail } from '@/types/notes'
+import { createParagraph } from '@/utils/noteContent'
 
 const props = defineProps<{
   note?: NoteDetail | null
 }>()
 
-const paragraphs = computed(() =>
-  props.note ? noteBlocksToPlainParagraphs(props.note.content) : [],
-)
+const noteRef = toRef(props, 'note')
+const blockListRef = ref<InstanceType<typeof NoteBlockList> | null>(null)
+
+const {
+  title,
+  content,
+  focusedBlockIndex,
+  focusedBlockSize,
+  focusedBlockBold,
+  isSaving,
+  saveError,
+  setTitle,
+  setContent,
+  insertBlockAfter,
+  removeBlock,
+  mergeWithPrevious,
+  setFocusedBlock,
+  applyBold,
+  applySize,
+} = useNoteEditorDraft(noteRef)
+
+const showToolbar = computed(() => focusedBlockIndex.value !== null)
+
+function onBlocksUpdate(blocks: typeof content.value) {
+  setContent(blocks)
+}
+
+function onEnterAfter(index: number) {
+  insertBlockAfter(index, createParagraph())
+  setFocusedBlock(index + 1, null)
+  blockListRef.value?.focusParagraph(index + 1)
+}
+
+function onBackspaceEmpty(index: number) {
+  if (index === 0) {
+    removeBlock(index)
+    setFocusedBlock(0, null)
+    blockListRef.value?.focusParagraph(0)
+    return
+  }
+
+  mergeWithPrevious(index)
+  setFocusedBlock(index - 1, null)
+  blockListRef.value?.focusParagraph(index - 1)
+}
+
+function onToolbarSize(size: NoteBlockSize) {
+  applySize(size)
+}
+
+function onToolbarBold() {
+  applyBold()
+}
 </script>
 
 <template>
@@ -27,30 +81,41 @@ const paragraphs = computed(() =>
       v-else
       class="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto overflow-x-hidden pr-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
     >
-      <h2 class="shrink-0 text-4xl font-semibold leading-tight tracking-tight text-white">
-        {{ note.title }}
-      </h2>
+      <NoteTitleField
+        :model-value="title"
+        @update:model-value="setTitle"
+      />
 
-      <div
-        v-if="paragraphs.length === 0"
-        class="text-base text-white/50"
-      >
-        This note has no content yet.
-      </div>
+      <NoteFormatToolbar
+        v-if="showToolbar"
+        :size="focusedBlockSize"
+        :bold="focusedBlockBold"
+        @update:size="onToolbarSize"
+        @toggle-bold="onToolbarBold"
+      />
 
-      <div
-        v-else
-        class="flex flex-col gap-4"
+      <NoteBlockList
+        ref="blockListRef"
+        :blocks="content"
+        :focused-block-index="focusedBlockIndex"
+        @update:blocks="onBlocksUpdate"
+        @focus-block="(index, listItemIndex) => setFocusedBlock(index, listItemIndex)"
+        @enter-after="onEnterAfter"
+        @backspace-empty="onBackspaceEmpty"
+      />
+
+      <p
+        v-if="isSaving"
+        class="text-xs text-white/40"
       >
-        <p
-          v-for="(paragraph, index) in paragraphs"
-          :key="index"
-          class="text-base leading-relaxed text-white/75"
-          :class="index === 0 ? 'text-xl' : 'text-sm'"
-        >
-          {{ paragraph }}
-        </p>
-      </div>
+        Saving…
+      </p>
+      <p
+        v-else-if="saveError"
+        class="text-xs text-red-400"
+      >
+        {{ saveError }}
+      </p>
     </div>
   </section>
 </template>
