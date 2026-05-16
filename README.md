@@ -103,7 +103,7 @@ cp .env.example .env
 ```
 
 ```env
-VITE_API_BASE_URL=https://hrica.skyro.dev/api/v1
+VITE_API_BASE_URL=https://YOUR_BASE_URL
 ```
 
 Required at build/dev time (`src/config/api.ts`). Access token: `localStorage` key `access_token`; refresh via `POST /auth/refresh` on 401.
