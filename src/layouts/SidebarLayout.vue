@@ -15,6 +15,7 @@ const tabRouteMap: Record<WorkspaceTab, string> = {
 
 const routeToTab: Partial<Record<string, WorkspaceTab>> = {
   DashboardFolders: 'folders',
+  DashboardFolderNotes: 'folders',
   DashboardTodo: 'todo',
 }
 

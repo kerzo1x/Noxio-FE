@@ -1,15 +1,24 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { useFoldersStore } from '@/stores/folders'
 import BaseButton from '@/components/ui/buttons/BaseButton.vue'
 import AddFolderPopup from '@/components/dashboard/AddFolderPopup.vue'
 import bigFolder from '@/assets/img/big-folder.svg'
 
+const router = useRouter()
 const foldersStore = useFoldersStore()
 const showAddFolderPopup = ref(false)
 
 const handleAddFolder = () => {
   showAddFolderPopup.value = true
+}
+
+function openFolderNotes(folderId: string) {
+  router.push({
+    name: 'DashboardFolderNotes',
+    params: { folderId },
+  })
 }
 </script>
 
@@ -39,7 +48,11 @@ const handleAddFolder = () => {
         <div
           v-for="folder in foldersStore.folders"
           :key="folder.id"
+          role="button"
+          tabindex="0"
           class="relative aspect-[186/146] h-[146px] w-[186px] cursor-pointer transition-transform duration-200 hover:scale-[1.02]"
+          @click="openFolderNotes(folder.id)"
+          @keydown.enter="openFolderNotes(folder.id)"
         >
           <img
             :src="bigFolder"

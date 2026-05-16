@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, reactive, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useFoldersStore } from '@/stores/folders'
 import { useTodoListsStore } from '@/stores/todoLists'
 import folderIcon from '@/assets/img/folder.svg'
@@ -32,8 +33,16 @@ const emit = defineEmits<{
   'update:active': [tab: WorkspaceTab]
 }>()
 
+const route = useRoute()
+const router = useRouter()
 const foldersStore = useFoldersStore()
 const todoListsStore = useTodoListsStore()
+
+const activeFolderId = computed(() => {
+  if (route.name !== 'DashboardFolderNotes') return null
+  const folderId = route.params.folderId
+  return typeof folderId === 'string' ? folderId : null
+})
 
 const sectionItems = [
   { id: 'folders' as const, label: 'Folders', icon: folderIcon },
@@ -97,6 +106,13 @@ const setActive = (id: WorkspaceTab) => {
 
 const toggleExpanded = (id: WorkspaceTab) => {
   expandedSections[id] = !expandedSections[id]
+}
+
+function openFolderNotes(folderId: string) {
+  router.push({
+    name: 'DashboardFolderNotes',
+    params: { folderId },
+  })
 }
 </script>
 
@@ -166,10 +182,18 @@ const toggleExpanded = (id: WorkspaceTab) => {
                 {{ sectionData[item.id].emptyLabel }}
               </div>
               <template v-else>
-                <div
+                <button
                   v-for="sub in sectionData[item.id].items"
                   :key="sub.id"
-                  class="sidebar-link px-3 py-2"
+                  type="button"
+                  class="sidebar-link w-full px-3 py-2 text-left"
+                  :class="{
+                    active:
+                      item.id === 'folders' && activeFolderId === sub.id,
+                  }"
+                  @click="
+                    item.id === 'folders' ? openFolderNotes(sub.id) : undefined
+                  "
                 >
                   <img
                     :src="sectionData[item.id].icon"
@@ -177,7 +201,7 @@ const toggleExpanded = (id: WorkspaceTab) => {
                     class="sidebar-icon scale-90"
                   />
                   <span>{{ sub.label }}</span>
-                </div>
+                </button>
               </template>
             </div>
           </div>

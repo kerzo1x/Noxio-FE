@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import type { EdupageTimetableLesson } from '@/types/edupage'
 import { subjectAbbrev } from '@/utils/subjectAbbrev'
 import { useFoldersStore } from '@/stores/folders'
@@ -7,6 +8,7 @@ import { useWorkspaceStore } from '@/stores/workspace'
 import { useTimetableStore } from '@/stores/timetable'
 import bigFolder from '@/assets/img/big-folder.svg'
 
+const router = useRouter()
 const workspaceStore = useWorkspaceStore()
 const foldersStore = useFoldersStore()
 const timetableStore = useTimetableStore()
@@ -75,6 +77,16 @@ function formatSlotRange(start: Date, end: Date): string {
   return `${formatHm(start)}–${formatHm(end)}`
 }
 
+async function handleTimetableSync() {
+  const workspaceId = workspaceStore.activeWorkspace?.id
+  if (!workspaceId || timetableStore.isSyncRequesting) return
+  try {
+    await timetableStore.syncTimetable(workspaceId)
+  } catch {
+    /* error shown via timetableStore.error */
+  }
+}
+
 watch(
   () => workspaceStore.activeWorkspace?.id ?? null,
   (workspaceId) => {
@@ -116,6 +128,33 @@ onMounted(() => {
         >
           <span>EduPage is not connected.</span>
           <span class="text-xs text-white/35">Connect in settings to see your timetable.</span>
+          <button
+            type="button"
+            class="mt-1 cursor-pointer border-0 bg-transparent text-sm text-white/40 transition-colors hover:text-white/60"
+            @click="router.push({ name: 'EdupageLogin' })"
+          >
+            connect
+          </button>
+        </div>
+        <div
+          v-else-if="timetableStore.isConnected && !timetableStore.syncedAt && timetableStore.isSyncing"
+          class="flex min-h-[120px] flex-col items-center justify-center gap-1 px-4 text-center text-sm text-white/50"
+        >
+          <span>Syncing timetable…</span>
+        </div>
+        <div
+          v-else-if="timetableStore.isNotSynced"
+          class="flex min-h-[120px] flex-col items-center justify-center gap-1 px-4 text-center text-sm text-white/50"
+        >
+          <span>EduPage is not synced.</span>
+          <button
+            type="button"
+            class="mt-1 cursor-pointer border-0 bg-transparent text-sm text-white/40 transition-colors hover:text-white/60 disabled:cursor-not-allowed disabled:opacity-40"
+            :disabled="timetableStore.isSyncRequesting"
+            @click="handleTimetableSync"
+          >
+            {{ timetableStore.isSyncRequesting ? 'syncing…' : 'sync' }}
+          </button>
         </div>
         <div v-else class="min-w-0">
           <div

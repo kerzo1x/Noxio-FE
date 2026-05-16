@@ -21,6 +21,12 @@ const routes: Array<RouteRecordRaw> = [
                 component: () => import('../pages/dashboard/FolderPage.vue')
             },
             {
+                path: 'folders/:folderId/notes/:noteId?',
+                name: 'DashboardFolderNotes',
+                component: () => import('../pages/dashboard/NotesPage.vue'),
+                props: true
+            },
+            {
                 path: 'todo',
                 name: 'DashboardTodo',
                 component: () => import('../pages/dashboard/TodoPage.vue')
