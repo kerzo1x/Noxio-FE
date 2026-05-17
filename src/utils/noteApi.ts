@@ -142,16 +142,27 @@ export async function patchNote(
     payload.content = normalizeBlocksForApi(payload.content)
   }
 
-  const response = await api.patch<ApiSuccess<NoteDetail>>(`/notes/${noteId}`, payload)
-  const extracted = extractNoteFromResponseBody(response.data)
-
-  if (extracted) {
-    return normalizeNoteDetail(extracted)
+  try {
+    const response = await api.patch<ApiSuccess<NoteDetail>>(`/notes/${noteId}`, payload, {
+      validateStatus: (status) => status === 200 || status === 400,
+    })
+    const extracted = extractNoteFromResponseBody(response.data)
+    if (extracted) {
+      return normalizeNoteDetail(extracted)
+    }
+    throw new Error(
+      (response.data as { message?: string })?.message || 'Failed to update note',
+    )
+  } catch (error) {
+    const errData = (error as { response?: { data?: unknown } })?.response?.data
+    if (errData) {
+      const extracted = extractNoteFromResponseBody(errData)
+      if (extracted) {
+        return normalizeNoteDetail(extracted)
+      }
+    }
+    throw error
   }
-
-  throw new Error(
-    (response.data as { message?: string })?.message || 'Failed to update note',
-  )
 }
 
 export async function openNote(noteId: string): Promise<void> {
