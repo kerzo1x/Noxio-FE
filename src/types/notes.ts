@@ -16,6 +16,8 @@ export interface NoteListItemNode {
   size: NoteBlockSize
   spans: NoteSpan[]
   children: NoteListItemNode[]
+  /** When false, the row renders as plain text without a bullet marker. */
+  bulleted?: boolean
 }
 
 export interface NoteBulletedListBlock {

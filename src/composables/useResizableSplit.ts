@@ -1,11 +1,11 @@
-import { computed, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { getNotesListMinWidthPx } from '@/constants/notesLayout'
 
 const STORAGE_KEY = 'notes-split-list-ratio'
 
 const DEFAULT_RATIO = 0.32
-const MIN_RATIO = 0.22
 const MAX_RATIO = 0.5
-const COLLAPSE_THRESHOLD = 0.05
+const COLLAPSE_THRESHOLD = 0.2
 
 function readStoredRatio(): number {
   if (typeof window === 'undefined') return DEFAULT_RATIO
@@ -18,11 +18,27 @@ function readStoredRatio(): number {
 
 export function useResizableSplit(containerRef: { value: HTMLElement | null }) {
   const listRatio = ref(readStoredRatio())
-  const lastExpandedRatio = ref(
-    listRatio.value > COLLAPSE_THRESHOLD ? listRatio.value : DEFAULT_RATIO,
-  )
   const isDragging = ref(false)
   const isListCollapsed = computed(() => listRatio.value <= COLLAPSE_THRESHOLD)
+
+  let resizeObserver: ResizeObserver | null = null
+
+  function getMinRatio(width: number): number {
+    if (width <= 0) return 1
+    const minWidthPx = getNotesListMinWidthPx()
+    return Math.min(1, minWidthPx / width)
+  }
+
+  function clampExpandedRatio(ratio: number, width: number): number {
+    if (ratio <= COLLAPSE_THRESHOLD) return 0
+    const minRatio = getMinRatio(width)
+    return Math.min(MAX_RATIO, Math.max(minRatio, ratio))
+  }
+
+  function normalizeRatioForContainer(width: number) {
+    if (width <= 0) return
+    listRatio.value = clampExpandedRatio(listRatio.value, width)
+  }
 
   const listFlexStyle = computed(() => {
     if (isListCollapsed.value) {
@@ -35,9 +51,6 @@ export function useResizableSplit(containerRef: { value: HTMLElement | null }) {
   watch(listRatio, (value) => {
     if (typeof window === 'undefined') return
     window.localStorage.setItem(STORAGE_KEY, String(value))
-    if (value > COLLAPSE_THRESHOLD) {
-      lastExpandedRatio.value = value
-    }
   })
 
   function setRatioFromPointer(clientX: number) {
@@ -48,12 +61,19 @@ export function useResizableSplit(containerRef: { value: HTMLElement | null }) {
     if (rect.width <= 0) return
 
     const rawRatio = (clientX - rect.left) / rect.width
-    if (rawRatio < COLLAPSE_THRESHOLD) {
+
+    if (rawRatio <= COLLAPSE_THRESHOLD) {
       listRatio.value = 0
       return
     }
 
-    listRatio.value = Math.min(MAX_RATIO, Math.max(MIN_RATIO, rawRatio))
+    const minRatio = getMinRatio(rect.width)
+    if (rawRatio < minRatio) {
+      listRatio.value = 0
+      return
+    }
+
+    listRatio.value = Math.min(MAX_RATIO, rawRatio)
   }
 
   function onPointerMove(event: PointerEvent) {
@@ -69,9 +89,23 @@ export function useResizableSplit(containerRef: { value: HTMLElement | null }) {
     window.removeEventListener('pointercancel', stopDragging)
   }
 
+  function expandToMinWidth() {
+    const container = containerRef.value
+    if (!container) {
+      listRatio.value = DEFAULT_RATIO
+      return
+    }
+    const rect = container.getBoundingClientRect()
+    if (rect.width <= 0) {
+      listRatio.value = DEFAULT_RATIO
+      return
+    }
+    listRatio.value = getMinRatio(rect.width)
+  }
+
   function startDragging(event: PointerEvent) {
     if (isListCollapsed.value) {
-      listRatio.value = lastExpandedRatio.value || DEFAULT_RATIO
+      expandToMinWidth()
     }
     isDragging.value = true
     setRatioFromPointer(event.clientX)
@@ -82,10 +116,27 @@ export function useResizableSplit(containerRef: { value: HTMLElement | null }) {
   }
 
   function expandList() {
-    listRatio.value = lastExpandedRatio.value || DEFAULT_RATIO
+    expandToMinWidth()
   }
 
-  onUnmounted(stopDragging)
+  onMounted(() => {
+    const container = containerRef.value
+    if (!container || typeof ResizeObserver === 'undefined') return
+
+    resizeObserver = new ResizeObserver((entries) => {
+      const entry = entries[0]
+      if (!entry) return
+      normalizeRatioForContainer(entry.contentRect.width)
+    })
+    resizeObserver.observe(container)
+    normalizeRatioForContainer(container.getBoundingClientRect().width)
+  })
+
+  onUnmounted(() => {
+    stopDragging()
+    resizeObserver?.disconnect()
+    resizeObserver = null
+  })
 
   return {
     listRatio,

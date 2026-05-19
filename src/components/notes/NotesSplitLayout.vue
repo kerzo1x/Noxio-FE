@@ -13,7 +13,7 @@ const { listFlexStyle, isListCollapsed, isDragging, startDragging } =
     class="flex h-full min-h-0 w-full"
   >
     <div
-      class="flex min-h-0 shrink-0 flex-col overflow-hidden transition-[flex-basis] duration-150 ease-out"
+      class="flex min-h-0 shrink-0 flex-col items-center overflow-hidden transition-[flex-basis] duration-150 ease-out"
       :class="{ 'pointer-events-none opacity-0': isListCollapsed }"
       :style="listFlexStyle"
     >

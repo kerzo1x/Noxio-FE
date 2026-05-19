@@ -99,6 +99,13 @@ onMounted(() => {
   const id = workspaceStore.activeWorkspace?.id
   if (id) void timetableStore.fetchTimetable(id)
 })
+
+function openFolderNotes(folderId: string) {
+  router.push({
+    name: 'DashboardFolderNotes',
+    params: { folderId },
+  })
+}
 </script>
 
 <template>
@@ -241,7 +248,11 @@ onMounted(() => {
         <div
           v-for="folder in recentFolders"
           :key="folder.id"
+          role="button"
+          tabindex="0"
           class="relative aspect-186/146 h-[146px] w-[186px] cursor-pointer transition-transform duration-200 hover:scale-[1.02]"
+          @click="openFolderNotes(folder.id)"
+          @keydown.enter="openFolderNotes(folder.id)"
         >
           <img
             :src="bigFolder"

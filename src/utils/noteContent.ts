@@ -32,6 +32,7 @@ export function createListItem(
     size,
     spans: [{ text }],
     children: [],
+    bulleted: true,
   }
 }
 
@@ -74,6 +75,7 @@ function normalizeListItemNode(raw: Partial<NoteListItemNode>): NoteListItemNode
     size: raw.size === 'small' || raw.size === 'medium' || raw.size === 'large' ? raw.size : 'small',
     spans: normalizeSpans(raw.spans),
     children,
+    bulleted: raw.bulleted === false ? false : true,
   }
 }
 
@@ -137,6 +139,82 @@ export function plainTextToSpans(text: string, preserveBold = false, wasBold = f
     return [{ text }]
   }
   return [{ text, bold: true }]
+}
+
+export function ensureNonEmptySpans(spans: NoteSpan[]): NoteSpan[] {
+  const normalized = normalizeSpans(spans)
+  return normalized.length > 0 ? normalized : [{ text: '' }]
+}
+
+export function splitSpansAtOffset(
+  spans: NoteSpan[],
+  offset: number,
+): { left: NoteSpan[]; right: NoteSpan[] } {
+  const normalized = normalizeSpans(spans)
+  const fullText = spansToPlainText(normalized)
+
+  if (offset <= 0) {
+    return { left: [{ text: '' }], right: normalized }
+  }
+  if (offset >= fullText.length) {
+    return { left: normalized, right: [{ text: '' }] }
+  }
+
+  let pos = 0
+  const left: NoteSpan[] = []
+  const right: NoteSpan[] = []
+  let splitDone = false
+
+  for (const span of normalized) {
+    const spanEnd = pos + span.text.length
+    if (!splitDone) {
+      if (offset <= pos) {
+        right.push({ ...span })
+        splitDone = true
+      } else if (offset < spanEnd) {
+        const splitAt = offset - pos
+        if (splitAt > 0) {
+          left.push({ text: span.text.slice(0, splitAt), ...(span.bold ? { bold: true } : {}) })
+        }
+        const rest = span.text.slice(splitAt)
+        if (rest.length > 0) {
+          right.push({ text: rest, ...(span.bold ? { bold: true } : {}) })
+        }
+        splitDone = true
+      } else {
+        left.push({ ...span })
+      }
+    } else {
+      right.push({ ...span })
+    }
+    pos = spanEnd
+  }
+
+  return {
+    left: ensureNonEmptySpans(left),
+    right: ensureNonEmptySpans(right),
+  }
+}
+
+export function mergeSpans(a: NoteSpan[], b: NoteSpan[]): NoteSpan[] {
+  const combined = [...normalizeSpans(a), ...normalizeSpans(b)]
+  if (combined.length === 0) return [{ text: '' }]
+
+  const merged: NoteSpan[] = []
+  for (const span of combined) {
+    if (span.text.length === 0) continue
+    const last = merged[merged.length - 1]
+    if (last && !!last.bold === !!span.bold) {
+      last.text += span.text
+    } else {
+      merged.push({ ...span })
+    }
+  }
+  return merged.length > 0 ? merged : [{ text: '' }]
+}
+
+export function isEffectivelyEmpty(text: string): boolean {
+  return text.trim().length === 0
 }
 
 export function blockToPlainText(block: NoteBlock): string {

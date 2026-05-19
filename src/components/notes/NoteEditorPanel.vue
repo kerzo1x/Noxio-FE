@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { computed, ref, toRef } from 'vue'
+import { computed, onBeforeUnmount, ref, toRef } from 'vue'
 import NoteBlockList from '@/components/notes/editor/NoteBlockList.vue'
 import NoteFormatToolbar from '@/components/notes/editor/NoteFormatToolbar.vue'
 import NoteTitleField from '@/components/notes/editor/NoteTitleField.vue'
 import { useNoteEditorDraft } from '@/composables/useNoteEditorDraft'
 import type { NoteBlockSize, NoteDetail } from '@/types/notes'
-import { createParagraph } from '@/utils/noteContent'
+import { isBulletedList } from '@/utils/noteContent'
 
 const props = defineProps<{
   note?: NoteDetail | null
@@ -24,9 +24,6 @@ const {
   saveError,
   setTitle,
   setContent,
-  insertBlockAfter,
-  removeBlock,
-  mergeWithPrevious,
   setFocusedBlock,
   applyBold,
   applySize,
@@ -38,31 +35,34 @@ function onBlocksUpdate(blocks: typeof content.value) {
   setContent(blocks)
 }
 
-function onEnterAfter(index: number) {
-  insertBlockAfter(index, createParagraph())
-  setFocusedBlock(index + 1, null)
-  blockListRef.value?.focusParagraph(index + 1)
-}
-
-function onBackspaceEmpty(index: number) {
-  if (index === 0) {
-    removeBlock(index)
-    setFocusedBlock(0, null)
-    blockListRef.value?.focusParagraph(0)
-    return
-  }
-
-  mergeWithPrevious(index)
-  setFocusedBlock(index - 1, null)
-  blockListRef.value?.focusParagraph(index - 1)
-}
-
 function onToolbarSize(size: NoteBlockSize) {
+  blockListRef.value?.flushPendingInput()
   applySize(size)
 }
 
 function onToolbarBold() {
+  blockListRef.value?.flushPendingInput()
   applyBold()
+}
+
+onBeforeUnmount(() => {
+  blockListRef.value?.flushPendingInput()
+})
+
+function onEditorSurfaceMouseDown(event: MouseEvent) {
+  const target = event.target as HTMLElement
+  if (target.closest('[contenteditable="true"]')) return
+
+  event.preventDefault()
+
+  const lastIndex = content.value.length - 1
+  if (lastIndex < 0) return
+
+  const block = content.value[lastIndex]
+  const listItemIndex = block && isBulletedList(block) ? block.items.length - 1 : null
+
+  setFocusedBlock(lastIndex, listItemIndex)
+  void blockListRef.value?.focusBlockAtEnd(lastIndex)
 }
 </script>
 
@@ -79,43 +79,54 @@ function onToolbarBold() {
 
     <div
       v-else
-      class="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto overflow-x-hidden pr-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      class="flex min-h-0 flex-1 flex-col"
     >
-      <NoteTitleField
-        :model-value="title"
-        @update:model-value="setTitle"
-      />
+      <div
+        class="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto overflow-x-hidden pr-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      >
+        <NoteTitleField
+          :model-value="title"
+          @update:model-value="setTitle"
+        />
 
-      <NoteFormatToolbar
+        <div
+          class="flex min-h-[200px] flex-1 cursor-text flex-col"
+          @mousedown="onEditorSurfaceMouseDown"
+        >
+          <NoteBlockList
+            ref="blockListRef"
+            :blocks="content"
+            :focused-block-index="focusedBlockIndex"
+            @update:blocks="onBlocksUpdate"
+            @focus-block="(index, listItemIndex) => setFocusedBlock(index, listItemIndex)"
+          />
+        </div>
+
+        <p
+          v-if="isSaving"
+          class="text-xs text-white/40"
+        >
+          Saving…
+        </p>
+        <p
+          v-else-if="saveError"
+          class="text-xs text-red-400"
+        >
+          {{ saveError }}
+        </p>
+      </div>
+
+      <div
         v-if="showToolbar"
-        :size="focusedBlockSize"
-        :bold="focusedBlockBold"
-        @update:size="onToolbarSize"
-        @toggle-bold="onToolbarBold"
-      />
-
-      <NoteBlockList
-        ref="blockListRef"
-        :blocks="content"
-        :focused-block-index="focusedBlockIndex"
-        @update:blocks="onBlocksUpdate"
-        @focus-block="(index, listItemIndex) => setFocusedBlock(index, listItemIndex)"
-        @enter-after="onEnterAfter"
-        @backspace-empty="onBackspaceEmpty"
-      />
-
-      <p
-        v-if="isSaving"
-        class="text-xs text-white/40"
+        class="flex shrink-0 justify-center pb-6 pt-2"
       >
-        Saving…
-      </p>
-      <p
-        v-else-if="saveError"
-        class="text-xs text-red-400"
-      >
-        {{ saveError }}
-      </p>
+        <NoteFormatToolbar
+          :size="focusedBlockSize"
+          :bold="focusedBlockBold"
+          @update:size="onToolbarSize"
+          @toggle-bold="onToolbarBold"
+        />
+      </div>
     </div>
   </section>
 </template>
