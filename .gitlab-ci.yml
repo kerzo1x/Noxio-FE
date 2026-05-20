@@ -1,54 +1,15 @@
-stages:
-  - build
-  - deploy
-
-variables:
-  DOCKER_DRIVER: overlay2
-  DOCKER_TLS_CERTDIR: '/certs'
-  APP_NAME: 'noxio-fe'
-
-build:
-  image: docker:27
-  services:
-    - docker:27-dind
-  stage: build
-  before_script:
-    - echo "$CI_REGISTRY_PASSWORD" | docker login $CI_REGISTRY -u $CI_REGISTRY_USER --password-stdin
-  script:
-    - |
-      docker build \
-        --file docker/Dockerfile \
-        --tag $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA \
-        --tag $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG \
-        --tag $CI_REGISTRY_IMAGE:latest \
-        .
-    - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
-    - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG
-    - docker push $CI_REGISTRY_IMAGE:latest
-
-deploy:
-  image: alpine:3.20
-  stage: deploy
-  before_script:
-    - apk add --no-cache openssh-client rsync bash
-    - eval $(ssh-agent -s)
-    - chmod 600 "$DEPLOY_SSH_PRIVATE_KEY" || true
-    - ssh-add "$DEPLOY_SSH_PRIVATE_KEY"
-    - mkdir -p ~/.ssh && chmod 700 ~/.ssh
-    - ssh-keyscan -H "$DEPLOY_SERVER_IP" >> ~/.ssh/known_hosts
-  script:
-    - echo "APP_IMAGE=$CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG" > .env
-    - ssh "$DEPLOY_SERVER_USER@$DEPLOY_SERVER_IP" "mkdir -p ~/$APP_NAME/dev"
-    - rsync -avz docker/dev/docker-compose.yml "$DEPLOY_SERVER_USER@$DEPLOY_SERVER_IP:~/$APP_NAME/dev/"
-    - rsync -avz .env "$DEPLOY_SERVER_USER@$DEPLOY_SERVER_IP:~/$APP_NAME/dev/.env"
-    - |
-      ssh "$DEPLOY_SERVER_USER@$DEPLOY_SERVER_IP" /bin/bash << EOF
-        cd ~/$APP_NAME/dev
-        printf '%s' "$CI_REGISTRY_PASSWORD" | docker login "$CI_REGISTRY" -u "$CI_REGISTRY_USER" --password-stdin
-        docker compose pull
-        docker compose up -d
-      EOF
-  environment:
-    name: dev
+# The Docker image that will be used to build your app
+image: node:lts
+create-pages:
+  pages:
+    # The folder that contains the files to be exposed at the Page URL
+    publish: dist
   rules:
-    - if: $CI_COMMIT_BRANCH == "dev"
+    # This ensures that only pushes to the default branch will trigger
+    # a pages deploy
+    - if: $CI_COMMIT_REF_NAME == $CI_DEFAULT_BRANCH
+  # Functions that should be executed before the build script is run
+  before_script:
+    - npm install
+  script:
+    - npm run build
