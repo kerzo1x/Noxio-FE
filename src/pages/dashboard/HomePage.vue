@@ -1,17 +1,26 @@
 <script setup lang="ts">
-import { computed, onMounted, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import type { EdupageTimetableLesson } from '@/types/edupage'
 import { subjectAbbrev } from '@/utils/subjectAbbrev'
-import { useFoldersStore } from '@/stores/folders'
+import { useFoldersStore, type Folder } from '@/stores/folders'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useTimetableStore } from '@/stores/timetable'
+import EditFolderPopup from '@/components/dashboard/EditFolderPopup.vue'
+import DeleteFolderPopup from '@/components/dashboard/DeleteFolderPopup.vue'
+import FolderCardContextMenu from '@/components/dashboard/FolderCardContextMenu.vue'
 import bigFolder from '@/assets/img/big-folder.svg'
 
 const router = useRouter()
 const workspaceStore = useWorkspaceStore()
 const foldersStore = useFoldersStore()
 const timetableStore = useTimetableStore()
+
+const menuOpenFolderId = ref<string | null>(null)
+const folderToEdit = ref<Folder | null>(null)
+const folderToDelete = ref<Folder | null>(null)
+const showEditPopup = ref(false)
+const showDeletePopup = ref(false)
 
 interface TimetableSlotGroup {
   slotIndex: number
@@ -63,11 +72,15 @@ const timetableSlotGroups = computed(() =>
   buildSlotGroups(lessonsForLocalToday(timetableStore.lessons))
 )
 
-const recentFolders = computed(() =>
-  [...foldersStore.folders]
+const recentFolders = computed(() => {
+  const workspaceId = workspaceStore.activeWorkspace?.id
+  if (!workspaceId) return []
+
+  return [...foldersStore.folders]
+    .filter((f) => f.workspaceId === workspaceId)
     .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
     .slice(0, 4)
-)
+})
 
 function formatHm(d: Date): string {
   return d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', hour12: false })
@@ -105,6 +118,24 @@ function openFolderNotes(folderId: string) {
     name: 'DashboardFolderNotes',
     params: { folderId },
   })
+}
+
+function isMenuOpen(folderId: string) {
+  return menuOpenFolderId.value === folderId
+}
+
+function setMenuOpen(folderId: string, open: boolean) {
+  menuOpenFolderId.value = open ? folderId : null
+}
+
+function handleEdit(folder: Folder) {
+  folderToEdit.value = folder
+  showEditPopup.value = true
+}
+
+function handleDelete(folder: Folder) {
+  folderToDelete.value = folder
+  showDeletePopup.value = true
 }
 </script>
 
@@ -266,27 +297,12 @@ function openFolderNotes(folderId: string) {
                 {{ folder.noteCount }} files
               </p>
             </div>
-            <button
-              type="button"
-              class="mt-[13px] mr-[12px] flex h-[19.55px] w-[19.55px] cursor-pointer items-center justify-center rounded-full bg-black/30 text-white/70 transition-colors hover:bg-black/70 hover:text-white"
-              @click.stop
-              aria-label="Folder options"
-            >
-              <svg
-                width="10"
-                height="2"
-                viewBox="0 0 10 2"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-                class="h-[2px] w-[9px] shrink-0"
-                aria-hidden="true"
-              >
-                <path
-                  d="M0.975586 0C1.51409 0 1.95215 0.437733 1.95215 0.974609C1.95202 1.51219 1.51401 1.94922 0.975586 1.94922C0.438073 1.9491 0.000128872 1.51212 0 0.974609C0 0.437805 0.437994 0.000117336 0.975586 0ZM4.62305 0C5.16062 0.00014369 5.59863 0.437821 5.59863 0.974609C5.5985 1.5121 5.16054 1.94907 4.62305 1.94922C4.08462 1.94922 3.64661 1.51219 3.64648 0.974609C3.64648 0.437733 4.08454 0 4.62305 0ZM8.27344 0C8.81182 0.000151734 9.24902 0.437826 9.24902 0.974609C9.24889 1.5121 8.81174 1.94907 8.27344 1.94922C7.73583 1.94922 7.297 1.51219 7.29688 0.974609C7.29688 0.437733 7.73575 0 8.27344 0Z"
-                  fill="currentColor"
-                />
-              </svg>
-            </button>
+            <FolderCardContextMenu
+              :model-value="isMenuOpen(folder.id)"
+              @update:model-value="setMenuOpen(folder.id, $event)"
+              @edit="handleEdit(folder)"
+              @delete="handleDelete(folder)"
+            />
           </div>
         </div>
       </div>
@@ -295,5 +311,8 @@ function openFolderNotes(folderId: string) {
       class="pointer-events-none sticky bottom-0 z-1 h-[2px] w-full bg-black shadow-[0_-3px_10px_-1px_rgba(0,0,0,0.35)]"
       aria-hidden="true"
     />
+
+    <EditFolderPopup v-model="showEditPopup" :folder="folderToEdit" />
+    <DeleteFolderPopup v-model="showDeletePopup" :folder="folderToDelete" />
   </section>
 </template>

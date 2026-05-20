@@ -6,7 +6,10 @@ import { useWorkspaceStore } from '@/stores/workspace'
 import { storeToRefs } from 'pinia'
 import api from '@/api'
 import NotificationsPopup from '@/components/dashboard/NotificationsPopup.vue'
+import HeaderSearch from '@/components/dashboard/HeaderSearch.vue'
 import { useWorkspaceMembers } from '@/composables/useWorkspaceMembers'
+import { useWorkspaceSearch } from '@/composables/useWorkspaceSearch'
+import type { WorkspaceSearchResult } from '@/types/search'
 
 import defaultAvatar from '@/assets/img/user.svg'
 import bellIcon from '@/assets/img/bell.svg'
@@ -49,18 +52,34 @@ const userName = computed(() => {
 const avatarUrl = computed(() => user.value?.avatar || defaultAvatar)
 
 const headerSearchQuery = ref('')
+const isHeaderSearchFocused = ref(false)
 const isProfileMenuOpen = ref(false)
 const isNotificationsMenuOpen = ref(false)
 const isShareMenuOpen = ref(false)
 const notificationsMenuRef = ref<HTMLElement | null>(null)
 const shareMenuRef = ref<HTMLElement | null>(null)
 const profileMenuRef = ref<HTMLElement | null>(null)
+const headerSearchRef = ref<HTMLElement | null>(null)
 const isLoggingOut = ref(false)
 
 const sharedUsers = [1, 2, 3]
 
 const activeWorkspaceId = computed(
   () => workspaceStore.activeWorkspace?.id ?? null,
+)
+
+const {
+  results: searchResults,
+  isLoading: isSearchLoading,
+  error: searchError,
+  searchDebounced,
+  reset: resetHeaderSearch,
+  clearPending: clearHeaderSearchPending,
+} = useWorkspaceSearch(activeWorkspaceId)
+
+const isHeaderSearchDropdownVisible = computed(
+  () =>
+    isHeaderSearchFocused.value && headerSearchQuery.value.trim().length > 0,
 )
 const activeWorkspaceName = computed(
   () => workspaceStore.activeWorkspace?.name ?? '',
@@ -117,6 +136,69 @@ function closeShareMenu() {
   isShareMenuOpen.value = false
   resetMembersSearch()
 }
+
+function closeHeaderSearch() {
+  isHeaderSearchFocused.value = false
+  clearHeaderSearchPending()
+}
+
+function handleHeaderSearchFocus() {
+  closeProfileMenu()
+  closeNotificationsMenu()
+  closeShareMenu()
+  isHeaderSearchFocused.value = true
+  if (headerSearchQuery.value.trim()) {
+    searchDebounced(headerSearchQuery.value)
+  }
+}
+
+function handleHeaderSearchInput() {
+  searchDebounced(headerSearchQuery.value)
+}
+
+function handleSelectSearchResult(item: WorkspaceSearchResult) {
+  headerSearchQuery.value = ''
+  resetHeaderSearch()
+  closeHeaderSearch()
+
+  if (item.type === 'folder') {
+    router.push({
+      name: 'DashboardFolderNotes',
+      params: { folderId: item.id },
+    })
+    return
+  }
+
+  if (item.folderId) {
+    router.push({
+      name: 'DashboardFolderNotes',
+      params: { folderId: item.folderId, noteId: item.id },
+    })
+  }
+}
+
+function handleHeaderSearchPointerDown(event: PointerEvent) {
+  if (!isHeaderSearchFocused.value) return
+  const root = headerSearchRef.value
+  if (root?.contains(event.target as Node)) return
+  closeHeaderSearch()
+}
+
+watch(headerSearchQuery, (query) => {
+  if (!query.trim()) {
+    resetHeaderSearch()
+  }
+})
+
+watch(isHeaderSearchFocused, (isFocused) => {
+  if (isFocused) {
+    requestAnimationFrame(() => {
+      document.addEventListener('pointerdown', handleHeaderSearchPointerDown)
+    })
+    return
+  }
+  document.removeEventListener('pointerdown', handleHeaderSearchPointerDown)
+})
 
 function handleRefreshNotifications() {
   emit('refresh-notifications')
@@ -207,47 +289,48 @@ onUnmounted(() => {
   document.removeEventListener('pointerdown', handleNotificationsPointerDown)
   document.removeEventListener('pointerdown', handleSharePointerDown)
   document.removeEventListener('pointerdown', handleProfilePointerDown)
+  document.removeEventListener('pointerdown', handleHeaderSearchPointerDown)
+  clearHeaderSearchPending()
 })
 </script>
 
 <template>
   <header
-    class="relative z-20 grid h-16 shrink-0 grid-cols-[283px_minmax(0,1fr)_auto] items-center border-b border-panel-input-border/50 bg-panel-bg"
+    class="relative z-20 grid h-16 shrink-0 grid-cols-[283px_minmax(0,1fr)_auto] items-stretch overflow-visible border-b border-panel-input-border/50 bg-panel-bg"
     :class="{
-      'z-30': isNotificationsMenuOpen || isShareMenuOpen || isProfileMenuOpen,
+      'z-30':
+        isNotificationsMenuOpen ||
+        isShareMenuOpen ||
+        isProfileMenuOpen ||
+        isHeaderSearchDropdownVisible,
     }"
   >
     <!-- Sidebar column spacer -->
-    <div aria-hidden="true" />
+    <div class="h-full" aria-hidden="true" />
 
     <!-- Center: page search (separate from workspace members search in popup) -->
-    <div class="flex min-w-0 justify-start pl-[5.83vw]">
-      <div class="relative w-full max-w-[335px]">
-        <svg
-          class="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-panel-placeholder"
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          aria-hidden="true"
-        >
-          <circle cx="11" cy="11" r="8" />
-          <path d="m21 21-4.3-4.3" />
-        </svg>
-        <input
+    <div
+      class="flex h-full min-h-0 min-w-0 items-center justify-start overflow-visible pl-[5.83vw]"
+    >
+      <div
+        ref="headerSearchRef"
+        class="relative h-[37px] w-full max-w-[335px] shrink-0 overflow-visible"
+      >
+        <HeaderSearch
           v-model="headerSearchQuery"
-          type="text"
-          placeholder="Search items"
-          class="field-input mt-0! h-10 w-full py-0 pl-10 text-sm"
+          :expanded="isHeaderSearchDropdownVisible"
+          :results="searchResults"
+          :is-loading="isSearchLoading"
+          :error="searchError"
+          @focus="handleHeaderSearchFocus"
+          @input="handleHeaderSearchInput"
+          @select="handleSelectSearchResult"
         />
       </div>
     </div>
 
     <!-- Right: share, avatars, bell, profile — no overlapping layers -->
-    <div class="flex items-center gap-0 pr-[94px]">
+    <div class="flex h-full shrink-0 items-center gap-0 pr-[94px]">
       <div ref="shareMenuRef" class="relative mr-[27px]">
         <button
           type="button"

@@ -56,18 +56,18 @@ async function syncWorkspaceScopedData(workspaceId: string | null) {
   }
 
   await Promise.all([
-    foldersStore.loadedWorkspaceId !== workspaceId && !foldersStore.isLoading
-      ? foldersStore.fetchFolders(workspaceId)
-      : Promise.resolve(),
-    todoListsStore.loadedWorkspaceId !== workspaceId && !todoListsStore.isLoading
-      ? todoListsStore.fetchTodoLists(workspaceId)
-      : Promise.resolve()
+    foldersStore.fetchFolders(workspaceId),
+    todoListsStore.fetchTodoLists(workspaceId),
   ])
 }
 
 watch(
   () => workspaceStore.activeWorkspace?.id ?? null,
-  async (workspaceId) => {
+  async (workspaceId, previousWorkspaceId) => {
+    if (workspaceId !== previousWorkspaceId) {
+      foldersStore.reset()
+      todoListsStore.reset()
+    }
     await syncWorkspaceScopedData(workspaceId)
     await fetchNotifications(workspaceId)
   },
