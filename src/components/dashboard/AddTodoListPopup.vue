@@ -1,22 +1,22 @@
 <script setup lang="ts">
-import {
-  computed,
-  ref,
-  watch,
-  onMounted,
-  onUnmounted,
-  nextTick
-} from 'vue'
+import { computed, ref, watch, onMounted, onUnmounted } from 'vue'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useTodoListsStore } from '@/stores/todoLists'
-import BaseButton from '@/components/ui/buttons/BaseButton.vue'
 
 const open = defineModel<boolean>({ default: false })
 
 const workspaceStore = useWorkspaceStore()
 const todoListsStore = useTodoListsStore()
 
-const DEFAULT_HEX = '#E89623'
+const PRESET_COLORS = [
+  '#E89623',
+  '#AD2222',
+  '#E85102',
+  '#23A0E8',
+  '#F900FD'
+] as const
+
+const DEFAULT_HEX = PRESET_COLORS[0]
 
 function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
   const h = hex.replace('#', '').trim()
@@ -125,9 +125,20 @@ function clamp(n: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, n))
 }
 
+function normalizeHex(hex: string): string {
+  const h = hex.trim().replace(/^#/, '')
+  if (!/^[0-9A-Fa-f]{6}$/.test(h)) return DEFAULT_HEX
+  return `#${h.toUpperCase()}`
+}
+
+function isPresetColor(hex: string): boolean {
+  const normalized = normalizeHex(hex)
+  return PRESET_COLORS.some((preset) => normalizeHex(preset) === normalized)
+}
+
 const name = ref('')
 const description = ref('')
-const colorHex = ref(DEFAULT_HEX)
+const colorHex = ref<string>(DEFAULT_HEX)
 
 const isSubmitting = ref(false)
 const isError = ref(false)
@@ -138,7 +149,8 @@ const pickHue = ref(0)
 const pickSat = ref(1)
 const pickVal = ref(1)
 
-const colorFieldRef = ref<HTMLElement | null>(null)
+const pickerPanelRef = ref<HTMLElement | null>(null)
+const customSwatchRef = ref<HTMLElement | null>(null)
 const svPanelRef = ref<HTMLElement | null>(null)
 const hueTrackRef = ref<HTMLElement | null>(null)
 
@@ -174,21 +186,19 @@ function syncInputFieldsFromHex() {
   bField.value = String(rgb.b)
 }
 
-const rgbParts = computed(() => {
-  const hex = colorHex.value.replace('#', '')
-  if (hex.length !== 6) {
-    return { r: 0, g: 0, b: 0 }
-  }
-  const r = Number.parseInt(hex.slice(0, 2), 16)
-  const g = Number.parseInt(hex.slice(2, 4), 16)
-  const b = Number.parseInt(hex.slice(4, 6), 16)
-  if ([r, g, b].some((n) => Number.isNaN(n))) {
-    return { r: 0, g: 0, b: 0 }
-  }
-  return { r, g, b }
-})
-
 const displayHex = computed(() => colorHex.value.toUpperCase())
+
+const previewColorStyle = computed(() => ({
+  backgroundColor: displayHex.value
+}))
+
+const isCustomColorActive = computed(
+  () => pickerOpen.value || !isPresetColor(colorHex.value)
+)
+
+const customSwatchStyle = computed(() => ({
+  backgroundColor: isCustomColorActive.value ? displayHex.value : '#000000'
+}))
 
 const svThumbStyle = computed(() => ({
   left: `${pickSat.value * 100}%`,
@@ -200,6 +210,19 @@ const hueThumbStyle = computed(() => ({
   left: `${(pickHue.value / 360) * 100}%`,
   backgroundColor: `hsl(${pickHue.value}, 100%, 50%)`
 }))
+
+function isPresetSelected(preset: string): boolean {
+  return (
+    isPresetColor(colorHex.value) &&
+    normalizeHex(colorHex.value) === normalizeHex(preset)
+  )
+}
+
+function selectPreset(hex: string) {
+  colorHex.value = normalizeHex(hex)
+  pickerOpen.value = false
+  syncHsvFromHex(colorHex.value)
+}
 
 const resetForm = () => {
   name.value = ''
@@ -235,8 +258,10 @@ const onKeydown = (e: KeyboardEvent) => {
 }
 
 function onDocumentPointerDown(e: PointerEvent) {
-  if (!pickerOpen.value || !colorFieldRef.value) return
-  if (colorFieldRef.value.contains(e.target as Node)) return
+  if (!pickerOpen.value) return
+  const target = e.target as Node
+  if (pickerPanelRef.value?.contains(target)) return
+  if (customSwatchRef.value?.contains(target)) return
   pickerOpen.value = false
 }
 
@@ -244,10 +269,8 @@ function setSvFromClient(clientX: number, clientY: number) {
   const el = svPanelRef.value
   if (!el) return
   const rect = el.getBoundingClientRect()
-  const s = clamp((clientX - rect.left) / rect.width, 0, 1)
-  const v = clamp(1 - (clientY - rect.top) / rect.height, 0, 1)
-  pickSat.value = s
-  pickVal.value = v
+  pickSat.value = clamp((clientX - rect.left) / rect.width, 0, 1)
+  pickVal.value = clamp(1 - (clientY - rect.top) / rect.height, 0, 1)
   applyHsvToHex()
 }
 
@@ -311,7 +334,7 @@ function onHuePointerUp(e: PointerEvent) {
   }
 }
 
-async function togglePicker() {
+function togglePicker() {
   if (pickerOpen.value) {
     pickerOpen.value = false
     return
@@ -319,7 +342,6 @@ async function togglePicker() {
   syncHsvFromHex(colorHex.value)
   syncInputFieldsFromHex()
   pickerOpen.value = true
-  await nextTick()
 }
 
 function parseHexInput(raw: string): boolean {
@@ -348,6 +370,23 @@ function onRgbFieldCommit() {
   colorHex.value = rgbToHex(r, g, b)
   syncHsvFromHex(colorHex.value)
   syncInputFieldsFromHex()
+}
+
+async function pickWithEyedropper() {
+  if (!('EyeDropper' in window)) return
+  try {
+    const dropper = new (
+      window as Window & { EyeDropper: new () => { open: () => Promise<{ sRGBHex: string }> } }
+    ).EyeDropper()
+    const result = await dropper.open()
+    if (result?.sRGBHex) {
+      colorHex.value = normalizeHex(result.sRGBHex)
+      syncHsvFromHex(colorHex.value)
+      syncInputFieldsFromHex()
+    }
+  } catch {
+    /* cancelled */
+  }
 }
 
 onMounted(() => {
@@ -400,157 +439,191 @@ const handleSubmit = async () => {
   <Teleport to="body">
     <div
       v-if="open"
-      class="add-todo-list-popup-overlay"
+      class="todo-list-popup-overlay"
       role="dialog"
       aria-modal="true"
       aria-labelledby="add-todo-list-popup-title"
     >
       <div
-        class="add-todo-list-popup-backdrop"
+        class="todo-list-popup-backdrop"
         aria-hidden="true"
         @click="close"
       />
-      <div class="add-todo-list-popup-card" @click.stop>
-        <form class="add-todo-list-popup-form" @submit.prevent="handleSubmit">
-          <h2 id="add-todo-list-popup-title" class="sr-only">New to do list</h2>
 
-          <input
-            v-model="name"
-            type="text"
-            name="todo-list-name"
-            placeholder="To do list name"
-            class="popup-input"
-            :class="{ 'popup-input-error': isError }"
-            autocomplete="off"
-            @input="clearError"
-          />
-
-          <textarea
-            v-model="description"
-            name="todo-list-description"
-            placeholder="Desctription"
-            class="popup-description"
-          />
-
-          <div ref="colorFieldRef" class="color-field-wrap">
-            <div
-              v-show="pickerOpen"
-              class="color-popover"
-              role="dialog"
-              aria-label="Color picker"
-              @click.stop
-            >
-              <div class="color-popover-inner">
-                <div
-                  ref="svPanelRef"
-                  class="sv-panel"
-                  :style="{ '--hue': pickHue }"
-                  @pointerdown="onSvPointerDown"
-                  @pointermove="onSvPointerMove"
-                  @pointerup="onSvPointerUp"
-                  @pointercancel="onSvPointerUp"
-                >
-                  <div class="sv-thumb-ring" :style="svThumbStyle">
-                    <span class="sv-thumb-dot" />
-                  </div>
-                </div>
-
-                <div
-                  ref="hueTrackRef"
-                  class="hue-track"
-                  @pointerdown="onHuePointerDown"
-                  @pointermove="onHuePointerMove"
-                  @pointerup="onHuePointerUp"
-                  @pointercancel="onHuePointerUp"
-                >
-                  <div class="hue-thumb-ring" :style="hueThumbStyle">
-                    <span class="hue-thumb-dot" />
-                  </div>
-                </div>
-
-                <div class="color-inputs-grid">
-                  <label class="color-input-label">
-                    <span class="color-input-caption">Hex</span>
-                    <input
-                      v-model="hexField"
-                      type="text"
-                      class="color-value-input color-value-input-hex"
-                      maxlength="7"
-                      spellcheck="false"
-                      @change="onHexFieldChange"
-                    />
-                  </label>
-                  <label class="color-input-label">
-                    <span class="color-input-caption">R</span>
-                    <input
-                      v-model="rField"
-                      type="text"
-                      inputmode="numeric"
-                      class="color-value-input"
-                      maxlength="3"
-                      @change="onRgbFieldCommit"
-                    />
-                  </label>
-                  <label class="color-input-label">
-                    <span class="color-input-caption">G</span>
-                    <input
-                      v-model="gField"
-                      type="text"
-                      inputmode="numeric"
-                      class="color-value-input"
-                      maxlength="3"
-                      @change="onRgbFieldCommit"
-                    />
-                  </label>
-                  <label class="color-input-label">
-                    <span class="color-input-caption">B</span>
-                    <input
-                      v-model="bField"
-                      type="text"
-                      inputmode="numeric"
-                      class="color-value-input"
-                      maxlength="3"
-                      @change="onRgbFieldCommit"
-                    />
-                  </label>
-                </div>
-              </div>
-              <div class="color-popover-arrow" aria-hidden="true" />
+      <div class="todo-list-popup-card" @click.stop>
+        <form class="todo-list-popup-form" @submit.prevent="handleSubmit">
+          <div class="todo-list-popup-body">
+            <div class="todo-list-popup-header">
+              <h2 id="add-todo-list-popup-title" class="todo-list-popup-title">
+                Create to do list
+              </h2>
+              <button
+                type="button"
+                class="todo-list-popup-cancel"
+                @click="close"
+              >
+                cancel
+              </button>
             </div>
 
-            <button
-              type="button"
-              class="color-row"
-              :class="{ 'color-row-active': pickerOpen }"
-              aria-label="Open color picker"
-              :aria-expanded="pickerOpen"
-              @click.stop="togglePicker"
-            >
-              <span
-                class="color-swatch"
-                :style="{ backgroundColor: displayHex }"
-                aria-hidden="true"
+            <div class="todo-list-popup-fields">
+              <input
+                v-model="name"
+                type="text"
+                name="todo-list-name"
+                placeholder="To do list name"
+                class="todo-list-popup-field"
+                :class="{ 'todo-list-popup-field--error': isError }"
+                autocomplete="off"
+                @input="clearError"
               />
-              <span class="color-row-values">
-                <span class="color-hex">{{ displayHex }}</span>
-                <span class="color-rgb">
-                  <span>R {{ rgbParts.r }}</span>
-                  <span>G {{ rgbParts.g }}</span>
-                  <span>B {{ rgbParts.b }}</span>
-                </span>
-              </span>
-            </button>
+
+              <textarea
+                v-model="description"
+                name="todo-list-description"
+                placeholder="desctription"
+                class="todo-list-popup-field todo-list-popup-field--textarea"
+              />
+            </div>
+
+            <div class="todo-list-popup-swatches">
+              <button
+                v-for="preset in PRESET_COLORS"
+                :key="preset"
+                type="button"
+                class="todo-list-popup-swatch"
+                :class="{
+                  'todo-list-popup-swatch--selected': isPresetSelected(preset)
+                }"
+                :style="{ backgroundColor: preset }"
+                :aria-label="`Select color ${preset}`"
+                :aria-pressed="isPresetSelected(preset)"
+                @click="selectPreset(preset)"
+              />
+
+              <button
+                ref="customSwatchRef"
+                type="button"
+                class="todo-list-popup-swatch todo-list-popup-swatch--custom"
+                :class="{
+                  'todo-list-popup-swatch--selected': isCustomColorActive
+                }"
+                :style="customSwatchStyle"
+                aria-label="Open color picker"
+                :aria-expanded="pickerOpen"
+                @click.stop="togglePicker"
+              />
+            </div>
           </div>
 
-          <div class="popup-button-wrap">
-            <base-button
-              class="popup-create-button"
-              :is-loading="isSubmitting"
-              text="Create folder"
-            />
+          <div class="todo-list-popup-footer">
+            <button
+              type="submit"
+              class="todo-list-popup-submit"
+              :disabled="isSubmitting || !name.trim()"
+            >
+              {{ isSubmitting ? 'Loading...' : 'Create to do list' }}
+            </button>
+            <p v-if="message" class="todo-list-popup-error">{{ message }}</p>
           </div>
-          <p v-if="message" class="add-todo-list-popup-error">{{ message }}</p>
         </form>
+
+        <div
+          v-show="pickerOpen"
+          ref="pickerPanelRef"
+          class="color-picker-panel"
+          role="dialog"
+          aria-label="Color picker"
+          @click.stop
+        >
+          <div
+            ref="svPanelRef"
+            class="color-picker-sv"
+            :style="{ '--hue': pickHue }"
+            @pointerdown="onSvPointerDown"
+            @pointermove="onSvPointerMove"
+            @pointerup="onSvPointerUp"
+            @pointercancel="onSvPointerUp"
+          >
+            <div class="color-picker-sv-thumb" :style="svThumbStyle">
+              <span class="color-picker-sv-thumb-ring" />
+            </div>
+          </div>
+
+          <div class="color-picker-controls">
+            <button
+              type="button"
+              class="color-picker-preview"
+              aria-label="Pick color from screen"
+              @click="pickWithEyedropper"
+            >
+              <span class="color-picker-preview-fill" :style="previewColorStyle" />
+            </button>
+
+            <div class="color-picker-sliders">
+              <div
+                ref="hueTrackRef"
+                class="color-picker-slider color-picker-slider--hue"
+                @pointerdown="onHuePointerDown"
+                @pointermove="onHuePointerMove"
+                @pointerup="onHuePointerUp"
+                @pointercancel="onHuePointerUp"
+              >
+                <div class="color-picker-slider-thumb" :style="hueThumbStyle" />
+              </div>
+            </div>
+          </div>
+
+          <div class="color-picker-inputs">
+            <label class="color-picker-field color-picker-field--hex">
+              <span class="color-picker-field-label">HEX</span>
+              <input
+                v-model="hexField"
+                type="text"
+                class="color-picker-field-input"
+                maxlength="7"
+                spellcheck="false"
+                @change="onHexFieldChange"
+              />
+            </label>
+
+            <div class="color-picker-rgb">
+              <label class="color-picker-field">
+                <span class="color-picker-field-label">R</span>
+                <input
+                  v-model="rField"
+                  type="text"
+                  inputmode="numeric"
+                  class="color-picker-field-input"
+                  maxlength="3"
+                  @change="onRgbFieldCommit"
+                />
+              </label>
+              <label class="color-picker-field">
+                <span class="color-picker-field-label">G</span>
+                <input
+                  v-model="gField"
+                  type="text"
+                  inputmode="numeric"
+                  class="color-picker-field-input"
+                  maxlength="3"
+                  @change="onRgbFieldCommit"
+                />
+              </label>
+              <label class="color-picker-field">
+                <span class="color-picker-field-label">B</span>
+                <input
+                  v-model="bField"
+                  type="text"
+                  inputmode="numeric"
+                  class="color-picker-field-input color-picker-field-input--last"
+                  maxlength="3"
+                  @change="onRgbFieldCommit"
+                />
+              </label>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </Teleport>
@@ -559,92 +632,114 @@ const handleSubmit = async () => {
 <style scoped>
 @reference '@/assets/styles/main.css';
 
-.add-todo-list-popup-overlay {
-  @apply fixed inset-0 z-100 flex items-center justify-center p-6;
+/* Figma 1727:6065 popup, 1727:6066 placement, 1727:6294 picker */
+.todo-list-popup-overlay {
+  @apply fixed inset-0 z-100 flex items-center justify-center p-4;
 }
 
-.add-todo-list-popup-backdrop {
+.todo-list-popup-backdrop {
   @apply absolute inset-0 bg-black/60 backdrop-blur-sm;
 }
 
-.add-todo-list-popup-card {
-  @apply relative z-1 box-border flex w-[578px] max-w-[calc(100vw-3rem)] flex-col overflow-visible rounded-[22px] border border-white/10 shadow-2xl;
-  min-height: 587px;
-  background-color: #1a1a1a;
+.todo-list-popup-card {
+  @apply relative z-1 box-border w-full max-w-2xl shrink-0 overflow-visible rounded-xl border-2 border-neutral-900 bg-black px-18 pb-10 pt-9.5;
 }
 
-.add-todo-list-popup-form {
-  @apply flex w-full flex-1 flex-col items-center overflow-visible px-[19.5px] pb-10 pt-[64px];
+.todo-list-popup-form {
+  @apply flex w-full flex-col gap-20;
 }
 
-.popup-input {
-  @apply h-[52px] w-[539px] max-w-full rounded-[10px] border border-white/10 px-[20px] text-[16px] font-semibold text-white placeholder:text-[#7D7D7D] focus:outline-none;
-  background-color: #262626;
+.todo-list-popup-body {
+  @apply flex w-full flex-col gap-11;
 }
 
-.popup-input-error {
-  @apply border-red-500;
+.todo-list-popup-header {
+  @apply flex w-full items-center justify-between gap-4;
 }
 
-.popup-description {
-  @apply mt-[28px] h-[205px] w-[539px] max-w-full resize-none rounded-[10px] border border-white/10 px-[20px] py-[17px] text-[16px] font-semibold text-white placeholder:text-[#7D7D7D] focus:outline-none;
-  background-color: #262626;
+.todo-list-popup-title {
+  @apply text-base font-medium leading-none tracking-wide text-white;
 }
 
-.color-field-wrap {
-  @apply relative z-20 mt-[28px] w-[539px] max-w-full;
+.todo-list-popup-cancel {
+  @apply shrink-0 text-sm font-medium leading-none tracking-wide text-white/50 transition-colors hover:text-white;
 }
 
-.color-popover {
-  @apply absolute left-1/2 z-30 w-[min(100%,320px)] min-w-[260px] -translate-x-1/2;
-  bottom: calc(100% + 14px);
-  filter: drop-shadow(0 8px 24px rgba(0, 0, 0, 0.35));
+.todo-list-popup-fields {
+  @apply flex w-full flex-col gap-5;
 }
 
-.color-popover-inner {
-  @apply rounded-[14px] border border-black/10 bg-white;
-  padding: 16px;
+.todo-list-popup-field {
+  @apply box-border w-full rounded-xl border-0 bg-neutral-800 px-6 text-sm font-medium leading-normal tracking-tight text-white outline-none transition-shadow placeholder:text-white/50 focus:ring-1 focus:ring-white/20;
+  @apply h-13 py-0;
 }
 
-.color-popover-arrow {
-  @apply pointer-events-none absolute left-1/2 -translate-x-1/2;
-  bottom: -9px;
-  width: 18px;
-  height: 9px;
-  overflow: hidden;
+.todo-list-popup-field--textarea {
+  @apply h-33 min-h-0 resize-none py-4;
 }
 
-.color-popover-arrow::before {
-  content: '';
-  @apply absolute left-1/2 block -translate-x-1/2;
-  bottom: 2px;
-  width: 14px;
-  height: 14px;
-  transform: translateX(-50%) rotate(45deg);
-  border-right: 1px solid rgb(0 0 0 / 0.1);
-  border-bottom: 1px solid rgb(0 0 0 / 0.1);
-  background-color: #fff;
+.todo-list-popup-field--error {
+  @apply ring-2 ring-red-500;
 }
 
-.sv-panel {
-  @apply relative mb-3 h-[168px] w-full cursor-pointer select-none overflow-hidden rounded-[10px] touch-none;
+.todo-list-popup-swatches {
+  @apply flex flex-wrap items-center gap-2;
+}
+
+.todo-list-popup-swatch {
+  @apply size-12 shrink-0 cursor-pointer rounded-[6px] border-0 transition-shadow focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40;
+}
+
+.todo-list-popup-swatch--selected {
+  @apply ring-2 ring-white ring-offset-2 ring-offset-black;
+}
+
+.todo-list-popup-swatch--custom {
+  @apply border border-[#373737];
+}
+
+.color-picker-panel {
+  @apply absolute left-[349px] top-[89px] z-30 flex w-[189px] flex-col items-center gap-2 rounded-[4px] bg-[#1c1b1b] p-2;
+  box-shadow: 0 0 12.5px rgba(0, 0, 0, 0.12);
+}
+
+.color-picker-sv {
+  @apply relative size-[174px] shrink-0 cursor-pointer touch-none overflow-hidden rounded-[4px];
   background-color: hsl(calc(var(--hue) * 1deg), 100%, 50%);
   background-image:
     linear-gradient(to top, #000, transparent),
     linear-gradient(to right, #fff, rgb(255 255 255 / 0));
 }
 
-.sv-thumb-ring {
-  @apply pointer-events-none absolute z-10 h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow-[0_1px_3px_rgba(0,0,0,0.35)];
+.color-picker-sv-thumb {
+  @apply pointer-events-none absolute z-10 size-2.5 -translate-x-1/2 -translate-y-1/2;
 }
 
-.sv-thumb-dot {
-  @apply absolute left-1/2 top-1/2 block h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border border-black/15;
-  background-color: inherit;
+.color-picker-sv-thumb-ring {
+  @apply absolute inset-0 rounded-full border-2 border-white shadow-[0_0_0_1px_rgba(0,0,0,0.25)];
 }
 
-.hue-track {
-  @apply relative mb-4 h-3.5 w-full cursor-pointer select-none rounded-full touch-none;
+.color-picker-controls {
+  @apply flex w-[173px] shrink-0 items-center justify-between;
+}
+
+.color-picker-preview {
+  @apply relative size-7 shrink-0 cursor-pointer overflow-hidden rounded-[4px] border-0 p-0;
+}
+
+.color-picker-preview-fill {
+  @apply absolute inset-0 block rounded-[4px];
+}
+
+.color-picker-sliders {
+  @apply flex h-7 w-[138px] items-center;
+}
+
+.color-picker-slider {
+  @apply relative h-2.5 w-full shrink-0 cursor-pointer touch-none rounded-full;
+}
+
+.color-picker-slider--hue {
   background: linear-gradient(
     to right,
     #f00 0%,
@@ -657,69 +752,59 @@ const handleSubmit = async () => {
   );
 }
 
-.hue-thumb-ring {
-  @apply pointer-events-none absolute top-1/2 z-10 h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow-[0_1px_3px_rgba(0,0,0,0.35)];
+.color-picker-slider-thumb {
+  @apply pointer-events-none absolute top-1/2 z-10 size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow-[0_0_0_1px_rgba(0,0,0,0.2)];
 }
 
-.hue-thumb-dot {
-  @apply absolute left-1/2 top-1/2 block h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border border-black/15;
-  background-color: inherit;
+.color-picker-inputs {
+  @apply flex w-full shrink-0 items-center justify-center gap-2;
 }
 
-.color-inputs-grid {
-  @apply grid grid-cols-[1fr_minmax(0,0.32fr)_minmax(0,0.32fr)_minmax(0,0.32fr)] gap-2;
-}
-
-.color-input-label {
+.color-picker-field {
   @apply flex min-w-0 flex-col gap-1;
 }
 
-.color-input-caption {
-  @apply text-[11px] font-bold leading-none text-black;
+.color-picker-field--hex {
+  @apply w-[59px];
 }
 
-.color-value-input {
-  @apply h-9 w-full rounded-lg border border-black/15 bg-white px-1.5 text-center text-[13px] font-semibold text-black focus:border-black/30 focus:outline-none;
+.color-picker-rgb {
+  @apply flex gap-px;
 }
 
-.color-value-input-hex {
-  @apply px-2 text-left tracking-wide;
+.color-picker-rgb .color-picker-field {
+  @apply w-[35px];
 }
 
-.color-row {
-  @apply flex h-[83px] w-full cursor-pointer items-center gap-4 rounded-[10px] border border-white/10 px-[64px] text-left transition-colors hover:border-white/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/30;
-  background-color: #262626;
+.color-picker-field-label {
+  @apply text-[8px] font-medium leading-none text-[#fafafa];
 }
 
-.color-row-active {
-  @apply border-white/25 ring-1 ring-white/20;
+.color-picker-field-input {
+  @apply box-border w-full rounded-[4px] border-0 bg-[#454545] px-2 py-1 text-[10px] font-normal leading-5 tracking-wide text-[#fafafa] outline-none focus:ring-1 focus:ring-white/20;
 }
 
-.color-swatch {
-  @apply h-10 w-10 shrink-0 rounded-[8px] border border-white/10;
+.color-picker-rgb .color-picker-field:first-child .color-picker-field-input {
+  @apply rounded-l-[4px] rounded-r-none;
 }
 
-.color-row-values {
-  @apply flex min-w-0 flex-1 flex-row items-center justify-between gap-4;
+.color-picker-rgb .color-picker-field:nth-child(2) .color-picker-field-input {
+  @apply rounded-none;
 }
 
-.color-hex {
-  @apply text-[16px] font-semibold tracking-wide text-white;
+.color-picker-field-input--last {
+  @apply rounded-l-none rounded-r-[4px];
 }
 
-.color-rgb {
-  @apply flex flex-wrap gap-x-6 gap-y-1 text-[16px] font-semibold text-white;
+.todo-list-popup-footer {
+  @apply flex w-full flex-col gap-3;
 }
 
-.popup-button-wrap {
-  @apply mt-[40px] w-[460px] max-w-full;
+.todo-list-popup-submit {
+  @apply flex w-full items-center justify-center rounded-xl bg-white px-3 py-4 text-base font-medium leading-none tracking-wide text-black transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40;
 }
 
-.popup-create-button {
-  @apply h-[56px]! w-full! rounded-[14px]! text-[16px]! font-semibold! leading-[100%]!;
-}
-
-.add-todo-list-popup-error {
-  @apply mt-3 text-sm font-medium text-red-400;
+.todo-list-popup-error {
+  @apply text-center text-sm font-medium text-red-400;
 }
 </style>
