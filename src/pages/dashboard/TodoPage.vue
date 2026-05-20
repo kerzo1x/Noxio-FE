@@ -2,8 +2,10 @@
 import { ref } from 'vue'
 import BaseButton from '@/components/ui/buttons/BaseButton.vue'
 import AddTodoListPopup from '@/components/dashboard/AddTodoListPopup.vue'
+import DeleteTodoListPopup from '@/components/dashboard/DeleteTodoListPopup.vue'
+import EditTodoListPopup from '@/components/dashboard/EditTodoListPopup.vue'
+import FolderCardContextMenu from '@/components/dashboard/FolderCardContextMenu.vue'
 import toDoFolder from '@/assets/img/ToDoFolder.svg'
-import dotsIcon from '@/assets/img/dots.svg'
 import { useTodoListsStore, type TodoList } from '@/stores/todoLists'
 
 interface TodoListWithTasksCount extends TodoList {
@@ -12,6 +14,29 @@ interface TodoListWithTasksCount extends TodoList {
 
 const todoListsStore = useTodoListsStore()
 const showAddTodoListPopup = ref(false)
+const showEditPopup = ref(false)
+const showDeletePopup = ref(false)
+const todoListToEdit = ref<TodoList | null>(null)
+const todoListToDelete = ref<TodoList | null>(null)
+const menuOpenTodoListId = ref<string | null>(null)
+
+function handleEdit(todoList: TodoList) {
+  todoListToEdit.value = todoList
+  showEditPopup.value = true
+}
+
+function handleDelete(todoList: TodoList) {
+  todoListToDelete.value = todoList
+  showDeletePopup.value = true
+}
+
+function isMenuOpen(todoListId: string) {
+  return menuOpenTodoListId.value === todoListId
+}
+
+function setMenuOpen(todoListId: string, open: boolean) {
+  menuOpenTodoListId.value = open ? todoListId : null
+}
 
 const getTasksLabel = (todoList: TodoList): string | null => {
   const tasksCount = (todoList as TodoListWithTasksCount).tasksCount
@@ -89,13 +114,13 @@ const getCardAccentStyle = (color: string | null) => {
                 {{ getTasksLabel(todoList) }}
               </p>
             </div>
-            <button
-              type="button"
-              class="mr-[12px] mt-[19px] flex h-[19.55px] w-[19.55px] cursor-pointer items-center justify-center rounded-full bg-black/30 text-white/70 transition-colors hover:bg-black/70 hover:text-white"
-              @click.stop
-            >
-              <img :src="dotsIcon" alt="" class="h-[2px] w-[9px]" />
-            </button>
+            <FolderCardContextMenu
+              class="!mt-[19px]"
+              :model-value="isMenuOpen(todoList.id)"
+              @update:model-value="setMenuOpen(todoList.id, $event)"
+              @edit="handleEdit(todoList)"
+              @delete="handleDelete(todoList)"
+            />
           </div>
         </div>
       </div>
@@ -107,5 +132,7 @@ const getCardAccentStyle = (color: string | null) => {
     />
 
     <AddTodoListPopup v-model="showAddTodoListPopup" />
+    <EditTodoListPopup v-model="showEditPopup" :todo-list="todoListToEdit" />
+    <DeleteTodoListPopup v-model="showDeletePopup" :todo-list="todoListToDelete" />
   </section>
 </template>
