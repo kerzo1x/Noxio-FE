@@ -310,7 +310,7 @@ onUnmounted(() => {
 
     <!-- Center: page search (separate from workspace members search in popup) -->
     <div
-      class="flex h-full min-h-0 min-w-0 items-center justify-start overflow-visible pl-[5.83vw]"
+      class="flex h-full min-h-0 min-w-0 items-center justify-center overflow-visible pl-[5.83vw]"
     >
       <div
         ref="headerSearchRef"

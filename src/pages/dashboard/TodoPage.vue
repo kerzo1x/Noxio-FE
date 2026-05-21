@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useRouter } from 'vue-router'
 import BaseButton from '@/components/ui/buttons/BaseButton.vue'
 import AddTodoListPopup from '@/components/dashboard/AddTodoListPopup.vue'
 import DeleteTodoListPopup from '@/components/dashboard/DeleteTodoListPopup.vue'
@@ -12,8 +13,16 @@ interface TodoListWithTasksCount extends TodoList {
   tasksCount?: number | null
 }
 
+const router = useRouter()
 const todoListsStore = useTodoListsStore()
 const showAddTodoListPopup = ref(false)
+
+function openTodoList(todoListId: string) {
+  router.push({
+    name: 'DashboardTodoList',
+    params: { todoListId },
+  })
+}
 const showEditPopup = ref(false)
 const showDeletePopup = ref(false)
 const todoListToEdit = ref<TodoList | null>(null)
@@ -98,7 +107,11 @@ const getCardAccentStyle = (color: string | null) => {
         <div
           v-for="todoList in todoListsStore.todoLists"
           :key="todoList.id"
+          role="button"
+          tabindex="0"
           class="relative h-[163px] w-[202px] cursor-pointer transition-transform duration-200 hover:scale-[1.02]"
+          @click="openTodoList(todoList.id)"
+          @keydown.enter="openTodoList(todoList.id)"
         >
           <div class="relative h-full w-full overflow-hidden">
             <img :src="toDoFolder" :alt="todoList.name" class="absolute inset-0 h-full w-full" />
@@ -117,6 +130,7 @@ const getCardAccentStyle = (color: string | null) => {
             <FolderCardContextMenu
               class="!mt-[19px]"
               :model-value="isMenuOpen(todoList.id)"
+              @click.stop
               @update:model-value="setMenuOpen(todoList.id, $event)"
               @edit="handleEdit(todoList)"
               @delete="handleDelete(todoList)"
