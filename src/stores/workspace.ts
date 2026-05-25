@@ -1,19 +1,19 @@
 import { defineStore } from 'pinia'
-import api from '@/api'
+import {
+  createInvitation as createInvitationApi,
+  createWorkspace as createWorkspaceApi,
+  listWorkspaces,
+  type Workspace,
+} from '@/api/workspaces'
 import type { WorkspaceMemberRole } from '@/composables/useWorkspaceMembers'
+import { useFoldersStore } from '@/stores/folders'
+import { useNotificationsStore } from '@/stores/notifications'
+import { useNotesStore } from '@/stores/notes'
+import { useTodoListsStore } from '@/stores/todoLists'
 
-/** Полный снимок для восстановления после логина / рефреша */
+export type { Workspace }
+
 const ACTIVE_WORKSPACE_LS_KEY = 'notion_fe_active_workspace'
-
-interface Workspace {
-  id: string
-  name: string
-  ownerId: string
-  role: string
-  memberCount: number
-  createdAt: string
-  updatedAt: string
-}
 
 function readCachedWorkspaceMeta(): { id: string; name: string } | null {
   try {
@@ -23,7 +23,7 @@ function readCachedWorkspaceMeta(): { id: string; name: string } | null {
       if (typeof p?.id === 'string' && p.id) {
         return {
           id: p.id,
-          name: typeof p.name === 'string' ? p.name : ''
+          name: typeof p.name === 'string' ? p.name : '',
         }
       }
     }
@@ -41,7 +41,7 @@ function stubWorkspace(meta: { id: string; name: string }): Workspace {
     role: '',
     memberCount: 0,
     createdAt: '',
-    updatedAt: ''
+    updatedAt: '',
   }
 }
 
@@ -49,7 +49,7 @@ function persistActiveWorkspace(workspace: Workspace) {
   try {
     localStorage.setItem(
       ACTIVE_WORKSPACE_LS_KEY,
-      JSON.stringify({ id: workspace.id, name: workspace.name })
+      JSON.stringify({ id: workspace.id, name: workspace.name }),
     )
   } catch {
     /* ignore */
@@ -64,12 +64,15 @@ function clearActiveWorkspaceStorage() {
   }
 }
 
+export type WorkspaceLoadScope = 'dashboard'
+
 export const useWorkspaceStore = defineStore('workspace', {
   state: () => ({
     workspaces: [] as Workspace[],
     activeWorkspace: null as Workspace | null,
     isLoading: false,
-    showCreateWorkspacePopup: false
+    showCreateWorkspacePopup: false,
+    workspacesLoaded: false,
   }),
 
   actions: {
@@ -80,22 +83,27 @@ export const useWorkspaceStore = defineStore('workspace', {
     closeCreateWorkspacePopup() {
       this.showCreateWorkspacePopup = false
     },
-    
+
     hydrateActiveWorkspaceFromLocalStorage() {
       const meta = readCachedWorkspaceMeta()
       if (!meta) return
       this.activeWorkspace = stubWorkspace(meta)
     },
 
-    async fetchWorkspaces() {
+    async fetchWorkspaces(opts?: { force?: boolean }) {
+      if (!opts?.force && this.workspacesLoaded && this.workspaces.length > 0) {
+        return
+      }
+
       this.hydrateActiveWorkspaceFromLocalStorage()
 
       this.isLoading = true
       try {
-        const response = await api.get('/workspaces')
+        const response = await listWorkspaces()
 
         if (response.data.success) {
           this.workspaces = response.data.data
+          this.workspacesLoaded = true
 
           if (this.workspaces.length === 0) {
             this.activeWorkspace = null
@@ -130,18 +138,54 @@ export const useWorkspaceStore = defineStore('workspace', {
       persistActiveWorkspace(workspace)
     },
 
+    async loadWorkspaceContext(
+      workspaceId: string | null,
+      opts?: { force?: boolean; scope?: WorkspaceLoadScope },
+    ) {
+      const foldersStore = useFoldersStore()
+      const todoListsStore = useTodoListsStore()
+      const notificationsStore = useNotificationsStore()
+      const notesStore = useNotesStore()
+
+      if (!workspaceId) {
+        foldersStore.reset()
+        todoListsStore.reset()
+        notificationsStore.reset()
+        notesStore.reset()
+        return
+      }
+
+      if (opts?.force) {
+        foldersStore.reset()
+        todoListsStore.reset()
+        notificationsStore.reset()
+        notesStore.reset()
+      }
+
+      const force = opts?.force ?? false
+      const scope = opts?.scope ?? 'dashboard'
+
+      if (scope === 'dashboard') {
+        await Promise.all([
+          foldersStore.fetchFolders(workspaceId, {}, { force }),
+          todoListsStore.fetchTodoLists(workspaceId, {}, { force }),
+          notificationsStore.fetchNotifications(workspaceId, { force }),
+        ])
+      }
+    },
+
     async createWorkspace(name: string) {
       const trimmed = name.trim()
       if (!trimmed) return null
 
-      const response = await api.post('/workspaces', { name: trimmed })
+      const response = await createWorkspaceApi(trimmed)
       const payload = response.data
       if (!payload?.success) {
         throw new Error(payload?.message || 'Failed to create workspace')
       }
 
-      const created = payload.data as Workspace | undefined
-      await this.fetchWorkspaces()
+      const created = payload.data
+      await this.fetchWorkspaces({ force: true })
 
       const byId =
         created?.id != null
@@ -159,10 +203,7 @@ export const useWorkspaceStore = defineStore('workspace', {
       email: string,
       role: WorkspaceMemberRole,
     ) {
-      const response = await api.post(
-        `/workspaces/${workspaceId}/invitations`,
-        { email: email.trim(), role },
-      )
+      const response = await createInvitationApi(workspaceId, email.trim(), role)
       const payload = response.data
       if (!payload?.success && response.status !== 201) {
         throw new Error(payload?.message || 'Failed to send invitation')

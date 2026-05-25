@@ -5,10 +5,9 @@ import { RouterLink } from 'vue-router'
 import BaseInput from '@/components/ui/inputs/BaseInput.vue'
 import BaseButton from '@/components/ui/buttons/BaseButton.vue'
 import AuthBannerComponent from '@/components/auth/AuthBannerComponent.vue'
-import { apiBaseUrl } from '@/config/api'
+import { login } from '@/api/auth'
 import { persistAuthTokensFromEnvelope } from '@/utils/authTokens'
-import { authFetch } from '@/utils/authFetch'
-
+import { savePendingVerifyEmail } from '@/utils/authVerifySession'
 
 const isLoading = ref(false)
 const email = ref('')
@@ -30,31 +29,21 @@ const handleLogin = async () => {
     isError.value = false
 
     try {
-        const response = await authFetch(`${apiBaseUrl}/auth/login`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                email: email.value,
-                password: password.value
-            })
-        })
-
-        const result = await response.json()
+        const { data: result } = await login(email.value, password.value)
 
         if (result.success) {
-            // no 2fa
             if (result.data.requires2fa === false && result.data.accessToken) {
-                persistAuthTokensFromEnvelope(result as Record<string, unknown>)
+                persistAuthTokensFromEnvelope(result as unknown as Record<string, unknown>)
                 isError.value = false
-                message.value = result.message
+                message.value = result.message ?? ''
 
                 setTimeout(() => router.push({name: 'DashboardLayout'}), 1500)
             }
-            // 2fa
-            else if (result.data.requires2fa === true) {
+            else if (result.data.requires2fa === true && result.data.sessionToken) {
                 localStorage.setItem('session_token', result.data.sessionToken);
+                savePendingVerifyEmail(email.value)
                 isError.value = false
-                message.value = result.message
+                message.value = result.message ?? ''
                 setTimeout(() => router.push({name: 'Verify', query: {from: "login"}}), 1500)
 
             }
@@ -121,6 +110,7 @@ const handleForgotPasswordClick = () => {
                             v-model="password"
                             name="password"
                             type="password"
+                            autocomplete="current-password"
                             label="Password"
                             place-holder="Placeholder"
                             :is-error="isError"

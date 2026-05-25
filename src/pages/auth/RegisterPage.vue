@@ -4,8 +4,8 @@ import router from '@/router'
 import BaseInput from '@/components/ui/inputs/BaseInput.vue'
 import BaseButton from '@/components/ui/buttons/BaseButton.vue'
 import AuthBannerComponent from '@/components/auth/AuthBannerComponent.vue'
-import { apiBaseUrl } from '@/config/api'
-import { authFetch } from '@/utils/authFetch'
+import { register } from '@/api/auth'
+import { savePendingVerifyEmail } from '@/utils/authVerifySession'
 
 const isLoading = ref(false)
 const firstName = ref('')
@@ -27,24 +27,19 @@ const handleRegister = async () => {
   isError.value = false
 
   try {
-    const response = await authFetch(`${apiBaseUrl}/auth/register`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: firstName.value,
-        surname: lastName.value,
-        email: email.value,
-        password: password.value
-      })
+    const { data: result } = await register({
+      name: firstName.value,
+      surname: lastName.value,
+      email: email.value,
+      password: password.value,
     })
-
-    const result = await response.json();
 
     if (result.success) {
       if (result.data && result.data.sessionToken) {
         localStorage.setItem('session_token', result.data.sessionToken);
       }
 
+      savePendingVerifyEmail(email.value)
       isError.value = false;
       isLoading.value = true
       message.value = result.message || 'Verification code sent!';
@@ -88,35 +83,43 @@ const handleGoogleLogin = () => {
             <base-input
               v-model="firstName"
               type="text"
-              label="Name" 
-              place-holder="Placeholder" 
+              name="firstName"
+              autocomplete="off"
+              label="Name"
+              place-holder="Placeholder"
               :is-error="isError"
-              @clear-error="isError = false; message=''" 
+              @clear-error="isError = false; message=''"
             />
               <base-input
                 v-model="lastName"
                 type="text"
-                label="Surname" 
-                place-holder="Placeholder" 
+                name="lastName"
+                autocomplete="off"
+                label="Surname"
+                place-holder="Placeholder"
                 :is-error="isError"
-                @clear-error="isError = false; message=''" 
+                @clear-error="isError = false; message=''"
               />
             </div>
             <base-input
               v-model="email"
-              type="email"
-              label="Email" 
-              place-holder="Placeholder" 
+              type="text"
+              name="email"
+              autocomplete="off"
+              label="Email"
+              place-holder="Placeholder"
               :is-error="isError"
-              @clear-error="isError = false; message=''" 
+              @clear-error="isError = false; message=''"
             />
             <base-input
               v-model="password"
-              type="password"
-              label="Password" 
-              place-holder="Placeholder" 
+              type="text"
+              name="password"
+              autocomplete="off"
+              label="Password"
+              place-holder="Placeholder"
               :is-error="isError"
-              @clear-error="isError = false; message=''" 
+              @clear-error="isError = false; message=''"
             />
           </div>
 

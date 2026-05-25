@@ -2,13 +2,13 @@
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import AuthBannerComponent from '@/components/auth/AuthBannerComponent.vue'
-import { apiBaseUrl } from '@/config/api'
+import { resend2fa, verify2fa } from '@/api/auth'
 import { persistAuthTokensFromEnvelope } from '@/utils/authTokens'
-import { authFetch } from '@/utils/authFetch'
+import { getPendingVerifyEmail } from '@/utils/authVerifySession'
 
 const router = useRouter()
 const route = useRoute()
-const userEmail = ref(localStorage.getItem('user_email') || 'your email')
+const userEmail = ref(getPendingVerifyEmail() ?? '')
 const code = ref(['', '', '', '', ''])
 const inputs = ref<HTMLInputElement[]>([])
 const isError = ref(false)
@@ -31,6 +31,7 @@ const startTimer = () => {
 }
 
 onMounted(() => {
+    userEmail.value = getPendingVerifyEmail() ?? ''
     if (inputs.value[0]) inputs.value[0].focus()
     startTimer()
 })
@@ -43,17 +44,11 @@ const handleResendCode = async () => {
     if (isTimerActive.value || isLoading.value) return
 
     const sessionToken = localStorage.getItem('session_token')
-    console.log(sessionToken)
     if (!sessionToken) return
 
     isLoading.value = true
     try {
-        const response = await authFetch(`${apiBaseUrl}/auth/2fa/resend`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ sessionToken })
-        })
-        const result = await response.json()
+        const { data: result } = await resend2fa(sessionToken)
         if (result.success) {
             isError.value = false
         }
@@ -97,39 +92,26 @@ const handleVerify = async () => {
     }
     isLoading.value = true
     try {
-        const response = await authFetch(`${apiBaseUrl}/auth/2fa/verify`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ sessionToken: sessionToken, code: finalCode })
-        })
-        console.log(sessionToken, finalCode)
-        const result = await response.json()
+        const { data: result } = await verify2fa(sessionToken, finalCode)
 
         if (result.success) {
             if (result.data.sessionToken && route.query.from === "forgot") {
-                console.log('1 part')
                 localStorage.setItem('session_token', result.data.sessionToken)
+                localStorage.setItem('verification_code', finalCode)
                 router.push('/auth/reset-password')
             } else {
                 if (result.data.accessToken) {
-                    console.log('2 part')
-                    persistAuthTokensFromEnvelope(result as Record<string, unknown>)
+                    persistAuthTokensFromEnvelope(result as unknown as Record<string, unknown>)
                     localStorage.removeItem('session_token')
                     router.push(route.query.from === "register" ? '/auth/edupage' : '/dashboard')
-                    console.log('router push fucked up')
                 }
             }
         } else {
             isError.value = true                
-            if (route.query.from !== 'register' && route.query.from !== 'forgot' && route.query.from !== 'login') {
-                console.log("else worked")
-            }
         }
     } catch (error) {
-        console.log("catch worked")
         isError.value = true
     } finally {
-        console.log('finally worked')
         isLoading.value = false
     }
 }
@@ -152,17 +134,22 @@ const handleVerify = async () => {
 
                 <form @submit.prevent="handleVerify" class="space-y-8">
                     <div class="flex justify-between gap-3">
-                        <input v-for="(_, i) in 5" :key="i"
-                            :ref="(el) => { if (el) inputs[i] = el as HTMLInputElement }" 
-                            v-model="code[i]" 
+                        <input
+                            v-for="(_, i) in 5"
+                            :key="i"
+                            :id="`verify-code-${i}`"
+                            :ref="(el) => { if (el) inputs[i] = el as HTMLInputElement }"
+                            v-model="code[i]"
                             type="text"
-                            inputmode="text" 
-                            maxlength="1" 
+                            :name="`verification-code-${i}`"
+                            inputmode="text"
+                            maxlength="1"
                             autocomplete="one-time-code"
-                            class="otp-input" 
+                            :aria-label="`Verification code digit ${i + 1}`"
+                            class="otp-input"
                             :class="{ 'input-error': isError }"
-                            @input="handleInput(i, $event)" 
-                            @keydown="handleKeyDown(i, $event)" 
+                            @input="handleInput(i, $event)"
+                            @keydown="handleKeyDown(i, $event)"
                             :disabled="isLoading"
                         />
                     </div>

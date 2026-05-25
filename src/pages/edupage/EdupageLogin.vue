@@ -3,16 +3,14 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import BaseButton from '@/components/ui/buttons/BaseButton.vue'
 import BaseInput from '@/components/ui/inputs/BaseInput.vue'
-import { apiBaseUrl } from '@/config/api'
-import { authFetch } from '@/utils/authFetch'
+import { connectEdupage } from '@/api/integrations/edupage'
+
 const router = useRouter()
 const isLoading = ref(false)
 const email = ref('')
 const password = ref('')
 const message = ref('')
 const isError = ref(false)
-
-
 
 const handleSkip = async () => {
     await router.push({ name: 'DashboardLayout' })
@@ -30,20 +28,9 @@ const handleLogin = async () => {
     isError.value = false
 
     try {
-        const token = localStorage.getItem('access_token');
-        const response = await authFetch(`${apiBaseUrl}/integrations/edupage/connect`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({
-                username: email.value,
-                password: password.value
-            })
-        })
-        let data: any = {}
-        try { data = await response.json() } catch (e) { }
+        const response = await connectEdupage(email.value, password.value)
+        let data: { error?: string } = {}
+        try { data = await response.json() } catch { /* ignore */ }
 
         if (response.ok) {
             message.value = 'Integrated successfully!'
@@ -75,10 +62,26 @@ const handleLogin = async () => {
 
             <form @submit.prevent="handleLogin" class="w-full space-y-6 text-left">
                 <div class="flex flex-col gap-4">
-                    <base-input v-model="email" type="text" label="Username" place-holder="Placeholder"
-                        :is-error="isError" @clear-error="isError = false; message = ''" />
-                    <base-input v-model="password" type="password" label="Password" place-holder="Placeholder"
-                        :is-error="isError" @clear-error="isError = false; message = ''" />
+                    <base-input
+                        v-model="email"
+                        type="text"
+                        name="username"
+                        autocomplete="off"
+                        label="Username"
+                        place-holder="Placeholder"
+                        :is-error="isError"
+                        @clear-error="isError = false; message = ''"
+                    />
+                    <base-input
+                        v-model="password"
+                        type="text"
+                        name="password"
+                        autocomplete="off"
+                        label="Password"
+                        place-holder="Placeholder"
+                        :is-error="isError"
+                        @clear-error="isError = false; message = ''"
+                    />
                 </div>
 
                 <base-button :is-loading="isLoading" text="Sign in to EduPage" />

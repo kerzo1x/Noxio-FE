@@ -3,9 +3,8 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import BaseInput from '@/components/ui/inputs/BaseInput.vue'
 import BaseButton from '@/components/ui/buttons/BaseButton.vue'
-import { apiBaseUrl } from '@/config/api'
-import { authFetch } from '@/utils/authFetch'
-
+import { forgotPassword } from '@/api/auth'
+import { savePendingVerifyEmail } from '@/utils/authVerifySession'
 
 const router = useRouter()
 const email = ref('')
@@ -22,19 +21,12 @@ const handleSendCode = async () => {
   isError.value = false
 
   try {
-    const response = await authFetch(`${apiBaseUrl}/auth/forgot-password`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: email.value })
-    })
-    
-    const result = await response.json()
+    const { data: result } = await forgotPassword(email.value)
 
     if (result.success) {
-      //saving sessionToken for verify
       if (result.data && result.data.sessionToken) {
         localStorage.setItem('session_token', result.data.sessionToken)
-        localStorage.setItem('user_email', email.value)
+        savePendingVerifyEmail(email.value)
       }
 
       router.push({ 
@@ -67,16 +59,17 @@ const handleSendCode = async () => {
 
       <form @submit.prevent="handleSendCode" class="space-y-6 text-left">
         <div class="space-y-2">
-          <base-input 
+          <base-input
             v-model="email"
-            type="email"
-            label="Email" 
-            place-holder="Placeholder" 
+            type="text"
+            name="email"
+            autocomplete="off"
+            label="Email"
+            place-holder="Placeholder"
             :is-error="isError"
             @clear-error="isError = false"
           />
       </div>
-      <!-- TODO: normal error  -->
 
         <base-button 
           :is-loading="isLoading"

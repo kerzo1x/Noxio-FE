@@ -4,7 +4,6 @@ import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { storeToRefs } from 'pinia'
-import api from '@/api'
 import NotificationsPopup from '@/components/dashboard/NotificationsPopup.vue'
 import HeaderSearch from '@/components/dashboard/HeaderSearch.vue'
 import { useWorkspaceMembers } from '@/composables/useWorkspaceMembers'
@@ -93,12 +92,8 @@ async function handleLogout() {
 
   isLoggingOut.value = true
   try {
-    await api.post('/auth/logout')
-  } catch (error) {
-    console.error('Logout request failed:', error)
+    await userStore.logout()
   } finally {
-    localStorage.clear()
-    userStore.user = null
     closeProfileMenu()
     isLoggingOut.value = false
     router.push({ name: 'Login' })

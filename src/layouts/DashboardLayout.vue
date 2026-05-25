@@ -1,85 +1,44 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { onMounted, watch } from 'vue'
 import { useUserStore } from '@/stores/user'
 import { useWorkspaceStore } from '@/stores/workspace'
-import { useFoldersStore } from '@/stores/folders'
-import { useTodoListsStore } from '@/stores/todoLists'
+import { useNotificationsStore } from '@/stores/notifications'
+import { storeToRefs } from 'pinia'
 import HeaderComponent from '@/components/dashboard/HeaderComponent.vue'
 import BannerComponent from '@/components/dashboard/BannerComponent.vue'
 import SidebarLayout from './SidebarLayout.vue'
 import WorkspacePopup from '@/components/dashboard/WorkspacePopup.vue'
-import api from '@/api'
 
 const userStore = useUserStore()
 const workspaceStore = useWorkspaceStore()
-const foldersStore = useFoldersStore()
-const todoListsStore = useTodoListsStore()
+const notificationsStore = useNotificationsStore()
 
-const notifications = ref<Array<{ id: string; title: string; read: boolean }>>([])
-const isNotificationsLoading = ref(false)
-const hasNotifications = computed(() => notifications.value.length > 0)
-
-async function fetchNotifications(workspaceId: string | null) {
-  if (!workspaceId) {
-    notifications.value = []
-    return
-  }
-
-  isNotificationsLoading.value = true
-  try {
-    const response = await api.get(`/workspaces/${workspaceId}/notifications`, {
-      params: { limit: 20 },
-    })
-    const payload = response.data as {
-      success?: boolean
-      data?: { items?: Array<{ id: string; title: string; read: boolean }> }
-    }
-
-    if (!payload?.success) {
-      throw new Error('Failed to fetch notifications')
-    }
-
-    notifications.value = payload.data?.items ?? []
-  } catch (error) {
-    console.error('Failed to fetch notifications:', error)
-    notifications.value = []
-  } finally {
-    isNotificationsLoading.value = false
-  }
-}
-
-async function syncWorkspaceScopedData(workspaceId: string | null) {
-  if (!workspaceId) {
-    foldersStore.reset()
-    todoListsStore.reset()
-    return
-  }
-
-  await Promise.all([
-    foldersStore.fetchFolders(workspaceId),
-    todoListsStore.fetchTodoLists(workspaceId),
-  ])
-}
+const { hasNotifications, items: notifications, isLoading: isNotificationsLoading } =
+  storeToRefs(notificationsStore)
 
 watch(
   () => workspaceStore.activeWorkspace?.id ?? null,
   async (workspaceId, previousWorkspaceId) => {
     if (workspaceId !== previousWorkspaceId) {
-      foldersStore.reset()
-      todoListsStore.reset()
+      await workspaceStore.loadWorkspaceContext(workspaceId, {
+        force: workspaceId != null && previousWorkspaceId != null,
+      })
+      return
     }
-    await syncWorkspaceScopedData(workspaceId)
-    await fetchNotifications(workspaceId)
+    await workspaceStore.loadWorkspaceContext(workspaceId)
   },
+  { immediate: true },
 )
 
 onMounted(async () => {
   userStore.fetchUser()
   await workspaceStore.fetchWorkspaces()
-  const workspaceId = workspaceStore.activeWorkspace?.id ?? null
-  await syncWorkspaceScopedData(workspaceId)
-  await fetchNotifications(workspaceId)
 })
+
+function refreshNotifications() {
+  const workspaceId = workspaceStore.activeWorkspace?.id ?? null
+  void notificationsStore.fetchNotifications(workspaceId, { force: true })
+}
 </script>
 
 <template>
@@ -89,9 +48,7 @@ onMounted(async () => {
       :has-notifications="hasNotifications"
       :notifications="notifications"
       :is-notifications-loading="isNotificationsLoading"
-      @refresh-notifications="
-        fetchNotifications(workspaceStore.activeWorkspace?.id ?? null)
-      "
+      @refresh-notifications="refreshNotifications"
     />
     <BannerComponent class="flex-none" />
     <div class="flex flex-1 min-h-0">

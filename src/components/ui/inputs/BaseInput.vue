@@ -1,33 +1,54 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, useId, computed } from 'vue';
 
 const model = defineModel<string>()
 
-defineProps({
+const props = defineProps({
     isError: Boolean,
     label: String,
     placeHolder: String,
-    type: String,
-    name: String
-
+    type: {
+        type: String,
+        default: 'text',
+    },
+    name: String,
+    id: String,
+    autocomplete: String,
 })
-const emit = defineEmits(
-    ['clear-error']
-)
+
+const emit = defineEmits(['clear-error'])
+
+const fallbackId = useId()
+const inputId = computed(() => props.id ?? `base-input-${fallbackId}`)
+const inputName = computed(() => props.name ?? inputId.value)
+
 const showPassword = ref(false)
+
+const inputType = computed(() => {
+    if (props.type === 'password') {
+        return showPassword.value ? 'text' : 'password'
+    }
+    return props.type
+})
 </script>
 <template>
     <div class="flex-1 flex-col">
-        <label class="text-sm font-medium text-panel-label mb-12 ">{{ label }}</label>
+        <label
+            v-if="label"
+            :for="inputId"
+            class="text-sm font-medium text-panel-label mb-12"
+        >{{ label }}</label>
         <div class="relative">
             <input
-                v-model="model" 
-                :type="type === 'password' ? (showPassword ? 'text' : 'password') : type"   
+                :id="inputId"
+                v-model="model"
+                :type="inputType"
+                :name="inputName"
+                :autocomplete="autocomplete"
                 :placeholder="placeHolder"
                 class="field-input"
-                :name="name ? name : ' '"
-                :class="{ 'input-error': isError, 'pr-11': type === 'password' }" 
-                @input="emit('clear-error')" 
+                :class="{ 'input-error': isError, 'pr-11': type === 'password' }"
+                @input="emit('clear-error')"
             />
             <button v-if="type == 'password'" type="button" class="eye-btn" @click="showPassword = !showPassword"
                 :aria-label="showPassword ? 'Hide password' : 'Show password'">

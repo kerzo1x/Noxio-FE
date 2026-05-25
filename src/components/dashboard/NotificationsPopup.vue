@@ -53,11 +53,14 @@ function onSearchInput(event: Event) {
           <path d="m21 21-4.3-4.3" />
         </svg>
         <input
+          id="notifications-member-search"
+          name="notifications-member-search"
           :value="searchQuery"
           type="text"
           placeholder="Search items"
           class="notifications-popup__search-input"
           autocomplete="off"
+          aria-label="Search workspace members"
           @input="onSearchInput"
         />
         <button type="button" class="notifications-popup__share-btn">

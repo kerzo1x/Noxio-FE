@@ -1,6 +1,6 @@
 import { ref, watch, type Ref } from 'vue'
-import api from '@/api'
-import type { WorkspaceSearchResponse, WorkspaceSearchResult } from '@/types/search'
+import { searchWorkspace } from '@/api/search'
+import type { WorkspaceSearchResult } from '@/types/search'
 
 const SEARCH_DEBOUNCE_MS = 300
 
@@ -45,12 +45,10 @@ export function useWorkspaceSearch(workspaceId: Ref<string | null>) {
     error.value = ''
 
     try {
-      const response = await api.get<WorkspaceSearchResponse>(
-        `/workspaces/${workspace}/search`,
-        {
-          params: { q: trimmed },
-          signal: abortController.signal,
-        },
+      const response = await searchWorkspace(
+        workspace,
+        trimmed,
+        abortController.signal,
       )
 
       if (generation !== requestGeneration) return

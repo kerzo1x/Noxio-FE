@@ -226,8 +226,9 @@ const handleSubmit = async () => {
 
               <div class="workspace-popup-invite-row">
                 <input
+                  id="workspace-invite-email"
                   v-model="inviteEmail"
-                  type="email"
+                  type="text"
                   name="member-email"
                   placeholder="Email"
                   class="workspace-popup-email"

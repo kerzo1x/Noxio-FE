@@ -1,7 +1,13 @@
 import { defineStore } from 'pinia'
-import api from '@/api'
+import {
+  createFolder as createFolderApi,
+  deleteFolder as deleteFolderApi,
+  listFolders,
+  updateFolder as updateFolderApi,
+  type FoldersQuery,
+} from '@/api/folders'
 import { useWorkspaceStore } from '@/stores/workspace'
-import type { ApiSuccess, PaginationMeta } from '@/types/api'
+import type { PaginationMeta } from '@/types/api'
 
 export interface Folder {
   id: string
@@ -16,20 +22,12 @@ export interface Folder {
   noteCount: number
 }
 
-interface FoldersQuery {
-  page?: number
-  limit?: number
-  sortBy?: string
-  sortOrder?: 'asc' | 'desc'
-  filter?: string
-}
-
 const defaultQuery: Required<FoldersQuery> = {
   page: 1,
   limit: 20,
   sortBy: 'createdAt',
   sortOrder: 'asc',
-  filter: 'recentlyUpdated'
+  filter: 'recentlyUpdated',
 }
 
 function resolveWorkspaceId(storeLoadedId: string | null): string | null {
@@ -54,7 +52,7 @@ export const useFoldersStore = defineStore('folders', {
     meta: null as PaginationMeta | null,
     isLoading: false,
     error: null as string | null,
-    loadedWorkspaceId: null as string | null
+    loadedWorkspaceId: null as string | null,
   }),
 
   actions: {
@@ -66,9 +64,21 @@ export const useFoldersStore = defineStore('folders', {
       this.loadedWorkspaceId = null
     },
 
-    async fetchFolders(workspaceId: string, query: FoldersQuery = {}) {
+    async fetchFolders(
+      workspaceId: string,
+      query: FoldersQuery = {},
+      opts?: { force?: boolean },
+    ) {
       if (!workspaceId) {
         this.reset()
+        return
+      }
+
+      if (
+        !opts?.force &&
+        this.loadedWorkspaceId === workspaceId &&
+        !this.error
+      ) {
         return
       }
 
@@ -78,10 +88,7 @@ export const useFoldersStore = defineStore('folders', {
       this.error = null
 
       try {
-        const response = await api.get<ApiSuccess<Folder[]>>(
-          `/workspaces/${workspaceId}/folders`,
-          { params }
-        )
+        const response = await listFolders(workspaceId, params)
         const payload = response.data
 
         if (!payload?.success) {
@@ -112,16 +119,16 @@ export const useFoldersStore = defineStore('folders', {
       }
 
       try {
-        const response = await api.post<ApiSuccess<Folder>>(
-          `/workspaces/${workspaceId}/folders`,
-          { name: trimmed }
-        )
+        const response = await createFolderApi(workspaceId, trimmed)
         const payload = response.data
         if (!payload?.success) {
           throw new Error(payload?.message || 'Failed to create folder')
         }
-        await this.fetchFolders(workspaceId)
-        return payload.data
+        const created = payload.data
+        if (this.loadedWorkspaceId === workspaceId) {
+          this.folders = [...this.folders, created]
+        }
+        return created
       } catch (error: unknown) {
         throw new Error(getApiErrorMessage(error, 'Failed to create folder'))
       }
@@ -133,7 +140,7 @@ export const useFoldersStore = defineStore('folders', {
         name: string
         description: string
         originalDescription: string | null
-      }
+      },
     ) {
       const trimmedName = payload.name.trim()
       if (!folderId) {
@@ -160,16 +167,21 @@ export const useFoldersStore = defineStore('folders', {
       }
 
       try {
-        const response = await api.patch<ApiSuccess<Folder>>(
-          `/folders/${folderId}`,
-          body
-        )
+        const response = await updateFolderApi(folderId, body)
         const result = response.data
         if (!result?.success) {
           throw new Error(result?.message || 'Failed to update folder')
         }
-        await this.fetchFolders(workspaceId)
-        return result.data
+        const updated = result.data
+        const index = this.folders.findIndex((f) => f.id === folderId)
+        if (index !== -1) {
+          this.folders = [
+            ...this.folders.slice(0, index),
+            updated,
+            ...this.folders.slice(index + 1),
+          ]
+        }
+        return updated
       } catch (error: unknown) {
         throw new Error(getApiErrorMessage(error, 'Failed to update folder'))
       }
@@ -187,14 +199,14 @@ export const useFoldersStore = defineStore('folders', {
 
       const folder = this.folders.find((f) => f.id === folderId)
       if (folder && folder.workspaceId !== workspaceId) {
-        await this.fetchFolders(workspaceId)
+        await this.fetchFolders(workspaceId, {}, { force: true })
         throw new Error('This folder is not in the current workspace.')
       }
 
       try {
-        const response = await api.delete(`/folders/${folderId}`)
+        const response = await deleteFolderApi(folderId)
         const { status, data } = response
-        const payload = data as ApiSuccess<null> | undefined
+        const payload = data as { success?: boolean; message?: string } | undefined
 
         const isHttpSuccess = status >= 200 && status < 300
         const isJsonFailure =
@@ -206,11 +218,11 @@ export const useFoldersStore = defineStore('folders', {
         if (!isHttpSuccess || isJsonFailure) {
           throw new Error(
             (payload && typeof payload === 'object' && payload.message) ||
-              'Failed to delete folder'
+              'Failed to delete folder',
           )
         }
 
-        await this.fetchFolders(workspaceId)
+        this.folders = this.folders.filter((f) => f.id !== folderId)
       } catch (error: unknown) {
         const status =
           error &&
@@ -219,7 +231,7 @@ export const useFoldersStore = defineStore('folders', {
           (error as { response?: { status?: number } }).response?.status
 
         if (status === 404) {
-          await this.fetchFolders(workspaceId)
+          this.folders = this.folders.filter((f) => f.id !== folderId)
         }
 
         throw new Error(getApiErrorMessage(error, 'Failed to delete folder'))

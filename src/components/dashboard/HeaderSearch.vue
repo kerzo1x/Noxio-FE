@@ -103,10 +103,13 @@ function onSelect(item: WorkspaceSearchResult) {
         <path d="m21 21-4.3-4.3" />
       </svg>
       <input
+        id="header-search"
+        name="header-search"
         :value="modelValue"
         type="text"
         placeholder="Search items"
         autocomplete="off"
+        aria-label="Search workspace"
         class="header-search__input"
         @focus="emit('focus')"
         @input="onInput"
