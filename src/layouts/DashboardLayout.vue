@@ -6,8 +6,8 @@ import { useUserStore } from '@/stores/user'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useNotificationsStore } from '@/stores/notifications'
 import { storeToRefs } from 'pinia'
+import banner from '@/assets/img/banner.svg'
 import HeaderComponent from '@/components/dashboard/HeaderComponent.vue'
-import BannerComponent from '@/components/dashboard/BannerComponent.vue'
 import SidebarLayout from './SidebarLayout.vue'
 import WorkspacePopup from '@/components/dashboard/WorkspacePopup.vue'
 
@@ -57,7 +57,13 @@ provide(dashboardLayoutMetricsKey, { contentAlignLeft })
       :is-notifications-loading="isNotificationsLoading"
       @refresh-notifications="refreshNotifications"
     />
-    <BannerComponent class="flex-none" />
+    <div class="flex-none h-[157px] w-full overflow-hidden" aria-hidden="true">
+      <img
+        :src="banner"
+        alt=""
+        class="h-full w-full object-cover object-center"
+      />
+    </div>
     <div class="flex flex-1 min-h-0">
       <SidebarLayout class="flex-none" />
       <main class="flex min-h-0 flex-1 flex-col overflow-hidden">
