@@ -103,7 +103,15 @@ watch(
     if (typeof window === 'undefined') return
     window.localStorage.setItem(expandedSectionsStorageKey, JSON.stringify(value))
   },
-  { deep: true }
+  { deep: true },
+)
+
+watch(
+  activeFolderId,
+  (folderId) => {
+    if (folderId) expandedSections.folders = true
+  },
+  { immediate: true },
 )
 
 const setActive = (id: WorkspaceTab) => {

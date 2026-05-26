@@ -5,6 +5,12 @@ import NotesSplitLayout from '@/components/notes/NotesSplitLayout.vue'
 import NotesListPanel from '@/components/notes/NotesListPanel.vue'
 import NoteEditorPanel from '@/components/notes/NoteEditorPanel.vue'
 import { useNotesStore } from '@/stores/notes'
+import { useWorkspaceStore } from '@/stores/workspace'
+import {
+  getLastNotesContext,
+  rememberFolder,
+  rememberNote,
+} from '@/utils/lastNotesContext'
 
 const props = defineProps<{
   folderId: string
@@ -13,6 +19,7 @@ const props = defineProps<{
 
 const router = useRouter()
 const notesStore = useNotesStore()
+const workspaceStore = useWorkspaceStore()
 
 const selectedNoteId = computed(() => props.noteId ?? null)
 
@@ -71,6 +78,54 @@ watch(
     void notesStore.openNote(noteId)
   },
   { immediate: true },
+)
+
+watch(
+  () => [props.folderId, props.noteId] as const,
+  ([folderId, noteId]) => {
+    const workspaceId = workspaceStore.activeWorkspace?.id
+    if (!workspaceId || !folderId) return
+
+    if (noteId) {
+      rememberNote(workspaceId, folderId, noteId)
+      return
+    }
+
+    rememberFolder(workspaceId, folderId)
+  },
+  { immediate: true },
+)
+
+watch(
+  () =>
+    [
+      props.folderId,
+      props.noteId,
+      notesStore.isLoading,
+      notesStore.loadedFolderId,
+      notesStore.noteIds.join(','),
+    ] as const,
+  ([folderId, noteId, isLoading, loadedFolderId, noteIdsKey]) => {
+    if (!folderId || noteId || isLoading || loadedFolderId !== folderId) return
+    if (!noteIdsKey) return
+
+    const workspaceId = workspaceStore.activeWorkspace?.id
+    const last = workspaceId ? getLastNotesContext(workspaceId) : null
+
+    const preferredNoteId =
+      last?.folderId === folderId &&
+      last.noteId &&
+      notesStore.noteIds.includes(last.noteId)
+        ? last.noteId
+        : notesStore.noteIds[0]
+
+    if (!preferredNoteId) return
+
+    void router.replace({
+      name: 'DashboardFolderNotes',
+      params: { folderId, noteId: preferredNoteId },
+    })
+  },
 )
 
 function handleSelectNote(noteId: string) {

@@ -4,7 +4,9 @@ import { useRoute, useRouter } from 'vue-router'
 import SidebarNav from '@/components/sidebar/SidebarNav.vue'
 import SidebarWorkspace from '@/components/sidebar/SidebarWorkspace.vue'
 import SidebarPicker from '@/components/sidebar/SidebarPicker.vue'
+import { useFoldersStore } from '@/stores/folders'
 import { useWorkspaceStore } from '@/stores/workspace'
+import { getLastNotesContext } from '@/utils/lastNotesContext'
 
 type WorkspaceTab = 'folders' | 'todo'
 
@@ -21,6 +23,7 @@ const routeToTab: Partial<Record<string, WorkspaceTab>> = {
 }
 
 const workspaceStore = useWorkspaceStore()
+const foldersStore = useFoldersStore()
 const route = useRoute()
 const router = useRouter()
 
@@ -32,6 +35,25 @@ const activeWorkspaceTab = computed(() => {
 })
 
 function handleWorkspaceTabChange(tab: WorkspaceTab) {
+  if (tab === 'folders') {
+    const workspaceId = workspaceStore.activeWorkspace?.id
+    const last = workspaceId ? getLastNotesContext(workspaceId) : null
+    const folderExists =
+      last?.folderId &&
+      foldersStore.folders.some((folder) => folder.id === last.folderId)
+
+    if (folderExists) {
+      void router.push({
+        name: 'DashboardFolderNotes',
+        params: {
+          folderId: last.folderId,
+          ...(last.noteId ? { noteId: last.noteId } : {}),
+        },
+      })
+      return
+    }
+  }
+
   router.push({ name: tabRouteMap[tab] })
 }
 </script>
