@@ -65,7 +65,7 @@ const handleSendCode = async () => {
             name="email"
             autocomplete="off"
             label="Email"
-            place-holder="Placeholder"
+            place-holder="tomas.lukacko@gmail.com"
             :is-error="isError"
             @clear-error="isError = false"
           />

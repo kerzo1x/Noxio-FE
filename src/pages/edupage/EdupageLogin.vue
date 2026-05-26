@@ -68,7 +68,7 @@ const handleLogin = async () => {
                         name="username"
                         autocomplete="off"
                         label="Username"
-                        place-holder="Placeholder"
+                        place-holder="TomasLukacko"
                         :is-error="isError"
                         @clear-error="isError = false; message = ''"
                     />
@@ -78,7 +78,7 @@ const handleLogin = async () => {
                         name="password"
                         autocomplete="off"
                         label="Password"
-                        place-holder="Placeholder"
+                        place-holder="edupagepassword123"
                         :is-error="isError"
                         @clear-error="isError = false; message = ''"
                     />

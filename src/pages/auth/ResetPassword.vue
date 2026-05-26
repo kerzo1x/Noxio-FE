@@ -81,7 +81,7 @@ const handleResetPassword = async () => {
               name="new-password"
               autocomplete="off"
               label="New Password"
-              place-holder="Placeholder"
+              place-holder="newpassword123"
               :is-error="isError"
               @clear-error="isError = false"
           />
@@ -91,7 +91,7 @@ const handleResetPassword = async () => {
               name="confirm-password"
               autocomplete="off"
               label="Password Confirmation"
-              place-holder="Placeholder"
+              place-holder="newpassword123"
               :is-error="isError"
               @clear-error="isError = false"
           />

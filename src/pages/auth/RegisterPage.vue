@@ -67,7 +67,7 @@ const handleGoogleLogin = () => {
 <template>
   <div class="min-h-screen flex bg-surface text-text-main">
 
-    <AuthBannerComponent mode="register" />
+    <AuthBannerComponent />
 
     <!-- Right dark panel -->
     <div class="w-full lg:w-1/2 flex items-center justify-center p-10 bg-panel-bg">
@@ -86,7 +86,7 @@ const handleGoogleLogin = () => {
               name="firstName"
               autocomplete="off"
               label="Name"
-              place-holder="Placeholder"
+              place-holder="Tomáš"
               :is-error="isError"
               @clear-error="isError = false; message=''"
             />
@@ -96,7 +96,7 @@ const handleGoogleLogin = () => {
                 name="lastName"
                 autocomplete="off"
                 label="Surname"
-                place-holder="Placeholder"
+                place-holder="Lukačko"
                 :is-error="isError"
                 @clear-error="isError = false; message=''"
               />
@@ -107,7 +107,7 @@ const handleGoogleLogin = () => {
               name="email"
               autocomplete="off"
               label="Email"
-              place-holder="Placeholder"
+              place-holder="tomas.lukacko@gmail.com"
               :is-error="isError"
               @clear-error="isError = false; message=''"
             />
@@ -117,7 +117,7 @@ const handleGoogleLogin = () => {
               name="password"
               autocomplete="off"
               label="Password"
-              place-holder="Placeholder"
+              place-holder="password123"
               :is-error="isError"
               @clear-error="isError = false; message=''"
             />

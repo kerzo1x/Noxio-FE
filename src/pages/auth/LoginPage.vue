@@ -83,7 +83,7 @@ const handleForgotPasswordClick = () => {
 <template>
     <div class="min-h-screen flex bg-surface text-text-main" :class="{ 'forgot-transitioning': isForgotAnimating }">
 
-        <AuthBannerComponent mode="login" :forgot-animating="isForgotAnimating" />
+        <AuthBannerComponent />
 
         <div class="w-full lg:w-1/2 flex items-center justify-center p-10 bg-panel-bg">
             <Transition name="auth-fade" appear>
@@ -101,7 +101,7 @@ const handleForgotPasswordClick = () => {
                             type="username"
                             label="Email"
                             name="email"
-                            place-holder="Placeholder" 
+                            place-holder="tomas.lukacko@gmail.com" 
                             autocomplete="email"
                             :is-error="isError"
                             @clear-error="isError = false; message=''" 
@@ -112,7 +112,7 @@ const handleForgotPasswordClick = () => {
                             type="password"
                             autocomplete="current-password"
                             label="Password"
-                            place-holder="Placeholder"
+                            place-holder="password123"
                             :is-error="isError"
                             @clear-error="isError = false; message=''"
                         />

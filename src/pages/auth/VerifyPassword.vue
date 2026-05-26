@@ -119,7 +119,7 @@ const handleVerify = async () => {
 
 <template>
     <div class="min-h-screen flex bg-surface text-text-main font-sans">
-        <AuthBannerComponent mode="login" />
+        <AuthBannerComponent />
 
         <div class="w-full lg:w-1/2 flex items-center justify-center p-10 bg-panel-bg">
             <Transition name="auth-fade" appear>
