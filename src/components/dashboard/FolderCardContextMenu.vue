@@ -133,7 +133,7 @@ onUnmounted(() => {
 .folder-card-menu__dropdown {
   position: absolute;
   right: 0;
-  top: 50%;
+  top: calc(100% + 4px);
   z-index: 20;
   display: flex;
   min-width: 93px;
@@ -144,7 +144,6 @@ onUnmounted(() => {
   border-radius: 12px;
   background: #000;
   padding: 14px 16px;
-  transform: translateY(-50%);
   box-shadow: 0 8px 24px rgb(0 0 0 / 0.45);
 }
 

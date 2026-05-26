@@ -497,7 +497,7 @@ onUnmounted(() => {
           @click="toggleProfileMenu"
         >
           <div
-            class="h-8 w-8 overflow-hidden rounded-full border border-panel-input-border bg-panel-input-bg"
+            class="h-8 w-8 overflow-hidden rounded-full"
           >
             <img
               :src="avatarUrl"
