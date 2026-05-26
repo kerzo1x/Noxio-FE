@@ -1,32 +1,46 @@
-import { defineStore } from 'pinia';
-import api from '@/api';
+import { defineStore } from 'pinia'
+import { fetchMe, type AuthUser } from '@/api/user'
+import { logout as logoutApi } from '@/api/auth'
 
-interface User {
-  id: string;
-  name: string;
-  surname: string;
-  email: string;
-  avatar: string | null;
-
-}
+export type User = AuthUser
 
 export const useUserStore = defineStore('user', {
   state: () => ({
     user: null as User | null,
-    loading: false
+    loading: false,
+    loaded: false,
   }),
+
   actions: {
-    async fetchUser() {
-      this.loading = true;
-      try {
-        const { data } = await api.get('/auth/me');
-        this.user = data.data;
-      } catch (err) {
-        console.error('Error loading user:', err);
-        this.user = null;
-      } finally {
-        this.loading = false;
+    async fetchUser(opts?: { force?: boolean }) {
+      if (!opts?.force && this.loaded && this.user) {
+        return
       }
-    }
-  }
-});
+
+      this.loading = true
+      try {
+        const { data } = await fetchMe()
+        this.user = data.data
+        this.loaded = true
+      } catch (err) {
+        console.error('Error loading user:', err)
+        this.user = null
+        this.loaded = false
+      } finally {
+        this.loading = false
+      }
+    },
+
+    async logout() {
+      try {
+        await logoutApi()
+      } catch (error) {
+        console.error('Logout request failed:', error)
+      } finally {
+        localStorage.clear()
+        this.user = null
+        this.loaded = false
+      }
+    },
+  },
+})

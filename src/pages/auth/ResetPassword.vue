@@ -3,8 +3,8 @@ import BaseButton from '@/components/ui/buttons/BaseButton.vue'
 import BaseInput from '@/components/ui/inputs/BaseInput.vue'
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { apiBaseUrl } from '@/config/api'
-import { authFetch } from '@/utils/authFetch'
+import { resetPassword } from '@/api/auth'
+import { clearPendingVerifyEmail } from '@/utils/authVerifySession'
 
 const router = useRouter()
 const password = ref('')
@@ -36,22 +36,16 @@ const handleResetPassword = async () => {
     isError.value = false
 
     try {
-        const response = await authFetch(`${apiBaseUrl}/auth/reset-password`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-                sessionToken: sessionToken,
-                code: verificationCode,
-                newPassword: password.value 
-            })
+        const { data: result } = await resetPassword({
+            sessionToken,
+            code: verificationCode,
+            newPassword: password.value,
         })
-
-        const result = await response.json()
 
         if (result.success) {
             localStorage.removeItem('session_token')
             localStorage.removeItem('verification_code')
-            localStorage.removeItem('user_email')
+            clearPendingVerifyEmail()
 
             router.push({ name: 'Login' })
         } else {
@@ -83,23 +77,23 @@ const handleResetPassword = async () => {
         <div class="space-y-4">
           <base-input
               v-model="password"
-              type="password"
-              label="New Password" 
-              place-holder="Placeholder" 
+              type="text"
+              name="new-password"
+              autocomplete="off"
+              label="New Password"
+              place-holder="newpassword123"
               :is-error="isError"
-              @clear-error="isError = false; 
-              // message=''
-              " 
+              @clear-error="isError = false"
           />
           <base-input
               v-model="confirmPassword"
-              type="password"
-              label="Password Confirmation" 
-              place-holder="Placeholder" 
+              type="text"
+              name="confirm-password"
+              autocomplete="off"
+              label="Password Confirmation"
+              place-holder="newpassword123"
               :is-error="isError"
-              @clear-error="isError = false; 
-              // message=''
-              " 
+              @clear-error="isError = false"
           />
 
           <base-button 

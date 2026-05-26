@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
-import api from '@/api'
-import type { ApiSuccess, PaginationMeta } from '@/types/api'
+import { createNoteInFolder, listFolderNotes, type NotesQuery } from '@/api/notes'
+import type { PaginationMeta } from '@/types/api'
 import { createDefaultNoteContent } from '@/utils/noteContent'
 import {
   extractNoteFromResponseBody,
@@ -9,15 +9,7 @@ import {
   openNote as openNoteApi,
   patchNote,
 } from '@/utils/noteApi'
-import type { NoteDetail, NoteListItem, NotePatchBody } from '@/types/notes'
-
-interface NotesQuery {
-  page?: number
-  limit?: number
-  sortBy?: string
-  sortOrder?: 'asc' | 'desc'
-  filter?: string
-}
+import type { NoteDetail, NotePatchBody } from '@/types/notes'
 
 const defaultQuery: Required<NotesQuery> = {
   page: 1,
@@ -75,16 +67,10 @@ export const useNotesStore = defineStore('notes', {
       this.error = null
 
       try {
-        const response = await api.post<ApiSuccess<Partial<NoteDetail> & { id: string }>>(
-          `/folders/${folderId}/notes`,
-          {
-            title: title.trim() || 'Untitled',
-            content: createDefaultNoteContent(),
-          },
-          {
-            validateStatus: (status) => status === 201 || status === 200 || status === 400,
-          },
-        )
+        const response = await createNoteInFolder(folderId, {
+          title: title.trim() || 'Untitled',
+          content: createDefaultNoteContent(),
+        })
         const createdRaw = extractNoteFromResponseBody(response.data)
 
         if (!createdRaw?.id) {
@@ -133,9 +119,21 @@ export const useNotesStore = defineStore('notes', {
       }
     },
 
-    async fetchFolderNotes(folderId: string, query: NotesQuery = {}) {
+    async fetchFolderNotes(
+      folderId: string,
+      query: NotesQuery = {},
+      opts?: { force?: boolean },
+    ) {
       if (!folderId) {
         this.reset()
+        return
+      }
+
+      if (
+        !opts?.force &&
+        this.loadedFolderId === folderId &&
+        !this.error
+      ) {
         return
       }
 
@@ -144,10 +142,7 @@ export const useNotesStore = defineStore('notes', {
       this.error = null
 
       try {
-        const listResponse = await api.get<ApiSuccess<NoteListItem[]>>(
-          `/folders/${folderId}/notes`,
-          { params },
-        )
+        const listResponse = await listFolderNotes(folderId, params)
         const listPayload = listResponse.data
 
         if (!listPayload?.success) {
@@ -223,7 +218,8 @@ export const useNotesStore = defineStore('notes', {
           ...existing,
           ...updated,
           recentEditors: updated.recentEditors ?? existing?.recentEditors ?? [],
-          totalEditorCount: updated.totalEditorCount ?? existing?.totalEditorCount ?? 0,
+          totalEditorCount:
+            updated.totalEditorCount ?? existing?.totalEditorCount ?? 0,
         }
         return this.notesById[noteId]
       } catch (error) {

@@ -28,10 +28,14 @@ function onInput(event: Event) {
 
 <template>
   <input
+    id="note-title"
+    name="note-title"
     ref="inputRef"
     type="text"
     :value="modelValue"
     placeholder="Untitled"
+    autocomplete="off"
+    aria-label="Note title"
     class="w-full shrink-0 border-none bg-transparent text-4xl font-semibold leading-tight tracking-tight text-white outline-none placeholder:text-white/30"
     @input="onInput"
   />

@@ -1,17 +1,51 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useRouter } from 'vue-router'
 import BaseButton from '@/components/ui/buttons/BaseButton.vue'
 import AddTodoListPopup from '@/components/dashboard/AddTodoListPopup.vue'
+import DeleteTodoListPopup from '@/components/dashboard/DeleteTodoListPopup.vue'
+import EditTodoListPopup from '@/components/dashboard/EditTodoListPopup.vue'
+import FolderCardContextMenu from '@/components/dashboard/FolderCardContextMenu.vue'
 import toDoFolder from '@/assets/img/ToDoFolder.svg'
-import dotsIcon from '@/assets/img/dots.svg'
 import { useTodoListsStore, type TodoList } from '@/stores/todoLists'
 
 interface TodoListWithTasksCount extends TodoList {
   tasksCount?: number | null
 }
 
+const router = useRouter()
 const todoListsStore = useTodoListsStore()
 const showAddTodoListPopup = ref(false)
+
+function openTodoList(todoListId: string) {
+  router.push({
+    name: 'DashboardTodoList',
+    params: { todoListId },
+  })
+}
+const showEditPopup = ref(false)
+const showDeletePopup = ref(false)
+const todoListToEdit = ref<TodoList | null>(null)
+const todoListToDelete = ref<TodoList | null>(null)
+const menuOpenTodoListId = ref<string | null>(null)
+
+function handleEdit(todoList: TodoList) {
+  todoListToEdit.value = todoList
+  showEditPopup.value = true
+}
+
+function handleDelete(todoList: TodoList) {
+  todoListToDelete.value = todoList
+  showDeletePopup.value = true
+}
+
+function isMenuOpen(todoListId: string) {
+  return menuOpenTodoListId.value === todoListId
+}
+
+function setMenuOpen(todoListId: string, open: boolean) {
+  menuOpenTodoListId.value = open ? todoListId : null
+}
 
 const getTasksLabel = (todoList: TodoList): string | null => {
   const tasksCount = (todoList as TodoListWithTasksCount).tasksCount
@@ -73,7 +107,11 @@ const getCardAccentStyle = (color: string | null) => {
         <div
           v-for="todoList in todoListsStore.todoLists"
           :key="todoList.id"
+          role="button"
+          tabindex="0"
           class="relative h-[163px] w-[202px] cursor-pointer transition-transform duration-200 hover:scale-[1.02]"
+          @click="openTodoList(todoList.id)"
+          @keydown.enter="openTodoList(todoList.id)"
         >
           <div class="relative h-full w-full overflow-hidden">
             <img :src="toDoFolder" :alt="todoList.name" class="absolute inset-0 h-full w-full" />
@@ -89,13 +127,14 @@ const getCardAccentStyle = (color: string | null) => {
                 {{ getTasksLabel(todoList) }}
               </p>
             </div>
-            <button
-              type="button"
-              class="mr-[12px] mt-[19px] flex h-[19.55px] w-[19.55px] cursor-pointer items-center justify-center rounded-full bg-black/30 text-white/70 transition-colors hover:bg-black/70 hover:text-white"
+            <FolderCardContextMenu
+              class="!mt-[19px]"
+              :model-value="isMenuOpen(todoList.id)"
               @click.stop
-            >
-              <img :src="dotsIcon" alt="" class="h-[2px] w-[9px]" />
-            </button>
+              @update:model-value="setMenuOpen(todoList.id, $event)"
+              @edit="handleEdit(todoList)"
+              @delete="handleDelete(todoList)"
+            />
           </div>
         </div>
       </div>
@@ -107,5 +146,7 @@ const getCardAccentStyle = (color: string | null) => {
     />
 
     <AddTodoListPopup v-model="showAddTodoListPopup" />
+    <EditTodoListPopup v-model="showEditPopup" :todo-list="todoListToEdit" />
+    <DeleteTodoListPopup v-model="showDeletePopup" :todo-list="todoListToDelete" />
   </section>
 </template>

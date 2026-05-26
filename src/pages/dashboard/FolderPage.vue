@@ -1,14 +1,22 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { useFoldersStore } from '@/stores/folders'
+import { useFoldersStore, type Folder } from '@/stores/folders'
 import BaseButton from '@/components/ui/buttons/BaseButton.vue'
 import AddFolderPopup from '@/components/dashboard/AddFolderPopup.vue'
+import EditFolderPopup from '@/components/dashboard/EditFolderPopup.vue'
+import DeleteFolderPopup from '@/components/dashboard/DeleteFolderPopup.vue'
+import FolderCardContextMenu from '@/components/dashboard/FolderCardContextMenu.vue'
 import bigFolder from '@/assets/img/big-folder.svg'
 
 const router = useRouter()
 const foldersStore = useFoldersStore()
 const showAddFolderPopup = ref(false)
+const menuOpenFolderId = ref<string | null>(null)
+const folderToEdit = ref<Folder | null>(null)
+const folderToDelete = ref<Folder | null>(null)
+const showEditPopup = ref(false)
+const showDeletePopup = ref(false)
 
 const handleAddFolder = () => {
   showAddFolderPopup.value = true
@@ -20,10 +28,28 @@ function openFolderNotes(folderId: string) {
     params: { folderId },
   })
 }
+
+function isMenuOpen(folderId: string) {
+  return menuOpenFolderId.value === folderId
+}
+
+function setMenuOpen(folderId: string, open: boolean) {
+  menuOpenFolderId.value = open ? folderId : null
+}
+
+function handleEdit(folder: Folder) {
+  folderToEdit.value = folder
+  showEditPopup.value = true
+}
+
+function handleDelete(folder: Folder) {
+  folderToDelete.value = folder
+  showDeletePopup.value = true
+}
 </script>
 
 <template>
-  <section class="isolate flex h-full min-h-0 w-full max-w-[858px] flex-col">
+  <section class="dashboard-page-column">
     <header
       class="sticky mb-5 top-0 z-10 shrink-0 -mx-1 bg-black px-1 shadow-[0_6px_16px_-4px_rgba(0,0,0,0.45)]"
     >
@@ -66,26 +92,24 @@ function openFolderNotes(folderId: string) {
                 {{ folder.noteCount }} files
               </p>
             </div>
-            <button
-              type="button"
-              class="mt-[13px] mr-[12px] flex h-[19.55px] w-[19.55px] cursor-pointer items-center justify-center rounded-full bg-black/30 text-white/70 transition-colors hover:bg-black/70 hover:text-white"
-              @click.stop
-            >
-              <img
-                src="../../assets/img/dots.svg"
-                alt=""
-                class="h-[2px] w-[9px]"
-              />
-            </button>
+            <FolderCardContextMenu
+              :model-value="isMenuOpen(folder.id)"
+              @update:model-value="setMenuOpen(folder.id, $event)"
+              @edit="handleEdit(folder)"
+              @delete="handleDelete(folder)"
+            />
           </div>
         </div>
       </div>
     </div>
+
     <div
       class="pointer-events-none sticky bottom-0 z-[1px] h-[2px] w-full bg-black shadow-[0_-3px_10px_-1px_rgba(0,0,0,0.35)]"
       aria-hidden="true"
     />
 
     <AddFolderPopup v-model="showAddFolderPopup" />
+    <EditFolderPopup v-model="showEditPopup" :folder="folderToEdit" />
+    <DeleteFolderPopup v-model="showDeletePopup" :folder="folderToDelete" />
   </section>
 </template>

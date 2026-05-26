@@ -1,6 +1,5 @@
 import { defineStore } from 'pinia'
-import api from '@/api'
-import type { ApiSuccess } from '@/types/api'
+import { getTimetable, syncTimetable as syncTimetableApi } from '@/api/timetable'
 import type { EdupageTimetableData, EdupageTimetableLesson } from '@/types/edupage'
 
 export const useTimetableStore = defineStore('timetable', {
@@ -47,14 +46,14 @@ export const useTimetableStore = defineStore('timetable', {
     },
 
     async fetchTimetable(workspaceId: string, force = false) {
-      if (!force && this.loadedWorkspaceId === workspaceId) return
+      if (!force && this.loadedWorkspaceId === workspaceId && !this.error) {
+        return
+      }
 
       this.isLoading = true
       this.error = null
       try {
-        const response = await api.get<ApiSuccess<EdupageTimetableData>>(
-          `/workspaces/${workspaceId}/integrations/edupage/timetable`,
-        )
+        const response = await getTimetable(workspaceId)
         const payload = response.data
         if (!payload?.success) {
           throw new Error(payload?.message || 'Failed to load timetable')
@@ -73,9 +72,7 @@ export const useTimetableStore = defineStore('timetable', {
       this.isSyncRequesting = true
       this.error = null
       try {
-        const response = await api.post(
-          `/workspaces/${workspaceId}/integrations/edupage/timetable/sync`,
-        )
+        const response = await syncTimetableApi(workspaceId)
         const payload = response.data
         if (!payload?.success) {
           throw new Error(payload?.message || 'Failed to sync timetable')

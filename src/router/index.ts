@@ -32,6 +32,12 @@ const routes: Array<RouteRecordRaw> = [
                 component: () => import('../pages/dashboard/TodoPage.vue')
             },
             {
+                path: 'todo/:todoListId',
+                name: 'DashboardTodoList',
+                component: () => import('../pages/dashboard/TodoListPage.vue'),
+                props: true
+            },
+            {
                 path: 'noxio-ai',
                 name: 'DashboardNoxioAi',
                 component: () => import('../pages/dashboard/NoxioaiPage.vue')

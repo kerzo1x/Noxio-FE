@@ -1,6 +1,31 @@
 import { defineStore } from 'pinia'
-import api from '@/api'
-import type { ApiSuccess, PaginationMeta } from '@/types/api'
+import {
+  createTodoList as createTodoListApi,
+  deleteTodoList as deleteTodoListApi,
+  listTodoLists,
+  updateTodoList as updateTodoListApi,
+  type TodoListsQuery,
+} from '@/api/todoLists'
+import { useWorkspaceStore } from '@/stores/workspace'
+import type { PaginationMeta } from '@/types/api'
+
+function resolveWorkspaceId(storeLoadedId: string | null): string | null {
+  const activeId = useWorkspaceStore().activeWorkspace?.id ?? null
+  return activeId ?? storeLoadedId
+}
+
+function getApiErrorMessage(error: unknown, fallback: string): string {
+  if (error && typeof error === 'object' && 'response' in error) {
+    const res = (error as { response?: { status?: number; data?: { message?: string } } })
+      .response
+    if (res?.data?.message) return res.data.message
+    if (res?.status === 404) {
+      return 'Todo list not found. It may have been deleted already.'
+    }
+  }
+  if (error instanceof Error) return error.message
+  return fallback
+}
 
 export interface TodoList {
   id: string
@@ -13,18 +38,11 @@ export interface TodoList {
   updatedAt: string
 }
 
-interface TodoListsQuery {
-  page?: number
-  limit?: number
-  sortBy?: string
-  sortOrder?: 'asc' | 'desc'
-}
-
 const defaultQuery: Required<TodoListsQuery> = {
   page: 1,
   limit: 20,
   sortBy: 'createdAt',
-  sortOrder: 'asc'
+  sortOrder: 'asc',
 }
 
 export const useTodoListsStore = defineStore('todo-lists', {
@@ -33,7 +51,7 @@ export const useTodoListsStore = defineStore('todo-lists', {
     meta: null as PaginationMeta | null,
     isLoading: false,
     error: null as string | null,
-    loadedWorkspaceId: null as string | null
+    loadedWorkspaceId: null as string | null,
   }),
 
   actions: {
@@ -45,9 +63,21 @@ export const useTodoListsStore = defineStore('todo-lists', {
       this.loadedWorkspaceId = null
     },
 
-    async fetchTodoLists(workspaceId: string, query: TodoListsQuery = {}) {
+    async fetchTodoLists(
+      workspaceId: string,
+      query: TodoListsQuery = {},
+      opts?: { force?: boolean },
+    ) {
       if (!workspaceId) {
         this.reset()
+        return
+      }
+
+      if (
+        !opts?.force &&
+        this.loadedWorkspaceId === workspaceId &&
+        !this.error
+      ) {
         return
       }
 
@@ -57,10 +87,7 @@ export const useTodoListsStore = defineStore('todo-lists', {
       this.error = null
 
       try {
-        const response = await api.get<ApiSuccess<TodoList[]>>(
-          `/workspaces/${workspaceId}/todo-lists`,
-          { params }
-        )
+        const response = await listTodoLists(workspaceId, params)
         const payload = response.data
 
         if (!payload?.success) {
@@ -83,7 +110,7 @@ export const useTodoListsStore = defineStore('todo-lists', {
 
     async createTodoList(
       workspaceId: string,
-      payload: { name: string; description?: string; color: string }
+      payload: { name: string; description?: string; color: string },
     ) {
       const trimmedName = payload.name.trim()
       if (!workspaceId) {
@@ -100,19 +127,18 @@ export const useTodoListsStore = defineStore('todo-lists', {
       const color = colorRaw.toUpperCase()
 
       try {
-        const response = await api.post<ApiSuccess<TodoList>>(
-          `/workspaces/${workspaceId}/todo-lists`,
-          {
-            name: trimmedName,
-            description: (payload.description ?? '').trim(),
-            color
-          }
-        )
+        const response = await createTodoListApi(workspaceId, {
+          name: trimmedName,
+          description: (payload.description ?? '').trim(),
+          color,
+        })
         const envelope = response.data
         if (!envelope?.success) {
           throw new Error(envelope?.message || 'Failed to create todo list.')
         }
-        this.todoLists = [...this.todoLists, envelope.data]
+        if (this.loadedWorkspaceId === workspaceId) {
+          this.todoLists = [...this.todoLists, envelope.data]
+        }
         return envelope.data
       } catch (error: unknown) {
         if (error && typeof error === 'object' && 'response' in error) {
@@ -125,6 +151,128 @@ export const useTodoListsStore = defineStore('todo-lists', {
         if (error instanceof Error) throw error
         throw new Error('Failed to create todo list.')
       }
-    }
-  }
+    },
+
+    async updateTodoList(
+      todoListId: string,
+      payload: {
+        name: string
+        description: string
+        color: string
+        originalName: string
+        originalDescription: string | null
+        originalColor: string | null
+      },
+    ) {
+      const trimmedName = payload.name.trim()
+      if (!todoListId) {
+        throw new Error('Todo list not found')
+      }
+      if (!trimmedName) {
+        throw new Error('Enter a todo list name.')
+      }
+
+      const workspaceId = resolveWorkspaceId(this.loadedWorkspaceId)
+      if (!workspaceId) {
+        throw new Error('No workspace selected')
+      }
+
+      const trimmedDescription = payload.description.trim()
+      const normalizedOriginalDescription = (payload.originalDescription ?? '').trim()
+
+      const colorRaw = payload.color.trim().replace(/^#/, '')
+      if (!/^[0-9A-Fa-f]{6}$/.test(colorRaw)) {
+        throw new Error('Invalid color.')
+      }
+      const color = colorRaw.toUpperCase()
+
+      const originalColorRaw = (payload.originalColor ?? '')
+        .trim()
+        .replace(/^#/, '')
+        .toUpperCase()
+
+      const body: { name: string; description?: string; color?: string } = {
+        name: trimmedName,
+      }
+
+      if (trimmedDescription !== normalizedOriginalDescription) {
+        body.description = trimmedDescription
+      }
+
+      if (color !== originalColorRaw) {
+        body.color = color
+      }
+
+      try {
+        const response = await updateTodoListApi(todoListId, body)
+        const result = response.data
+        if (!result?.success) {
+          throw new Error(result?.message || 'Failed to update todo list')
+        }
+        const updated = result.data
+        const index = this.todoLists.findIndex((list) => list.id === todoListId)
+        if (index !== -1) {
+          this.todoLists = [
+            ...this.todoLists.slice(0, index),
+            updated,
+            ...this.todoLists.slice(index + 1),
+          ]
+        }
+        return updated
+      } catch (error: unknown) {
+        throw new Error(getApiErrorMessage(error, 'Failed to update todo list'))
+      }
+    },
+
+    async deleteTodoList(todoListId: string) {
+      if (!todoListId) {
+        throw new Error('Todo list not found')
+      }
+
+      const workspaceId = resolveWorkspaceId(this.loadedWorkspaceId)
+      if (!workspaceId) {
+        throw new Error('No workspace selected')
+      }
+
+      const todoList = this.todoLists.find((list) => list.id === todoListId)
+      if (todoList && todoList.workspaceId !== workspaceId) {
+        await this.fetchTodoLists(workspaceId, {}, { force: true })
+        throw new Error('This todo list is not in the current workspace.')
+      }
+
+      try {
+        const response = await deleteTodoListApi(todoListId)
+        const { status, data } = response
+        const payload = data as { success?: boolean; message?: string } | undefined
+
+        const isHttpSuccess = status >= 200 && status < 300
+        const isJsonFailure =
+          payload &&
+          typeof payload === 'object' &&
+          'success' in payload &&
+          payload.success === false
+
+        if (!isHttpSuccess || isJsonFailure) {
+          throw new Error(
+            (payload && typeof payload === 'object' && payload.message) ||
+              'Failed to delete todo list',
+          )
+        }
+
+        this.todoLists = this.todoLists.filter((list) => list.id !== todoListId)
+      } catch (error: unknown) {
+        const status =
+          error &&
+          typeof error === 'object' &&
+          'response' in error &&
+          (error as { response?: { status?: number } }).response?.status
+
+        if (status === 404) {
+          this.todoLists = this.todoLists.filter((list) => list.id !== todoListId)
+        }
+
+        throw new Error(getApiErrorMessage(error, 'Failed to delete todo list'))
+      }
+    },
+  },
 })

@@ -1,5 +1,5 @@
 import { computed, ref } from 'vue'
-import api from '@/api'
+import { listWorkspaceMembers } from '@/api/members'
 
 export type WorkspaceMemberRole = 'VIEWER' | 'EDITOR' | 'ADMIN'
 
@@ -17,12 +17,6 @@ export interface WorkspaceMember {
   role: WorkspaceMemberRole
   joinedAt: string
   user: WorkspaceMemberUser
-}
-
-interface MembersResponse {
-  success?: boolean
-  message?: string
-  data?: WorkspaceMember[]
 }
 
 export function useWorkspaceMembers() {
@@ -92,9 +86,7 @@ export function useWorkspaceMembers() {
     loadError.value = ''
 
     try {
-      const response = await api.get<MembersResponse>(
-        `/workspaces/${workspaceId}/members`,
-      )
+      const response = await listWorkspaceMembers(workspaceId)
       const payload = response.data
 
       if (!payload?.success) {

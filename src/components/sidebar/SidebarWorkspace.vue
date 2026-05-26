@@ -44,6 +44,12 @@ const activeFolderId = computed(() => {
   return typeof folderId === 'string' ? folderId : null
 })
 
+const activeTodoListId = computed(() => {
+  if (route.name !== 'DashboardTodoList') return null
+  const todoListId = route.params.todoListId
+  return typeof todoListId === 'string' ? todoListId : null
+})
+
 const sectionItems = [
   { id: 'folders' as const, label: 'Folders', icon: folderIcon },
   { id: 'todo' as const, label: 'To do', icon: todoIcon },
@@ -112,6 +118,13 @@ function openFolderNotes(folderId: string) {
   router.push({
     name: 'DashboardFolderNotes',
     params: { folderId },
+  })
+}
+
+function openTodoList(todoListId: string) {
+  router.push({
+    name: 'DashboardTodoList',
+    params: { todoListId },
   })
 }
 </script>
@@ -189,10 +202,13 @@ function openFolderNotes(folderId: string) {
                   class="sidebar-link w-full px-3 py-2 text-left"
                   :class="{
                     active:
-                      item.id === 'folders' && activeFolderId === sub.id,
+                      (item.id === 'folders' && activeFolderId === sub.id) ||
+                      (item.id === 'todo' && activeTodoListId === sub.id),
                   }"
                   @click="
-                    item.id === 'folders' ? openFolderNotes(sub.id) : undefined
+                    item.id === 'folders'
+                      ? openFolderNotes(sub.id)
+                      : openTodoList(sub.id)
                   "
                 >
                   <img

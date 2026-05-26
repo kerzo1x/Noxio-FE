@@ -17,4 +17,10 @@
     --panel-input-border: #3f3f46;
     --panel-input-placeholder: #52525b;
     --panel-label: #a1a1aa;
+
+    /* Dashboard shell (1920px artboard: 283 + 112 + 172 horizontal insets) */
+    --dashboard-sidebar-width: 283px;
+    --dashboard-content-inset-start: 5.83vw;
+    --dashboard-content-inset-end: 8.96vw;
+    --dashboard-page-max-width: 858px;
 }

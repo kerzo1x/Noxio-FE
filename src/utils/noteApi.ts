@@ -1,5 +1,8 @@
-import api from '@/api'
-import type { ApiSuccess } from '@/types/api'
+import {
+  getNote,
+  openNoteRequest,
+  patchNoteRequest,
+} from '@/api/notes'
 import type { NoteDetail, NoteListItem, NotePatchBody } from '@/types/notes'
 import { createDefaultNoteContent, normalizeBlocksForApi } from '@/utils/noteContent'
 
@@ -93,10 +96,7 @@ export async function fetchNoteDetailSafe(
   listFallback?: NoteListItem,
 ): Promise<NoteDetail> {
   try {
-    const response = await api.get(`/notes/${noteId}`, {
-      validateStatus: (status) =>
-        status === 200 || status === 400 || status === 404 || status === 422,
-    })
+    const response = await getNote(noteId)
 
     const extracted = extractNoteFromResponseBody(response.data)
     if (extracted) {
@@ -143,9 +143,7 @@ export async function patchNote(
   }
 
   try {
-    const response = await api.patch<ApiSuccess<NoteDetail>>(`/notes/${noteId}`, payload, {
-      validateStatus: (status) => status === 200 || status === 400,
-    })
+    const response = await patchNoteRequest(noteId, payload)
     const extracted = extractNoteFromResponseBody(response.data)
     if (extracted) {
       return normalizeNoteDetail(extracted)
@@ -166,5 +164,5 @@ export async function patchNote(
 }
 
 export async function openNote(noteId: string): Promise<void> {
-  await api.post(`/notes/${noteId}/open`)
+  await openNoteRequest(noteId)
 }
