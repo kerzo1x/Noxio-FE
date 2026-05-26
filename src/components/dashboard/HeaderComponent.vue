@@ -373,19 +373,27 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <!-- Right: share, avatars, bell, profile — no overlapping layers -->
-    <div class="flex h-full shrink-0 items-center gap-0 pr-[94px]">
-      <div ref="shareMenuRef" class="relative mr-[64px]">
+    <!-- Right: spacing per Figma — Share↔avatars 27px, avatars↔bell 27px, bell↔profile 70px, pic↔name 15px, name↔arrow 12px -->
+    <div class="flex h-full shrink-0 items-center pr-[94px]">
+      <div ref="shareMenuRef" class="relative">
         <button
           type="button"
-          class="text flex cursor-pointer items-center gap-2.5 border-0 bg-transparent p-0 leading-none opacity-50 transition-opacity hover:opacity-100"
+          class="group flex cursor-pointer items-center gap-[1.6875rem] border-0 bg-transparent p-0 leading-none"
           aria-label="Share"
           :aria-expanded="isShareMenuOpen"
           aria-haspopup="dialog"
           @click="toggleShareMenu"
         >
-          <span aria-hidden="true">Share</span>
-          <span class="flex items-center -space-x-2.5" aria-hidden="true">
+          <span
+            class="share-button-label opacity-50 transition-opacity group-hover:opacity-40"
+            aria-hidden="true"
+          >
+            Share
+          </span>
+          <span
+            class="flex items-center -space-x-2.5 opacity-100 transition-opacity group-hover:opacity-90"
+            aria-hidden="true"
+          >
             <span
               v-for="i in sharedUsers"
               :key="i"
@@ -415,7 +423,7 @@ onUnmounted(() => {
         />
       </div>
 
-      <div ref="notificationsMenuRef" class="relative mr-[30px]">
+      <div ref="notificationsMenuRef" class="relative ml-[1.6875rem]">
         <button
           type="button"
           class="relative flex cursor-pointer items-center text-panel-label transition-colors hover:text-panel-text"
@@ -489,15 +497,15 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <div ref="profileMenuRef" class="relative">
+      <div ref="profileMenuRef" class="relative ml-[4.375rem]">
         <button
           type="button"
-          class="group flex cursor-pointer items-center justify-end gap-[7px]"
+          class="group flex cursor-pointer items-center justify-end gap-[0.9375rem]"
           :aria-expanded="isProfileMenuOpen"
           @click="toggleProfileMenu"
         >
           <div
-            class="h-8 w-8 overflow-hidden rounded-full"
+            class="h-8 w-8 shrink-0 overflow-hidden rounded-full"
           >
             <img
               :src="avatarUrl"
@@ -507,17 +515,19 @@ onUnmounted(() => {
             />
           </div>
 
-          <span
-            class="text truncate opacity-75 transition-opacity group-hover:opacity-100"
-          >
-            {{ userName }}
-          </span>
+          <span class="flex min-w-0 items-center gap-[0.75rem]">
+            <span
+              class="text truncate opacity-75 transition-opacity group-hover:opacity-100"
+            >
+              {{ userName }}
+            </span>
 
-          <img
-            :src="arrowIcon"
-            class="h-4 w-4 opacity-60 transition-opacity group-hover:opacity-100"
-            alt=""
-          />
+            <img
+              :src="arrowIcon"
+              class="h-4 w-4 shrink-0 opacity-60 transition-opacity group-hover:opacity-100"
+              alt=""
+            />
+          </span>
         </button>
 
         <div
@@ -556,6 +566,15 @@ onUnmounted(() => {
 
 <style scoped>
 .text {
+  font-family: 'Inter', sans-serif;
+  font-weight: 500;
+  font-size: 12px;
+  line-height: 150%;
+  letter-spacing: -0.011em;
+  color: var(--color-brand-white);
+}
+
+.share-button-label {
   font-family: 'Inter', sans-serif;
   font-weight: 500;
   font-size: 12px;

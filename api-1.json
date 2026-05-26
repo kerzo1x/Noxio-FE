@@ -11,6 +11,10 @@
       "description": "Registration, login, 2FA, profile, avatar"
     },
     {
+      "name": "OAuth",
+      "description": "Google OAuth2 PKCE flow"
+    },
+    {
       "name": "Workspaces",
       "description": "Workspace CRUD, members, invitations"
     },
@@ -50,7 +54,7 @@
     "schemas": {}
   },
   "paths": {
-    "/health": {
+    "/healthcheck": {
       "get": {
         "responses": {
           "200": {
@@ -112,7 +116,7 @@
             }
           }
         },
-        "operationId": "getHealth",
+        "operationId": "getHealthcheck",
         "summary": "Health check"
       }
     },
@@ -3091,7 +3095,8 @@
                     "maxLength": 1000,
                     "type": "string"
                   }
-                }
+                },
+                "additionalProperties": false
               }
             },
             "multipart/form-data": {
@@ -3110,7 +3115,8 @@
                     "maxLength": 1000,
                     "type": "string"
                   }
-                }
+                },
+                "additionalProperties": false
               }
             },
             "text/plain": {
@@ -3129,7 +3135,8 @@
                     "maxLength": 1000,
                     "type": "string"
                   }
-                }
+                },
+                "additionalProperties": false
               }
             }
           }
@@ -8589,7 +8596,8 @@
                       ]
                     }
                   }
-                }
+                },
+                "additionalProperties": false
               }
             },
             "multipart/form-data": {
@@ -8743,7 +8751,8 @@
                       ]
                     }
                   }
-                }
+                },
+                "additionalProperties": false
               }
             },
             "text/plain": {
@@ -8897,7 +8906,8 @@
                       ]
                     }
                   }
-                }
+                },
+                "additionalProperties": false
               }
             }
           }
@@ -11625,7 +11635,8 @@
                       ]
                     }
                   }
-                }
+                },
+                "additionalProperties": false
               }
             },
             "multipart/form-data": {
@@ -11775,7 +11786,8 @@
                       ]
                     }
                   }
-                }
+                },
+                "additionalProperties": false
               }
             },
             "text/plain": {
@@ -11925,7 +11937,8 @@
                       ]
                     }
                   }
-                }
+                },
+                "additionalProperties": false
               }
             }
           }
@@ -16063,7 +16076,8 @@
                     "maxLength": 100,
                     "type": "string"
                   }
-                }
+                },
+                "additionalProperties": false
               }
             },
             "multipart/form-data": {
@@ -16078,7 +16092,8 @@
                     "maxLength": 100,
                     "type": "string"
                   }
-                }
+                },
+                "additionalProperties": false
               }
             },
             "text/plain": {
@@ -16093,7 +16108,8 @@
                     "maxLength": 100,
                     "type": "string"
                   }
-                }
+                },
+                "additionalProperties": false
               }
             }
           }
@@ -29283,7 +29299,8 @@
                     "maxLength": 64,
                     "type": "string"
                   }
-                }
+                },
+                "additionalProperties": false
               }
             },
             "multipart/form-data": {
@@ -29317,7 +29334,8 @@
                     "maxLength": 64,
                     "type": "string"
                   }
-                }
+                },
+                "additionalProperties": false
               }
             },
             "text/plain": {
@@ -29351,7 +29369,8 @@
                     "maxLength": 64,
                     "type": "string"
                   }
-                }
+                },
+                "additionalProperties": false
               }
             }
           }
@@ -34705,7 +34724,8 @@
                     "pattern": "^[A-Z0-9]{5}$",
                     "type": "string"
                   }
-                }
+                },
+                "additionalProperties": false
               }
             },
             "multipart/form-data": {
@@ -34725,7 +34745,8 @@
                     "pattern": "^[A-Z0-9]{5}$",
                     "type": "string"
                   }
-                }
+                },
+                "additionalProperties": false
               }
             },
             "text/plain": {
@@ -34745,7 +34766,8 @@
                     "pattern": "^[A-Z0-9]{5}$",
                     "type": "string"
                   }
-                }
+                },
+                "additionalProperties": false
               }
             }
           }
@@ -41245,6 +41267,304 @@
         ]
       }
     },
+    "/api/v1/auth/oauth/google": {
+      "get": {
+        "parameters": [],
+        "operationId": "getApiV1AuthOauthGoogle",
+        "tags": [
+          "OAuth"
+        ],
+        "summary": "Initiate Google OAuth2 PKCE login",
+        "description": "Redirects to Google consent screen.",
+        "responses": {
+          "302": {
+            "description": "Redirect to Google"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/oauth/google/callback": {
+      "get": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "code",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "state",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "error",
+            "required": false
+          }
+        ],
+        "operationId": "getApiV1AuthOauthGoogleCallback",
+        "tags": [
+          "OAuth"
+        ],
+        "summary": "Google OAuth2 callback",
+        "description": "Exchanges code for tokens. Redirects to frontend on success or error.",
+        "responses": {
+          "302": {
+            "description": "Redirect to frontend with one-time code or error reason"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/oauth/exchange": {
+      "post": {
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "required": [
+                        "accessToken",
+                        "isNew"
+                      ],
+                      "properties": {
+                        "accessToken": {
+                          "type": "string"
+                        },
+                        "isNew": {
+                          "type": "boolean"
+                        }
+                      }
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ]
+                }
+              },
+              "multipart/form-data": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "required": [
+                        "accessToken",
+                        "isNew"
+                      ],
+                      "properties": {
+                        "accessToken": {
+                          "type": "string"
+                        },
+                        "isNew": {
+                          "type": "boolean"
+                        }
+                      }
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ]
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "required": [
+                        "accessToken",
+                        "isNew"
+                      ],
+                      "properties": {
+                        "accessToken": {
+                          "type": "string"
+                        },
+                        "isNew": {
+                          "type": "boolean"
+                        }
+                      }
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "const": false,
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ]
+                }
+              },
+              "multipart/form-data": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "const": false,
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ]
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "const": false,
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "null"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "operationId": "postApiV1AuthOauthExchange",
+        "tags": [
+          "OAuth"
+        ],
+        "summary": "Exchange one-time OAuth code for JWT tokens",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "code"
+                ],
+                "properties": {
+                  "code": {
+                    "minLength": 32,
+                    "maxLength": 64,
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "code"
+                ],
+                "properties": {
+                  "code": {
+                    "minLength": 32,
+                    "maxLength": 64,
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "text/plain": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "code"
+                ],
+                "properties": {
+                  "code": {
+                    "minLength": 32,
+                    "maxLength": 64,
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/integrations/edupage/connect": {
       "post": {
         "parameters": [],
@@ -42054,7 +42374,8 @@
                     "minLength": 1,
                     "type": "string"
                   }
-                }
+                },
+                "additionalProperties": false
               }
             },
             "multipart/form-data": {
@@ -42073,7 +42394,8 @@
                     "minLength": 1,
                     "type": "string"
                   }
-                }
+                },
+                "additionalProperties": false
               }
             },
             "text/plain": {
@@ -42092,7 +42414,8 @@
                     "minLength": 1,
                     "type": "string"
                   }
-                }
+                },
+                "additionalProperties": false
               }
             }
           }
@@ -46895,7 +47218,8 @@
                     "pattern": "^[0-9A-Fa-f]{6}$",
                     "type": "string"
                   }
-                }
+                },
+                "additionalProperties": false
               }
             },
             "multipart/form-data": {
@@ -46919,7 +47243,8 @@
                     "pattern": "^[0-9A-Fa-f]{6}$",
                     "type": "string"
                   }
-                }
+                },
+                "additionalProperties": false
               }
             },
             "text/plain": {
@@ -46943,7 +47268,8 @@
                     "pattern": "^[0-9A-Fa-f]{6}$",
                     "type": "string"
                   }
-                }
+                },
+                "additionalProperties": false
               }
             }
           }
@@ -49053,7 +49379,8 @@
                     "pattern": "^[0-9A-Fa-f]{6}$",
                     "type": "string"
                   }
-                }
+                },
+                "additionalProperties": false
               }
             },
             "multipart/form-data": {
@@ -49080,7 +49407,8 @@
                     "pattern": "^[0-9A-Fa-f]{6}$",
                     "type": "string"
                   }
-                }
+                },
+                "additionalProperties": false
               }
             },
             "text/plain": {
@@ -49107,7 +49435,8 @@
                     "pattern": "^[0-9A-Fa-f]{6}$",
                     "type": "string"
                   }
-                }
+                },
+                "additionalProperties": false
               }
             }
           }
