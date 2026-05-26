@@ -54,13 +54,9 @@ watch(
 watch(
   () => [props.noteId, props.folderId, notesStore.noteIds] as const,
   () => {
-    if (!props.noteId || notesStore.loadedFolderId !== props.folderId) return
-    if (!notesStore.isLoading && !notesStore.noteIds.includes(props.noteId)) {
-      router.replace({
-        name: 'DashboardFolderNotes',
-        params: { folderId: props.folderId },
-      })
-    }
+    // If the current noteId isn't present in `noteIds` (because the list may be
+    // filtered), we rely on the `props.noteId` watcher below to call
+    // `notesStore.ensureNote(noteId)`.
   },
 )
 
@@ -75,6 +71,26 @@ watch(
         console.error('Failed to load note:', error)
       }
     }
+
+    const note = notesStore.getNote(noteId)
+    if (!note) {
+      // If we couldn't load the note, fall back to the folder view.
+      await router.replace({
+        name: 'DashboardFolderNotes',
+        params: { folderId: props.folderId },
+      })
+      return
+    }
+
+    // Safety: if the note doesn't belong to the current folder, don't keep it selected.
+    if (note.folderId !== props.folderId) {
+      await router.replace({
+        name: 'DashboardFolderNotes',
+        params: { folderId: props.folderId },
+      })
+      return
+    }
+
     void notesStore.openNote(noteId)
   },
   { immediate: true },
@@ -114,8 +130,7 @@ watch(
 
     const preferredNoteId =
       last?.folderId === folderId &&
-      last.noteId &&
-      notesStore.noteIds.includes(last.noteId)
+      last.noteId
         ? last.noteId
         : notesStore.noteIds[0]
 

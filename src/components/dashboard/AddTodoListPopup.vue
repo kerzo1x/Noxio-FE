@@ -462,7 +462,7 @@ const handleSubmit = async () => {
                 class="todo-list-popup-cancel"
                 @click="close"
               >
-                cancel
+                Cancel
               </button>
             </div>
 
@@ -481,7 +481,7 @@ const handleSubmit = async () => {
               <textarea
                 v-model="description"
                 name="todo-list-description"
-                placeholder="desctription"
+                placeholder="Description"
                 class="todo-list-popup-field todo-list-popup-field--textarea"
               />
             </div>

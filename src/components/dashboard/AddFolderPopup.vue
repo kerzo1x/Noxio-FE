@@ -102,7 +102,7 @@ const clearError = () => {
                 class="folder-popup-cancel"
                 @click="close"
               >
-                cancel
+                Cancel
               </button>
             </div>
 
@@ -121,7 +121,7 @@ const clearError = () => {
               <textarea
                 v-model="description"
                 name="folder-description"
-                placeholder="description"
+                placeholder="Description"
                 class="folder-popup-field folder-popup-field--textarea"
               />
             </div>

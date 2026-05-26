@@ -113,3 +113,4 @@ function handleDelete(folder: Folder) {
     <DeleteFolderPopup v-model="showDeletePopup" :folder="folderToDelete" />
   </section>
 </template>
+y

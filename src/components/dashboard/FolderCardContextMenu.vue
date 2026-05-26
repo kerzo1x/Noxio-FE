@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { ref, watch, onMounted, onUnmounted } from 'vue'
 import dotsIcon from '@/assets/img/dots.svg'
+import editIcon from '@/assets/img/edit.svg'
+import deleteIcon from '@/assets/img/delete.svg'
 
 const open = defineModel<boolean>({ default: false })
 
@@ -86,7 +88,8 @@ onUnmounted(() => {
         role="menuitem"
         @click="onEdit"
       >
-        edit
+        <span class="folder-card-menu__label">Edit</span>
+        <img :src="editIcon" alt="" class="folder-card-menu__icon" />
       </button>
       <button
         type="button"
@@ -94,7 +97,8 @@ onUnmounted(() => {
         role="menuitem"
         @click="onDelete"
       >
-        delete
+        <span class="folder-card-menu__label">Delete</span>
+        <img :src="deleteIcon" alt="" class="folder-card-menu__icon" />
       </button>
     </div>
   </div>
@@ -148,6 +152,11 @@ onUnmounted(() => {
 }
 
 .folder-card-menu__item {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
   border: none;
   background: transparent;
   padding: 0;
@@ -156,9 +165,20 @@ onUnmounted(() => {
   font-weight: 500;
   line-height: 150%;
   letter-spacing: -0.011em;
-  text-align: center;
+  text-align: left;
   cursor: pointer;
   transition: opacity 0.15s ease;
+}
+
+.folder-card-menu__label {
+  display: inline-flex;
+  align-items: center;
+}
+
+.folder-card-menu__icon {
+  height: 16px;
+  width: 16px;
+  flex-shrink: 0;
 }
 
 .folder-card-menu__item:hover {

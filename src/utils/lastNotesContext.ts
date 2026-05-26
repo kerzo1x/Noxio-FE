@@ -68,7 +68,10 @@ export function setLastNotesContext(
 }
 
 export function rememberFolder(workspaceId: string, folderId: string) {
-  setLastNotesContext(workspaceId, { folderId, noteId: null })
+  // When entering the notes view without a selected note, we still want to
+  // restore the last edited note for the same folder.
+  // So we don't force-override noteId to null here.
+  setLastNotesContext(workspaceId, { folderId })
 }
 
 export function rememberNote(

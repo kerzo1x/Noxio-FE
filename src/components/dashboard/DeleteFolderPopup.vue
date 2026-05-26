@@ -114,7 +114,7 @@ const clearError = () => {
                 class="folder-popup-cancel"
                 @click="close"
               >
-                cancel
+                Cancel
               </button>
             </div>
 
