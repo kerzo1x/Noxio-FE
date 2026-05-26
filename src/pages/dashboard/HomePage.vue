@@ -2,6 +2,11 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import type { EdupageTimetableLesson } from '@/types/edupage'
+import {
+  formatEdupageHm,
+  isEdupageLessonOnLocalToday,
+  parseEdupageDateTime,
+} from '@/utils/edupageTime'
 import { subjectAbbrev } from '@/utils/subjectAbbrev'
 import { useFoldersStore, type Folder } from '@/stores/folders'
 import { useWorkspaceStore } from '@/stores/workspace'
@@ -29,41 +34,36 @@ interface TimetableSlotGroup {
   lessons: EdupageTimetableLesson[]
 }
 
-function isSameLocalCalendarDay(a: Date, b: Date): boolean {
-  return (
-    a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate()
-  )
-}
-
 function lessonsForLocalToday(
   list: EdupageTimetableLesson[],
   now: Date = new Date()
 ): EdupageTimetableLesson[] {
-  return list.filter((l) => {
-    const start = new Date(l.startTime)
-    return isSameLocalCalendarDay(start, now)
-  })
+  return list.filter((l) =>
+    isEdupageLessonOnLocalToday(parseEdupageDateTime(l.startTime), now)
+  )
 }
 
 function buildSlotGroups(dayLessons: EdupageTimetableLesson[]): TimetableSlotGroup[] {
   const sorted = [...dayLessons].sort(
-    (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
+    (a, b) =>
+      parseEdupageDateTime(a.startTime).getTime() -
+      parseEdupageDateTime(b.startTime).getTime()
   )
   const clusters: EdupageTimetableLesson[][] = []
   for (const lesson of sorted) {
-    const t = new Date(lesson.startTime).getTime()
+    const t = parseEdupageDateTime(lesson.startTime).getTime()
     const prev = clusters[clusters.length - 1]
-    if (prev && new Date(prev[0].startTime).getTime() === t) {
+    if (prev && parseEdupageDateTime(prev[0].startTime).getTime() === t) {
       prev.push(lesson)
     } else {
       clusters.push([lesson])
     }
   }
   return clusters.map((group, i) => {
-    const start = new Date(group[0].startTime)
-    const endMs = Math.max(...group.map((l) => new Date(l.endTime).getTime()))
+    const start = parseEdupageDateTime(group[0].startTime)
+    const endMs = Math.max(
+      ...group.map((l) => parseEdupageDateTime(l.endTime).getTime())
+    )
     return { slotIndex: i + 1, start, end: new Date(endMs), lessons: group }
   })
 }
@@ -82,12 +82,8 @@ const recentFolders = computed(() => {
     .slice(0, 4)
 })
 
-function formatHm(d: Date): string {
-  return d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', hour12: false })
-}
-
 function formatSlotRange(start: Date, end: Date): string {
-  return `${formatHm(start)}–${formatHm(end)}`
+  return `${formatEdupageHm(start)}–${formatEdupageHm(end)}`
 }
 
 async function handleTimetableSync() {
