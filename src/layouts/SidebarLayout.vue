@@ -37,7 +37,7 @@ function handleWorkspaceTabChange(tab: WorkspaceTab) {
 </script>
 
 <template>
-  <aside class="flex h-full min-h-0 w-[283px] shrink-0 flex-col bg-black">
+  <aside class="dashboard-sidebar flex h-full min-h-0 flex-col bg-black">
     <nav class="min-h-0 grow flex flex-col ml-[56px] mt-[51px] text-sm mr-[81px]">
       <SidebarNav />
       <SidebarWorkspace

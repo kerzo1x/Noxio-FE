@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref, computed, watch, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, inject } from 'vue'
+import { dashboardLayoutMetricsKey } from '@/composables/dashboardLayoutMetrics'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { useWorkspaceStore } from '@/stores/workspace'
@@ -11,6 +12,7 @@ import { useWorkspaceSearch } from '@/composables/useWorkspaceSearch'
 import type { WorkspaceSearchResult } from '@/types/search'
 
 import defaultAvatar from '@/assets/img/user.svg'
+import logoIcon from '@/assets/img/logo.svg'
 import bellIcon from '@/assets/img/bell.svg'
 import arrowIcon from '@/assets/img/arrow.svg'
 import settingsIcon from '@/assets/img/settings.svg'
@@ -59,7 +61,40 @@ const notificationsMenuRef = ref<HTMLElement | null>(null)
 const shareMenuRef = ref<HTMLElement | null>(null)
 const profileMenuRef = ref<HTMLElement | null>(null)
 const headerSearchRef = ref<HTMLElement | null>(null)
+const headerSidebarRef = ref<HTMLElement | null>(null)
+const headerSidebarRight = ref(0)
 const isLoggingOut = ref(false)
+
+const layoutMetrics = inject(dashboardLayoutMetricsKey, null)
+
+let headerSidebarObserver: ResizeObserver | null = null
+
+function measureHeaderSidebar() {
+  headerSidebarRight.value =
+    headerSidebarRef.value?.getBoundingClientRect().right ?? 0
+}
+
+const searchAreaStyle = computed(() => {
+  const contentLeft = layoutMetrics?.contentAlignLeft.value ?? 0
+  if (!contentLeft) return undefined
+
+  const inset = Math.max(0, Math.round(contentLeft - headerSidebarRight.value))
+  return { paddingLeft: `${inset}px` }
+})
+
+onMounted(() => {
+  measureHeaderSidebar()
+  if (!headerSidebarRef.value) return
+
+  headerSidebarObserver = new ResizeObserver(measureHeaderSidebar)
+  headerSidebarObserver.observe(headerSidebarRef.value)
+  window.addEventListener('resize', measureHeaderSidebar, { passive: true })
+})
+
+watch(
+  () => layoutMetrics?.contentAlignLeft.value,
+  () => measureHeaderSidebar(),
+)
 
 const sharedUsers = [1, 2, 3]
 
@@ -281,6 +316,8 @@ watch(isProfileMenuOpen, (isOpen) => {
 })
 
 onUnmounted(() => {
+  headerSidebarObserver?.disconnect()
+  window.removeEventListener('resize', measureHeaderSidebar)
   document.removeEventListener('pointerdown', handleNotificationsPointerDown)
   document.removeEventListener('pointerdown', handleSharePointerDown)
   document.removeEventListener('pointerdown', handleProfilePointerDown)
@@ -291,7 +328,7 @@ onUnmounted(() => {
 
 <template>
   <header
-    class="relative z-20 grid h-16 shrink-0 grid-cols-[283px_minmax(0,1fr)_auto] items-stretch overflow-visible border-b border-panel-input-border/50 bg-panel-bg"
+    class="relative z-20 flex h-16 shrink-0 items-stretch overflow-visible border-b border-panel-input-border/50 bg-panel-bg"
     :class="{
       'z-30':
         isNotificationsMenuOpen ||
@@ -300,12 +337,24 @@ onUnmounted(() => {
         isHeaderSearchDropdownVisible,
     }"
   >
-    <!-- Sidebar column spacer -->
-    <div class="h-full" aria-hidden="true" />
-
-    <!-- Center: page search (separate from workspace members search in popup) -->
+    <!-- Sidebar column: fixed 283px; logo insets are % of that column, not the header -->
     <div
-      class="flex h-full min-h-0 min-w-0 items-center justify-center overflow-visible pl-[5.83vw]"
+      ref="headerSidebarRef"
+      class="dashboard-sidebar dashboard-header-logo flex h-full items-center"
+    >
+      <router-link
+        :to="{ name: 'DashboardHome' }"
+        class="block shrink-0 leading-none"
+        aria-label="Home"
+      >
+        <img :src="logoIcon" alt="" class="block h-auto w-full" />
+      </router-link>
+    </div>
+
+    <!-- Center: padding tracks live content column position from DashboardLayout -->
+    <div
+      class="flex min-w-0 flex-1 items-center overflow-visible"
+      :style="searchAreaStyle"
     >
       <div
         ref="headerSearchRef"
@@ -326,15 +375,30 @@ onUnmounted(() => {
 
     <!-- Right: share, avatars, bell, profile — no overlapping layers -->
     <div class="flex h-full shrink-0 items-center gap-0 pr-[94px]">
-      <div ref="shareMenuRef" class="relative mr-[27px]">
+      <div ref="shareMenuRef" class="relative mr-[64px]">
         <button
           type="button"
-          class="text cursor-pointer leading-none opacity-50 transition-opacity hover:opacity-100"
+          class="text flex cursor-pointer items-center gap-2.5 border-0 bg-transparent p-0 leading-none opacity-50 transition-opacity hover:opacity-100"
+          aria-label="Share"
           :aria-expanded="isShareMenuOpen"
           aria-haspopup="dialog"
           @click="toggleShareMenu"
         >
-          Share
+          <span aria-hidden="true">Share</span>
+          <span class="flex items-center -space-x-2.5" aria-hidden="true">
+            <span
+              v-for="i in sharedUsers"
+              :key="i"
+              class="flex h-6 w-6 items-center justify-center overflow-hidden rounded-full border-2 border-panel-bg bg-panel-input-bg"
+              :style="{ zIndex: 10 - i }"
+            >
+              <img
+                :src="defaultAvatar"
+                class="h-full w-full bg-[#E5E5E5] object-cover"
+                alt=""
+              />
+            </span>
+          </span>
         </button>
 
         <NotificationsPopup
@@ -349,21 +413,6 @@ onUnmounted(() => {
           :member-role-label="memberRoleLabel"
           @update:search-query="membersSearchQuery = $event"
         />
-      </div>
-
-      <div class="mr-[64px] flex items-center -space-x-2.5">
-        <div
-          v-for="i in sharedUsers"
-          :key="i"
-          class="flex h-6 w-6 items-center justify-center overflow-hidden rounded-full border-2 border-panel-bg bg-panel-input-bg"
-          :style="{ zIndex: 10 - i }"
-        >
-          <img
-            :src="defaultAvatar"
-            class="h-full w-full bg-[#E5E5E5] object-cover"
-            alt=""
-          />
-        </div>
       </div>
 
       <div ref="notificationsMenuRef" class="relative mr-[30px]">

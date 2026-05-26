@@ -49,7 +49,7 @@ function handleDelete(folder: Folder) {
 </script>
 
 <template>
-  <section class="isolate flex h-full min-h-0 w-full max-w-[858px] flex-col">
+  <section class="dashboard-page-column">
     <header
       class="sticky mb-5 top-0 z-10 shrink-0 -mx-1 bg-black px-1 shadow-[0_6px_16px_-4px_rgba(0,0,0,0.45)]"
     >

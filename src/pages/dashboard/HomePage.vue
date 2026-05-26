@@ -140,7 +140,7 @@ function handleDelete(folder: Folder) {
 </script>
 
 <template>
-  <section class="isolate flex h-full min-h-0 w-full max-w-[858px] flex-col">
+  <section class="dashboard-page-column">
     <div
       class="relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
     >

@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { onMounted, watch } from 'vue'
+import { onMounted, provide, ref, watch } from 'vue'
+import { useDashboardContentAlign } from '@/composables/useDashboardContentAlign'
+import { dashboardLayoutMetricsKey } from '@/composables/dashboardLayoutMetrics'
 import { useUserStore } from '@/stores/user'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useNotificationsStore } from '@/stores/notifications'
@@ -39,6 +41,11 @@ function refreshNotifications() {
   const workspaceId = workspaceStore.activeWorkspace?.id ?? null
   void notificationsStore.fetchNotifications(workspaceId, { force: true })
 }
+
+const contentRailRef = ref<HTMLElement | null>(null)
+const { contentAlignLeft } = useDashboardContentAlign(contentRailRef)
+
+provide(dashboardLayoutMetricsKey, { contentAlignLeft })
 </script>
 
 <template>
@@ -55,10 +62,11 @@ function refreshNotifications() {
       <SidebarLayout class="flex-none" />
       <main class="flex min-h-0 flex-1 flex-col overflow-hidden">
         <div
-          class="ml-[5.83vw] mt-[25px] mr-[8.96vw] mb-[2px] flex min-h-0 flex-1 flex-col overflow-hidden"
+          class="dashboard-content-inset dashboard-content-inset--stack mt-[25px] mb-[2px] overflow-hidden"
         >
           <div
-            class="flex min-h-0 flex-1 justify-center overflow-y-auto overflow-x-hidden"
+            ref="contentRailRef"
+            class="dashboard-content-rail overflow-y-auto"
           >
             <router-view />
           </div>
