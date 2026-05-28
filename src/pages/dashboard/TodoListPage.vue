@@ -189,12 +189,6 @@ watch(
           />
         </div>
       </div>
-      <h1
-        v-if="currentTodoList"
-        class="mt-4 text-[20px] font-medium tracking-[-0.011em] text-white"
-      >
-        {{ currentTodoList.name }}
-      </h1>
     </header>
 
     <div
@@ -206,7 +200,9 @@ watch(
           :key="column.status"
           class="flex min-w-0 flex-col"
         >
-          <h2 class="mb-5 text-[16px] font-semibold tracking-[-0.176px] text-white">
+          <h2
+            class="sticky top-0 z-[1] mb-5 bg-black pb-2 text-[16px] font-semibold tracking-[-0.176px] text-white"
+          >
             {{ column.label }}
             <span :style="{ color: column.countColor }">
               ({{ columnCount(column.status) }})
