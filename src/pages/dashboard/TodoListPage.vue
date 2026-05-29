@@ -2,18 +2,10 @@
 import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import BaseButton from '@/components/ui/buttons/BaseButton.vue'
-import { useTodoListsStore } from '@/stores/todoLists'
+import AddTaskPopup from '@/components/dashboard/AddTaskPopup.vue'
+import { useTodoListsStore, type TodoTask, type TodoTaskStatus } from '@/stores/todoLists'
 
-type TaskStatus = 'todo' | 'in_progress' | 'done'
 type PeriodFilter = 'today' | 'week' | 'month'
-
-interface MockTask {
-  id: string
-  title: string
-  description: string
-  date: string
-  status: TaskStatus
-}
 
 const props = defineProps<{
   todoListId: string
@@ -23,81 +15,7 @@ const router = useRouter()
 const todoListsStore = useTodoListsStore()
 
 const activePeriod = ref<PeriodFilter>('week')
-
-const MOCK_TASKS: MockTask[] = [
-  {
-    id: '1',
-    title: 'Title',
-    description:
-      'Lorem ipsum dolor sit amet consectetur. Ornare fames sagittis egestas phasellus nec a non mi. Sed ultricies',
-    date: '25.6',
-    status: 'todo',
-  },
-  {
-    id: '2',
-    title: 'Title',
-    description:
-      'Lorem ipsum dolor sit amet consectetur. Ornare fames sagittis egestas phasellus nec a non mi. Sed ultricies',
-    date: '25.6',
-    status: 'todo',
-  },
-  {
-    id: '3',
-    title: 'Title',
-    description:
-      'Lorem ipsum dolor sit amet consectetur. Ornare fames sagittis egestas phasellus nec a non mi. Sed ultricies',
-    date: '25.6',
-    status: 'todo',
-  },
-  {
-    id: '4',
-    title: 'Title',
-    description:
-      'Lorem ipsum dolor sit amet consectetur. Ornare fames sagittis egestas phasellus nec a non mi. Sed ultricies',
-    date: '25.6',
-    status: 'todo',
-  },
-  {
-    id: '5',
-    title: 'Title',
-    description:
-      'Lorem ipsum dolor sit amet consectetur. Ornare fames sagittis egestas phasellus nec a non mi. Sed ultricies',
-    date: '25.6',
-    status: 'in_progress',
-  },
-  {
-    id: '6',
-    title: 'Title',
-    description:
-      'Lorem ipsum dolor sit amet consectetur. Ornare fames sagittis egestas phasellus nec a non mi. Sed ultricies',
-    date: '25.6',
-    status: 'in_progress',
-  },
-  {
-    id: '7',
-    title: 'Title',
-    description:
-      'Lorem ipsum dolor sit amet consectetur. Ornare fames sagittis egestas phasellus nec a non mi. Sed ultricies',
-    date: '25.6',
-    status: 'in_progress',
-  },
-  {
-    id: '8',
-    title: 'Title',
-    description:
-      'Lorem ipsum dolor sit amet consectetur. Ornare fames sagittis egestas phasellus nec a non mi. Sed ultricies',
-    date: '25.6',
-    status: 'done',
-  },
-  {
-    id: '9',
-    title: 'Title',
-    description:
-      'Lorem ipsum dolor sit amet consectetur. Ornare fames sagittis egestas phasellus nec a non mi. Sed ultricies',
-    date: '25.6',
-    status: 'done',
-  },
-]
+const showAddTaskPopup = ref(false)
 
 const periodOptions: { id: PeriodFilter; label: string }[] = [
   { id: 'today', label: 'Today' },
@@ -106,41 +24,44 @@ const periodOptions: { id: PeriodFilter; label: string }[] = [
 ]
 
 const columns: {
-  status: TaskStatus
+  status: TodoTaskStatus
   label: string
   countColor: string
 }[] = [
-  { status: 'todo', label: 'To do', countColor: '#6a84e3' },
-  { status: 'in_progress', label: 'In progress', countColor: '#eae35f' },
-  { status: 'done', label: 'Done', countColor: '#59c86d' },
+  { status: 'TODO', label: 'To do', countColor: '#6a84e3' },
+  { status: 'IN_PROGRESS', label: 'In progress', countColor: '#eae35f' },
+  { status: 'DONE', label: 'Done', countColor: '#59c86d' },
 ]
 
-const currentTodoList = computed(() =>
-  todoListsStore.todoLists.find((list) => list.id === props.todoListId) ?? null,
-)
-
 const tasksByColumn = computed(() => {
-  const grouped: Record<TaskStatus, MockTask[]> = {
-    todo: [],
-    in_progress: [],
-    done: [],
+  const grouped: Record<TodoTaskStatus, TodoTask[]> = {
+    TODO: [],
+    IN_PROGRESS: [],
+    DONE: [],
   }
-  for (const task of MOCK_TASKS) {
+  for (const task of todoListsStore.tasks) {
     grouped[task.status].push(task)
   }
   return grouped
 })
 
-function tasksForColumn(status: TaskStatus) {
+function tasksForColumn(status: TodoTaskStatus) {
   return tasksByColumn.value[status]
 }
 
-function columnCount(status: TaskStatus) {
+function columnCount(status: TodoTaskStatus) {
   return tasksForColumn(status).length
 }
 
+function formatTaskDate(deadlineAt: string | null): string {
+  if (!deadlineAt) return ''
+  const date = new Date(deadlineAt)
+  if (Number.isNaN(date.getTime())) return ''
+  return `${date.getDate()}.${date.getMonth() + 1}`
+}
+
 function handleAddTask() {
-  // Popup for creating tasks will be added in a later iteration.
+  showAddTaskPopup.value = true
 }
 
 watch(
@@ -157,12 +78,25 @@ watch(
   },
   { immediate: true },
 )
+
+watch(
+  () => [props.todoListId, activePeriod.value] as const,
+  ([todoListId, period]) => {
+    if (!todoListId) return
+    void todoListsStore.fetchTodoListTasks(
+      todoListId,
+      { deadlineFilter: period },
+      { force: true },
+    )
+  },
+  { immediate: true },
+)
 </script>
 
 <template>
   <section class="isolate flex h-full min-h-0 w-full max-w-[985px] flex-col">
     <header
-      class="sticky top-0 z-10 mb-5 shrink-0 -mx-1 bg-black px-1 shadow-[0_6px_16px_-4px_rgba(0,0,0,0.45)]"
+      class="sticky top-0 z-10 mb-[35px] shrink-0 -mx-1 bg-black px-1 shadow-[0_6px_16px_-4px_rgba(0,0,0,0.45)]"
     >
       <div class="flex items-center justify-between gap-4">
         <div class="flex h-[22px] items-center gap-[30px]">
@@ -192,7 +126,22 @@ watch(
     </header>
 
     <div
-      class="relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden pt-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      v-if="todoListsStore.tasksLoading"
+      class="flex min-h-0 flex-1 items-center justify-center text-sm text-white/50"
+    >
+      Loading tasks...
+    </div>
+
+    <p
+      v-else-if="todoListsStore.tasksError"
+      class="text-sm font-medium text-red-400"
+    >
+      {{ todoListsStore.tasksError }}
+    </p>
+
+    <div
+      v-else
+      class="relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
     >
       <div class="grid w-full max-w-[985px] grid-cols-3 gap-5">
         <div
@@ -220,14 +169,16 @@ watch(
                 {{ task.title }}
               </h3>
               <p
+                v-if="task.description"
                 class="absolute left-[15px] top-[44px] line-clamp-3 w-[228px] text-[10px] leading-normal tracking-[0.1px] text-white/50"
               >
                 {{ task.description }}
               </p>
               <p
+                v-if="formatTaskDate(task.deadlineAt)"
                 class="absolute bottom-[13px] right-[15px] text-[10px] font-medium tracking-[0.1px] text-white"
               >
-                {{ task.date }}
+                {{ formatTaskDate(task.deadlineAt) }}
               </p>
             </article>
           </div>
@@ -239,5 +190,7 @@ watch(
       class="pointer-events-none sticky bottom-0 z-[1px] h-[2px] w-full bg-black shadow-[0_-3px_10px_-1px_rgba(0,0,0,0.35)]"
       aria-hidden="true"
     />
+
+    <AddTaskPopup v-model="showAddTaskPopup" :todo-list-id="todoListId" />
   </section>
 </template>

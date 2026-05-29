@@ -1,6 +1,6 @@
 import api from '@/api'
 import type { ApiSuccess } from '@/types/api'
-import type { TodoList } from '@/stores/todoLists'
+import type { TodoList, TodoTask, TodoTaskStatus } from '@/stores/todoLists'
 
 export interface TodoListsQuery {
   page?: number
@@ -31,4 +31,31 @@ export function updateTodoList(
 
 export function deleteTodoList(todoListId: string) {
   return api.delete(`/todo-lists/${todoListId}`)
+}
+
+export interface TodoTasksQuery {
+  page?: number
+  limit?: number
+  sortBy?: 'createdAt' | 'updatedAt' | 'deadlineAt'
+  sortOrder?: 'asc' | 'desc'
+  search?: string
+  deadlineFilter?: 'today' | 'week' | 'month'
+}
+
+export interface CreateTodoTaskBody {
+  title: string
+  description?: string | null
+  categoryId?: string | null
+  status?: TodoTaskStatus
+  deadlineAt?: string | null
+}
+
+export function listTodoListTasks(todoListId: string, params?: TodoTasksQuery) {
+  return api.get<ApiSuccess<TodoTask[]>>(`/todo-lists/${todoListId}/tasks`, {
+    params,
+  })
+}
+
+export function createTodoListTask(todoListId: string, body: CreateTodoTaskBody) {
+  return api.post<ApiSuccess<TodoTask>>(`/todo-lists/${todoListId}/tasks`, body)
 }

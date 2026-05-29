@@ -1,10 +1,14 @@
 import { defineStore } from 'pinia'
 import {
   createTodoList as createTodoListApi,
+  createTodoListTask as createTodoListTaskApi,
   deleteTodoList as deleteTodoListApi,
+  listTodoListTasks,
   listTodoLists,
   updateTodoList as updateTodoListApi,
+  type CreateTodoTaskBody,
   type TodoListsQuery,
+  type TodoTasksQuery,
 } from '@/api/todoLists'
 import { useWorkspaceStore } from '@/stores/workspace'
 import type { PaginationMeta } from '@/types/api'
@@ -38,6 +42,21 @@ export interface TodoList {
   updatedAt: string
 }
 
+export type TodoTaskStatus = 'TODO' | 'IN_PROGRESS' | 'DONE'
+
+export interface TodoTask {
+  id: string
+  todoListId: string
+  categoryId: string | null
+  title: string
+  description: string | null
+  status: TodoTaskStatus
+  deadlineAt: string | null
+  position: number
+  createdAt: string
+  updatedAt: string
+}
+
 const defaultQuery: Required<TodoListsQuery> = {
   page: 1,
   limit: 20,
@@ -52,6 +71,11 @@ export const useTodoListsStore = defineStore('todo-lists', {
     isLoading: false,
     error: null as string | null,
     loadedWorkspaceId: null as string | null,
+    tasks: [] as TodoTask[],
+    tasksTodoListId: null as string | null,
+    tasksLoading: false,
+    tasksError: null as string | null,
+    tasksDeadlineFilter: null as TodoTasksQuery['deadlineFilter'] | null,
   }),
 
   actions: {
@@ -61,6 +85,15 @@ export const useTodoListsStore = defineStore('todo-lists', {
       this.error = null
       this.isLoading = false
       this.loadedWorkspaceId = null
+      this.resetTasks()
+    },
+
+    resetTasks() {
+      this.tasks = []
+      this.tasksTodoListId = null
+      this.tasksLoading = false
+      this.tasksError = null
+      this.tasksDeadlineFilter = null
     },
 
     async fetchTodoLists(
@@ -272,6 +305,111 @@ export const useTodoListsStore = defineStore('todo-lists', {
         }
 
         throw new Error(getApiErrorMessage(error, 'Failed to delete todo list'))
+      }
+    },
+
+    async fetchTodoListTasks(
+      todoListId: string,
+      query: TodoTasksQuery = {},
+      opts?: { force?: boolean },
+    ) {
+      if (!todoListId) {
+        this.resetTasks()
+        return
+      }
+
+      const deadlineFilter = query.deadlineFilter ?? null
+      if (
+        !opts?.force &&
+        this.tasksTodoListId === todoListId &&
+        this.tasksDeadlineFilter === deadlineFilter &&
+        !this.tasksError
+      ) {
+        return
+      }
+
+      this.tasksLoading = true
+      this.tasksError = null
+
+      try {
+        const response = await listTodoListTasks(todoListId, {
+          page: 1,
+          limit: 100,
+          sortBy: 'createdAt',
+          sortOrder: 'asc',
+          ...query,
+        })
+        const payload = response.data
+
+        if (!payload?.success) {
+          throw new Error(payload?.message || 'Failed to fetch tasks')
+        }
+
+        this.tasks = payload.data
+        this.tasksTodoListId = todoListId
+        this.tasksDeadlineFilter = deadlineFilter
+      } catch (error) {
+        this.tasksError =
+          error instanceof Error ? error.message : 'Failed to fetch tasks'
+        this.tasks = []
+        this.tasksTodoListId = null
+        this.tasksDeadlineFilter = null
+      } finally {
+        this.tasksLoading = false
+      }
+    },
+
+    async createTodoTask(
+      todoListId: string,
+      payload: {
+        title: string
+        description?: string
+        categoryId?: string | null
+        deadlineAt?: string | null
+        status?: TodoTaskStatus
+      },
+    ) {
+      const trimmedTitle = payload.title.trim()
+      if (!todoListId) {
+        throw new Error('Todo list not found.')
+      }
+      if (!trimmedTitle) {
+        throw new Error('Enter a task name.')
+      }
+
+      const body: CreateTodoTaskBody = {
+        title: trimmedTitle,
+        status: payload.status ?? 'TODO',
+      }
+
+      const trimmedDescription = (payload.description ?? '').trim()
+      if (trimmedDescription) {
+        body.description = trimmedDescription
+      }
+
+      const categoryId = (payload.categoryId ?? '').trim()
+      if (categoryId) {
+        body.categoryId = categoryId
+      }
+
+      if (payload.deadlineAt) {
+        body.deadlineAt = payload.deadlineAt
+      }
+
+      try {
+        const response = await createTodoListTaskApi(todoListId, body)
+        const envelope = response.data
+        if (!envelope?.success) {
+          throw new Error(envelope?.message || 'Failed to create task.')
+        }
+
+        const created = envelope.data
+        if (this.tasksTodoListId === todoListId) {
+          this.tasks = [...this.tasks, created]
+        }
+        return created
+      } catch (error: unknown) {
+        throw new Error(getApiErrorMessage(error, 'Failed to create task.'))
       }
     },
   },
