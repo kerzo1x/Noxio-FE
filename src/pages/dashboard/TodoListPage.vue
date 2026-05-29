@@ -5,7 +5,7 @@ import BaseButton from '@/components/ui/buttons/BaseButton.vue'
 import AddTaskPopup from '@/components/dashboard/AddTaskPopup.vue'
 import { useTodoListsStore, type TodoTask, type TodoTaskStatus } from '@/stores/todoLists'
 
-type PeriodFilter = 'today' | 'week' | 'month'
+type PeriodFilter = 'today' | 'week' | 'month' | 'all'
 
 const props = defineProps<{
   todoListId: string
@@ -21,6 +21,7 @@ const periodOptions: { id: PeriodFilter; label: string }[] = [
   { id: 'today', label: 'Today' },
   { id: 'week', label: 'This week' },
   { id: 'month', label: 'This month' },
+  { id: 'all', label: 'All' },
 ]
 
 const columns: {
@@ -83,11 +84,8 @@ watch(
   () => [props.todoListId, activePeriod.value] as const,
   ([todoListId, period]) => {
     if (!todoListId) return
-    void todoListsStore.fetchTodoListTasks(
-      todoListId,
-      { deadlineFilter: period },
-      { force: true },
-    )
+    const query = period === 'all' ? {} : { deadlineFilter: period }
+    void todoListsStore.fetchTodoListTasks(todoListId, query, { force: true })
   },
   { immediate: true },
 )

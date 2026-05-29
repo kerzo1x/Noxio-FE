@@ -12,7 +12,7 @@ const todoListsStore = useTodoListsStore()
 
 const title = ref('')
 const description = ref('')
-const deadlineDate = ref('')
+const deadlineInput = ref('')
 const classValue = ref('')
 
 const isSubmitting = ref(false)
@@ -22,7 +22,7 @@ const message = ref('')
 const resetForm = () => {
   title.value = ''
   description.value = ''
-  deadlineDate.value = ''
+  deadlineInput.value = ''
   classValue.value = ''
   isError.value = false
   message.value = ''
@@ -54,19 +54,54 @@ const clearError = () => {
   message.value = ''
 }
 
+function formatDdMmYyyyDigits(digits: string): string {
+  const d = digits.replace(/\D/g, '').slice(0, 8)
+  if (d.length <= 2) return d
+  if (d.length <= 4) return `${d.slice(0, 2)}.${d.slice(2)}`
+  return `${d.slice(0, 2)}.${d.slice(2, 4)}.${d.slice(4)}`
+}
+
+function parseDdMmYyyy(input: string): { day: number; month: number; year: number } | null {
+  const digits = input.replace(/\D/g, '')
+  if (digits.length !== 8) return null
+
+  const day = Number.parseInt(digits.slice(0, 2), 10)
+  const month = Number.parseInt(digits.slice(2, 4), 10)
+  const year = Number.parseInt(digits.slice(4, 8), 10)
+
+  if (month < 1 || month > 12 || day < 1 || day > 31 || year < 1000) {
+    return null
+  }
+
+  const date = new Date(year, month - 1, day)
+  if (
+    date.getFullYear() !== year ||
+    date.getMonth() !== month - 1 ||
+    date.getDate() !== day
+  ) {
+    return null
+  }
+
+  return { day, month, year }
+}
+
 const formattedDeadline = computed(() => {
-  if (!deadlineDate.value) return null
-  const [year, month, day] = deadlineDate.value.split('-').map(Number)
-  if (!year || !month || !day) return null
-  return `${day}.${month}.${year}`
+  const parsed = parseDdMmYyyy(deadlineInput.value)
+  if (!parsed) return null
+  return `${parsed.day}.${parsed.month}.${parsed.year}`
 })
 
-function deadlineToIso(dateStr: string): string | null {
-  if (!dateStr) return null
-  const [year, month, day] = dateStr.split('-').map(Number)
-  if (!year || !month || !day) return null
-  const date = new Date(year, month - 1, day, 23, 59, 59, 999)
+function deadlineToIso(input: string): string | null {
+  const parsed = parseDdMmYyyy(input)
+  if (!parsed) return null
+  const date = new Date(parsed.year, parsed.month - 1, parsed.day, 23, 59, 59, 999)
   return date.toISOString()
+}
+
+function onDeadlineInput(event: Event) {
+  const target = event.target as HTMLInputElement
+  const digits = target.value.replace(/\D/g, '').slice(0, 8)
+  deadlineInput.value = formatDdMmYyyyDigits(digits)
 }
 
 const handleSubmit = async () => {
@@ -76,6 +111,12 @@ const handleSubmit = async () => {
   if (!props.todoListId) {
     isError.value = true
     message.value = 'Todo list not found.'
+    return
+  }
+
+  if (deadlineInput.value.trim() && !deadlineToIso(deadlineInput.value)) {
+    isError.value = true
+    message.value = 'Enter a valid deadline as dd.mm.yyyy (e.g. 10.05.2026).'
     return
   }
 
@@ -89,7 +130,9 @@ const handleSubmit = async () => {
       title: trimmed,
       description: description.value,
       categoryId,
-      deadlineAt: deadlineToIso(deadlineDate.value),
+      deadlineAt: deadlineInput.value.trim()
+        ? deadlineToIso(deadlineInput.value)
+        : null,
       status: 'TODO',
     })
     close()
@@ -149,19 +192,28 @@ const handleSubmit = async () => {
             <div class="task-popup-meta">
               <div class="task-popup-meta-row">
                 <span class="task-popup-meta-label">Deadline</span>
-                <label class="task-popup-deadline">
-                  <span v-if="formattedDeadline" class="task-popup-deadline-text">
-                    {{ formattedDeadline }}
-                  </span>
-                  <span v-else class="task-popup-deadline-placeholder">—</span>
-                  <input
-                    v-model="deadlineDate"
-                    type="date"
-                    class="task-popup-deadline-input"
-                    aria-label="Deadline"
-                  />
-                </label>
+                <input
+                  :value="deadlineInput"
+                  type="text"
+                  inputmode="numeric"
+                  name="task-deadline"
+                  placeholder="dd.mm.yyyy"
+                  class="task-popup-deadline"
+                  :class="{
+                    'task-popup-deadline--filled': Boolean(formattedDeadline),
+                  }"
+                  maxlength="10"
+                  autocomplete="off"
+                  aria-label="Deadline (dd.mm.yyyy)"
+                  @input="onDeadlineInput"
+                />
               </div>
+              <p
+                v-if="deadlineInput.length > 0 && !formattedDeadline"
+                class="task-popup-deadline-hint task-popup-deadline-hint--error"
+              >
+                Enter a valid date as dd.mm.yyyy (e.g. 10.05.2026)
+              </p>
 
               <div class="task-popup-meta-row">
                 <span class="task-popup-meta-label">Class</span>
@@ -258,20 +310,19 @@ const handleSubmit = async () => {
 }
 
 .task-popup-deadline {
-  @apply relative flex h-9 min-w-[100px] cursor-pointer items-center justify-center rounded-lg bg-neutral-800 px-4;
+  @apply box-border h-9 w-[130px] rounded-lg border-0 bg-neutral-800 px-4 text-center text-xs font-medium tracking-tight text-white outline-none transition-shadow placeholder:text-white/40 focus:ring-1 focus:ring-white/20;
 }
 
-.task-popup-deadline-text,
-.task-popup-deadline-placeholder {
-  @apply pointer-events-none text-xs font-medium tracking-tight text-white;
+.task-popup-deadline--filled {
+  @apply text-white;
 }
 
-.task-popup-deadline-placeholder {
-  @apply text-white/40;
+.task-popup-deadline-hint {
+  @apply -mt-3 text-right text-[10px] font-medium tracking-tight text-white/50;
 }
 
-.task-popup-deadline-input {
-  @apply absolute inset-0 cursor-pointer opacity-0;
+.task-popup-deadline-hint--error {
+  @apply text-red-400;
 }
 
 .task-popup-class {
