@@ -66,11 +66,6 @@
         @apply box-border shrink-0;
     }
 
-    .dashboard-header-logo {
-        padding-left: calc(170 / 283 * var(--dashboard-sidebar-width));
-        padding-right: calc(82 / 283 * var(--dashboard-sidebar-width));
-    }
-
     .dashboard-content-inset {
         margin-left: var(--dashboard-content-inset-start);
         margin-right: var(--dashboard-content-inset-end);

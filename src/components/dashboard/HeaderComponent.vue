@@ -337,17 +337,17 @@ onUnmounted(() => {
         isHeaderSearchDropdownVisible,
     }"
   >
-    <!-- Sidebar column: fixed 283px; logo insets are % of that column, not the header -->
+    <!-- Sidebar column: width from --dashboard-sidebar-width -->
     <div
       ref="headerSidebarRef"
-      class="dashboard-sidebar dashboard-header-logo flex h-full items-center"
+      class="dashboard-sidebar flex h-full items-center justify-center"
     >
       <router-link
         :to="{ name: 'DashboardHome' }"
         class="block shrink-0 leading-none"
         aria-label="Home"
       >
-        <img :src="logoIcon" alt="" class="block h-auto w-full" />
+        <img :src="logoIcon" alt="" class="block h-auto w-auto max-h-full" />
       </router-link>
     </div>
 

@@ -359,6 +359,50 @@ export const useTodoListsStore = defineStore('todo-lists', {
       }
     },
 
+    moveTaskLocally(taskId: string, toStatus: TodoTaskStatus, toIndex: number) {
+      const task = this.tasks.find((item) => item.id === taskId)
+      if (!task) return
+
+      const grouped: Record<TodoTaskStatus, TodoTask[]> = {
+        TODO: [],
+        IN_PROGRESS: [],
+        DONE: [],
+      }
+
+      for (const item of this.tasks) {
+        grouped[item.status].push({ ...item })
+      }
+
+      for (const status of Object.keys(grouped) as TodoTaskStatus[]) {
+        grouped[status].sort((a, b) => a.position - b.position)
+      }
+
+      const sourceStatus = task.status
+      const sourceList = grouped[sourceStatus]
+      const sourceIndex = sourceList.findIndex((item) => item.id === taskId)
+      if (sourceIndex === -1) return
+
+      sourceList.splice(sourceIndex, 1)
+
+      let adjustedIndex = toIndex
+      if (sourceStatus === toStatus && sourceIndex < toIndex) {
+        adjustedIndex -= 1
+      }
+
+      const targetList = grouped[toStatus]
+      const clampedIndex = Math.max(0, Math.min(adjustedIndex, targetList.length))
+      targetList.splice(clampedIndex, 0, { ...task, status: toStatus })
+
+      const updatedTasks: TodoTask[] = []
+      for (const status of ['TODO', 'IN_PROGRESS', 'DONE'] as TodoTaskStatus[]) {
+        grouped[status].forEach((item, index) => {
+          updatedTasks.push({ ...item, status, position: index })
+        })
+      }
+
+      this.tasks = updatedTasks
+    },
+
     async createTodoTask(
       todoListId: string,
       payload: {

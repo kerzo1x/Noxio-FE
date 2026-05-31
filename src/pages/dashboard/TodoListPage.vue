@@ -34,6 +34,9 @@ const columns: {
   { status: 'DONE', label: 'Done', countColor: '#59c86d' },
 ]
 
+const draggedTaskId = ref<string | null>(null)
+const dropTarget = ref<{ status: TodoTaskStatus; index: number } | null>(null)
+
 const tasksByColumn = computed(() => {
   const grouped: Record<TodoTaskStatus, TodoTask[]> = {
     TODO: [],
@@ -42,6 +45,9 @@ const tasksByColumn = computed(() => {
   }
   for (const task of todoListsStore.tasks) {
     grouped[task.status].push(task)
+  }
+  for (const status of Object.keys(grouped) as TodoTaskStatus[]) {
+    grouped[status].sort((a, b) => a.position - b.position)
   }
   return grouped
 })
@@ -63,6 +69,53 @@ function formatTaskDate(deadlineAt: string | null): string {
 
 function handleAddTask() {
   showAddTaskPopup.value = true
+}
+
+function onDragStart(event: DragEvent, task: TodoTask) {
+  draggedTaskId.value = task.id
+  dropTarget.value = null
+  event.dataTransfer?.setData('text/plain', task.id)
+  event.dataTransfer!.effectAllowed = 'move'
+}
+
+function onDragEnd() {
+  draggedTaskId.value = null
+  dropTarget.value = null
+}
+
+function getInsertIndex(event: DragEvent, index: number) {
+  const target = event.currentTarget as HTMLElement
+  const rect = target.getBoundingClientRect()
+  return event.clientY < rect.top + rect.height / 2 ? index : index + 1
+}
+
+function onTaskDragOver(event: DragEvent, status: TodoTaskStatus, index: number) {
+  event.preventDefault()
+  if (!draggedTaskId.value) return
+  event.dataTransfer!.dropEffect = 'move'
+  dropTarget.value = { status, index: getInsertIndex(event, index) }
+}
+
+function onColumnDragOver(event: DragEvent, status: TodoTaskStatus) {
+  event.preventDefault()
+  if (!draggedTaskId.value) return
+  event.dataTransfer!.dropEffect = 'move'
+  dropTarget.value = { status, index: tasksForColumn(status).length }
+}
+
+function onDrop(status: TodoTaskStatus, index: number) {
+  if (!draggedTaskId.value) return
+  todoListsStore.moveTaskLocally(draggedTaskId.value, status, index)
+  draggedTaskId.value = null
+  dropTarget.value = null
+}
+
+function isDropIndicatorVisible(status: TodoTaskStatus, index: number) {
+  return dropTarget.value?.status === status && dropTarget.value.index === index
+}
+
+function isDraggingTask(taskId: string) {
+  return draggedTaskId.value === taskId
 }
 
 watch(
@@ -155,12 +208,29 @@ watch(
               ({{ columnCount(column.status) }})
             </span>
           </h2>
-          <div class="flex flex-col gap-5">
-            <article
-              v-for="task in tasksForColumn(column.status)"
+          <div
+            class="flex min-h-[127px] flex-col gap-5"
+            @dragover="onColumnDragOver($event, column.status)"
+            @drop.prevent="onDrop(column.status, tasksForColumn(column.status).length)"
+          >
+            <template
+              v-for="(task, index) in tasksForColumn(column.status)"
               :key="task.id"
-              class="relative h-[127px] w-full overflow-hidden rounded-[10px] bg-gradient-to-b from-[#343434] to-[#161616]"
             >
+              <div
+                v-if="isDropIndicatorVisible(column.status, index)"
+                class="h-[3px] shrink-0 rounded-full bg-white/70"
+                aria-hidden="true"
+              />
+              <article
+                draggable="true"
+                class="relative h-[127px] w-full cursor-grab overflow-hidden rounded-[10px] bg-gradient-to-b from-[#343434] to-[#161616] transition-opacity active:cursor-grabbing"
+                :class="{ 'opacity-40': isDraggingTask(task.id) }"
+                @dragstart="onDragStart($event, task)"
+                @dragend="onDragEnd"
+                @dragover="onTaskDragOver($event, column.status, index)"
+                @drop.prevent="onDrop(column.status, getInsertIndex($event, index))"
+              >
               <h3
                 class="absolute left-[15px] top-[15px] text-[14px] font-bold tracking-[-0.154px] text-white"
               >
@@ -178,7 +248,13 @@ watch(
               >
                 {{ formatTaskDate(task.deadlineAt) }}
               </p>
-            </article>
+              </article>
+            </template>
+            <div
+              v-if="isDropIndicatorVisible(column.status, tasksForColumn(column.status).length)"
+              class="h-[3px] shrink-0 rounded-full bg-white/70"
+              aria-hidden="true"
+            />
           </div>
         </div>
       </div>
