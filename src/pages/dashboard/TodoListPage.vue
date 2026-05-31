@@ -83,24 +83,26 @@ function onDragEnd() {
   dropTarget.value = null
 }
 
-function getInsertIndex(event: DragEvent, index: number) {
-  const target = event.currentTarget as HTMLElement
-  const rect = target.getBoundingClientRect()
-  return event.clientY < rect.top + rect.height / 2 ? index : index + 1
-}
-
-function onTaskDragOver(event: DragEvent, status: TodoTaskStatus, index: number) {
+function onSlotDragOver(event: DragEvent, status: TodoTaskStatus, index: number) {
   event.preventDefault()
+  event.stopPropagation()
   if (!draggedTaskId.value) return
   event.dataTransfer!.dropEffect = 'move'
-  dropTarget.value = { status, index: getInsertIndex(event, index) }
+  dropTarget.value = { status, index }
 }
 
 function onColumnDragOver(event: DragEvent, status: TodoTaskStatus) {
   event.preventDefault()
   if (!draggedTaskId.value) return
   event.dataTransfer!.dropEffect = 'move'
-  dropTarget.value = { status, index: tasksForColumn(status).length }
+  if (tasksForColumn(status).length === 0) {
+    dropTarget.value = { status, index: 0 }
+  }
+}
+
+function onSlotDrop(event: DragEvent, status: TodoTaskStatus, index: number) {
+  event.stopPropagation()
+  onDrop(status, index)
 }
 
 function onDrop(status: TodoTaskStatus, index: number) {
@@ -112,6 +114,14 @@ function onDrop(status: TodoTaskStatus, index: number) {
 
 function isDropIndicatorVisible(status: TodoTaskStatus, index: number) {
   return dropTarget.value?.status === status && dropTarget.value.index === index
+}
+
+function isDropSlotActive(status: TodoTaskStatus, index: number) {
+  return isDropIndicatorVisible(status, index)
+}
+
+function isDropSlotHintVisible(status: TodoTaskStatus, index: number) {
+  return Boolean(draggedTaskId.value) && !isDropSlotActive(status, index)
 }
 
 function isDraggingTask(taskId: string) {
@@ -209,52 +219,109 @@ watch(
             </span>
           </h2>
           <div
-            class="flex min-h-[127px] flex-col gap-5"
+            class="flex min-h-[127px] flex-col"
             @dragover="onColumnDragOver($event, column.status)"
-            @drop.prevent="onDrop(column.status, tasksForColumn(column.status).length)"
+            @drop.prevent="onSlotDrop($event, column.status, 0)"
           >
-            <template
-              v-for="(task, index) in tasksForColumn(column.status)"
-              :key="task.id"
-            >
+            <template v-if="tasksForColumn(column.status).length === 0">
               <div
-                v-if="isDropIndicatorVisible(column.status, index)"
-                class="h-[3px] shrink-0 rounded-full bg-white/70"
-                aria-hidden="true"
-              />
-              <article
-                draggable="true"
-                class="relative h-[127px] w-full cursor-grab overflow-hidden rounded-[10px] bg-gradient-to-b from-[#343434] to-[#161616] transition-opacity active:cursor-grabbing"
-                :class="{ 'opacity-40': isDraggingTask(task.id) }"
-                @dragstart="onDragStart($event, task)"
-                @dragend="onDragEnd"
-                @dragover="onTaskDragOver($event, column.status, index)"
-                @drop.prevent="onDrop(column.status, getInsertIndex($event, index))"
+                class="flex min-h-[127px] flex-1 items-center px-1"
+                @dragover="onSlotDragOver($event, column.status, 0)"
+                @drop.prevent="onSlotDrop($event, column.status, 0)"
               >
-              <h3
-                class="absolute left-[15px] top-[15px] text-[14px] font-bold tracking-[-0.154px] text-white"
-              >
-                {{ task.title }}
-              </h3>
-              <p
-                v-if="task.description"
-                class="absolute left-[15px] top-[44px] line-clamp-3 w-[228px] text-[10px] leading-normal tracking-[0.1px] text-white/50"
-              >
-                {{ task.description }}
-              </p>
-              <p
-                v-if="formatTaskDate(task.deadlineAt)"
-                class="absolute bottom-[13px] right-[15px] text-[10px] font-medium tracking-[0.1px] text-white"
-              >
-                {{ formatTaskDate(task.deadlineAt) }}
-              </p>
-              </article>
+                <div
+                  class="h-[3px] w-full rounded-full transition-all duration-150"
+                  :class="
+                    isDropSlotActive(column.status, 0)
+                      ? 'bg-white shadow-[0_0_8px_rgba(255,255,255,0.45)]'
+                      : draggedTaskId
+                        ? 'bg-white/25'
+                        : 'bg-transparent'
+                  "
+                  aria-hidden="true"
+                />
+              </div>
             </template>
-            <div
-              v-if="isDropIndicatorVisible(column.status, tasksForColumn(column.status).length)"
-              class="h-[3px] shrink-0 rounded-full bg-white/70"
-              aria-hidden="true"
-            />
+
+            <template v-else>
+              <template
+                v-for="(task, index) in tasksForColumn(column.status)"
+                :key="task.id"
+              >
+                <div
+                  class="flex h-[20px] shrink-0 items-center px-1"
+                  @dragover="onSlotDragOver($event, column.status, index)"
+                  @drop.prevent="onSlotDrop($event, column.status, index)"
+                >
+                  <div
+                    class="w-full rounded-full transition-all duration-150"
+                    :class="
+                      isDropSlotActive(column.status, index)
+                        ? 'h-[4px] bg-white shadow-[0_0_8px_rgba(255,255,255,0.45)]'
+                        : isDropSlotHintVisible(column.status, index)
+                          ? 'h-[2px] bg-white/25'
+                          : 'h-[2px] bg-transparent'
+                    "
+                    aria-hidden="true"
+                  />
+                </div>
+
+                <article
+                  draggable="true"
+                  class="relative h-[127px] w-full shrink-0 cursor-grab overflow-hidden rounded-[10px] bg-gradient-to-b from-[#343434] to-[#161616] transition-opacity active:cursor-grabbing"
+                  :class="{ 'opacity-40': isDraggingTask(task.id) }"
+                  @dragstart="onDragStart($event, task)"
+                  @dragend="onDragEnd"
+                >
+                  <h3
+                    class="absolute left-[15px] top-[15px] text-[14px] font-bold tracking-[-0.154px] text-white"
+                  >
+                    {{ task.title }}
+                  </h3>
+                  <p
+                    v-if="task.description"
+                    class="absolute left-[15px] top-[44px] line-clamp-3 w-[228px] text-[10px] leading-normal tracking-[0.1px] text-white/50"
+                  >
+                    {{ task.description }}
+                  </p>
+                  <p
+                    v-if="formatTaskDate(task.deadlineAt)"
+                    class="absolute bottom-[13px] right-[15px] text-[10px] font-medium tracking-[0.1px] text-white"
+                  >
+                    {{ formatTaskDate(task.deadlineAt) }}
+                  </p>
+                </article>
+              </template>
+
+              <div
+                class="flex h-[20px] shrink-0 items-center px-1"
+                @dragover="
+                  onSlotDragOver(
+                    $event,
+                    column.status,
+                    tasksForColumn(column.status).length,
+                  )
+                "
+                @drop.prevent="
+                  onSlotDrop($event, column.status, tasksForColumn(column.status).length)
+                "
+              >
+                <div
+                  class="w-full rounded-full transition-all duration-150"
+                  :class="
+                    isDropSlotActive(column.status, tasksForColumn(column.status).length)
+                      ? 'h-[4px] bg-white shadow-[0_0_8px_rgba(255,255,255,0.45)]'
+                      : isDropSlotHintVisible(
+                          column.status,
+                          tasksForColumn(column.status).length,
+                        )
+                        ? 'h-[2px] bg-white/25'
+                        : 'h-[2px] bg-transparent'
+                  "
+                  aria-hidden="true"
+                />
+              </div>
+            </template>
           </div>
         </div>
       </div>
