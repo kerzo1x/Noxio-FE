@@ -26,22 +26,24 @@ OpenAPI spec for the backend: [`api-1.json`](./api-1.json).
 |------|--------|
 | **Auth** | Register, login, 2FA, password recovery |
 | **Workspaces** | Create/switch, members, invitations |
-| **Folders & notes** | Folder CRUD, note list, block-based note editor |
-| **Todo** | Task lists today; **Kanban board planned** for `/dashboard/todo` |
-| **EduPage** | Connect account and timetable sync |
-| **Media** | Backend ready; image UI in notes/settings **coming soon** (see [Images & media](#images--media-planned-ui)) |
-
-The app includes a **note editor** (open a note under `folders/:folderId/notes/:noteId`) with autosave to the API.
+| **Folders & notes** | Folder CRUD, note list, block-based editor with autosave |
+| **Todo / Kanban** | Task lists, Kanban board with drag-and-drop (TODO / IN_PROGRESS / DONE) |
+| **EduPage** | Connect account, timetable sync, lesson display |
+| **Notifications** | Per-workspace notification list |
+| **Search** | Workspace-wide search |
+| **Media** | Backend ready; image upload UI not yet wired |
+| **Settings** | Route exists; UI not yet implemented |
+| **Noxio AI** | Placeholder |
 
 ---
 
 ## Stack
 
-- [Vue 3](https://vuejs.org/) + [TypeScript](https://www.typescriptlang.org/)
+- [Vue 3](https://vuejs.org/) + [TypeScript](https://www.typescriptlang.org/) ~5.9
 - [Vite](https://vite.dev/) 8
 - [Vue Router](https://router.vuejs.org/) 4
 - [Pinia](https://pinia.vuejs.org/) 3
-- [Axios](https://axios-http.com/)
+- [Axios](https://axios-http.com/) 1.x
 - [Tailwind CSS](https://tailwindcss.com/) 4 (`@tailwindcss/vite`)
 
 ---
@@ -59,7 +61,7 @@ flowchart TB
   end
 
   subgraph State["Pinia"]
-    Stores["user · workspace · folders · notes · todoLists · …"]
+    Stores["user · workspace · folders · notes · todoLists · timetable · notifications"]
   end
 
   subgraph Data["Data layer"]
@@ -77,7 +79,7 @@ flowchart TB
 |---------------|------|
 | `pages/` | Route screens (auth, dashboard, edupage) |
 | `layouts/` | Dashboard shell, sidebar |
-| `components/` | Reusable UI (notes, sidebar, dashboard) |
+| `components/` | Reusable UI (notes, sidebar, dashboard, todo) |
 | `stores/` | API calls and cached entities |
 | `composables/` | Shared logic (e.g. editor draft, resizable split) |
 | `api/` | Axios client |
@@ -138,22 +140,53 @@ npm run preview
 | `/auth/login`, `/auth/register` | Sign in / sign up |
 | `/auth/verify` | 2FA |
 | `/auth/forgot-password`, `/auth/reset-password` | Password recovery |
-| `/auth/edupage`, `/auth/edupage/login` | EduPage |
+| `/auth/edupage`, `/auth/edupage/login` | EduPage connection |
 | `/dashboard` | App shell → `/dashboard/home` |
-| `/dashboard/home` | Home |
-| `/dashboard/folders` | Folders |
-| `/dashboard/folders/:folderId/notes/:noteId?` | Notes + editor |
-| `/dashboard/todo` | Tasks (Kanban planned) |
-| `/dashboard/noxio-ai` | Noxio AI placeholder |
-| `/dashboard/settings` | Settings |
+| `/dashboard/home` | Home — upcoming deadlines + timetable |
+| `/dashboard/folders` | Folder grid |
+| `/dashboard/folders/:folderId/notes/:noteId?` | Notes + block editor |
+| `/dashboard/todo` | Todo list overview |
+| `/dashboard/todo/:todoListId` | Kanban board for a todo list |
+| `/dashboard/noxio-ai` | Noxio AI (placeholder) |
+| `/dashboard/settings` | Settings (placeholder) |
+
+---
+
+## Note editor
+
+Block-based editor on `/dashboard/folders/:folderId/notes/:noteId`:
+
+- **Block types:** paragraph, bulleted list (nested)
+- **Formatting:** bold, text size (small / medium / large)
+- **Autosave** with conflict detection via `contentVersion`
+- Split-panel layout: note list on the left, editor on the right
+
+---
+
+## Todo / Kanban
+
+Task management on `/dashboard/todo` and `/dashboard/todo/:todoListId`:
+
+- **Todo lists** with name, description, and color label
+- **Kanban board** with three columns: `TODO`, `IN_PROGRESS`, `DONE`
+- Drag-and-drop between columns (position synced to API)
+- Task fields: title, description, deadline, category
+- Deadline filter: today / week / month
+
+---
+
+## EduPage integration
+
+Connect via `/auth/edupage` → `/auth/edupage/login`. After linking:
+
+- Timetable lessons are fetched and cached in the `timetable` store
+- Lessons appear on the Home page alongside upcoming task deadlines
 
 ---
 
 ## Images & media (planned UI)
 
-Below is what the frontend will call, based on backend routes in `api-1.json`.
-
-### Upload & library
+Backend endpoints already exist in `api-1.json`.
 
 | Method | Route | Summary |
 |--------|-------|---------|
@@ -162,39 +195,13 @@ Below is what the frontend will call, based on backend routes in `api-1.json`.
 | `GET` | `/media/{mediaId}` | Get media metadata + `fileUrl` |
 | `DELETE` | `/media/{mediaId}` | Delete media |
 
-`POST /media/upload` returns `data.id`, `data.fileUrl`, `data.type`, etc. Media `type` values:
+`POST /media/upload` returns `data.id`, `data.fileUrl`, `data.type`. Media `type` values:
 
 - `NOTE_ATTACHMENT` — images for notes (attachments / cover)
 - `USER_AVATAR` — profile picture
 - `WORKSPACE_AVATAR` — workspace icon
 
-### Profile avatar (planned: Settings)
-
-| Method | Route | Summary |
-|--------|-------|---------|
-| `POST` | `/media/upload` | Upload with `type=USER_AVATAR` |
-| `PATCH` | `/auth/me/avatar` | Body: `{ "mediaId": "…" }` — attach uploaded media |
-| `DELETE` | `/auth/me/avatar` | Remove avatar |
-
-### Note images (planned: note header / cover)
-
-Notes expose `coverMediaId` on `GET /notes/{noteId}` (and related responses). Planned flow:
-
-1. `POST /media/upload` with `type=NOTE_ATTACHMENT` and workspace context.
-2. Link returned `id` to the note as cover (when `PATCH /notes/{noteId}` supports `coverMediaId` on the backend).
-3. Render image from `GET /media/{mediaId}` → `fileUrl`.
-
-Related note routes already used by the editor:
-
-| Method | Route | Summary |
-|--------|-------|---------|
-| `GET` | `/notes/{noteId}` | Note + content + `coverMediaId` |
-| `PATCH` | `/notes/{noteId}` | Update `title` / `content` (increments `contentVersion`) |
-| `POST` | `/notes/{noteId}/open` | Mark note opened |
-
-### Todo / Kanban (planned)
-
-Task APIs under `/workspaces/{workspaceId}/todo-lists`, `/todo-lists/{todoListId}/tasks`, etc. Tasks include a `status` field suitable for columns. The **Kanban view** on `/dashboard/todo` will map columns to statuses and use existing task create/update endpoints.
+Notes expose `coverMediaId` on `GET /notes/{noteId}`; the upload + link flow is not yet wired in the UI.
 
 ---
 

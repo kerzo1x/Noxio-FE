@@ -5,3 +5,4 @@ dist/
 .env
 .claude/
 discord-report.ps1
+tsconfig.tsbuildinfo
