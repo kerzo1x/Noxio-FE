@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, watch, onMounted, onUnmounted } from 'vue'
 import { useTodoListsStore, type TodoList } from '@/stores/todoLists'
 
 const open = defineModel<boolean>({ default: false })
@@ -14,16 +14,10 @@ const emit = defineEmits<{
 
 const todoListsStore = useTodoListsStore()
 
-const confirmText = ref('')
 const isSubmitting = ref(false)
-const isError = ref(false)
 const message = ref('')
 
-const canDelete = computed(() => confirmText.value === 'delete')
-
 const resetForm = () => {
-  confirmText.value = ''
-  isError.value = false
   message.value = ''
   isSubmitting.value = false
 }
@@ -48,11 +42,10 @@ onUnmounted(() => {
   document.removeEventListener('keydown', onKeydown)
 })
 
-const handleSubmit = async () => {
-  if (!canDelete.value || isSubmitting.value || !props.todoList) return
+const handleDelete = async () => {
+  if (isSubmitting.value || !props.todoList) return
 
   isSubmitting.value = true
-  isError.value = false
   message.value = ''
 
   const todoListId = props.todoList.id
@@ -62,17 +55,11 @@ const handleSubmit = async () => {
     emit('deleted', todoListId)
     close()
   } catch (err) {
-    isError.value = true
     message.value =
       err instanceof Error ? err.message : 'Failed to delete todo list.'
   } finally {
     isSubmitting.value = false
   }
-}
-
-const clearError = () => {
-  isError.value = false
-  message.value = ''
 }
 </script>
 
@@ -80,63 +67,41 @@ const clearError = () => {
   <Teleport to="body">
     <div
       v-if="open && todoList"
-      class="folder-popup-overlay"
+      class="delete-popup-overlay"
       role="dialog"
       aria-modal="true"
-      aria-labelledby="delete-todo-list-popup-title"
+      aria-labelledby="delete-todo-list-popup-message"
     >
       <div
-        class="folder-popup-backdrop"
+        class="delete-popup-backdrop"
         aria-hidden="true"
         @click="close"
       />
 
-      <div class="folder-popup-card" @click.stop>
-        <form class="folder-popup-form" @submit.prevent="handleSubmit">
-          <div class="folder-popup-body">
-            <div class="folder-popup-header">
-              <h2 id="delete-todo-list-popup-title" class="folder-popup-title">
-                Delete todo list
-              </h2>
-              <button
-                type="button"
-                class="folder-popup-cancel"
-                @click="close"
-              >
-                Cancel
-              </button>
-            </div>
+      <div class="delete-popup-card" @click.stop>
+        <p id="delete-todo-list-popup-message" class="delete-popup-message">
+          Are you sure you want to delete your to do with all content inside?
+        </p>
 
-            <p class="folder-popup-warning">
-              You are about to delete “{{ todoList.name }}”. This action cannot be
-              undone.
-            </p>
+        <div class="delete-popup-actions">
+          <button
+            type="button"
+            class="delete-popup-btn delete-popup-btn--cancel"
+            @click="close"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            class="delete-popup-btn delete-popup-btn--delete"
+            :disabled="isSubmitting"
+            @click="handleDelete"
+          >
+            {{ isSubmitting ? 'Loading...' : 'Delete' }}
+          </button>
+        </div>
 
-            <div class="folder-popup-fields">
-              <input
-                v-model="confirmText"
-                type="text"
-                name="delete-confirm"
-                placeholder='Type "delete" to confirm'
-                class="folder-popup-field"
-                :class="{ 'folder-popup-field--error': isError }"
-                autocomplete="off"
-                @input="clearError"
-              />
-            </div>
-          </div>
-
-          <div class="folder-popup-footer">
-            <button
-              type="submit"
-              class="folder-popup-submit folder-popup-submit--danger"
-              :disabled="isSubmitting || !canDelete"
-            >
-              {{ isSubmitting ? 'Loading...' : 'Delete todo list' }}
-            </button>
-            <p v-if="message" class="folder-popup-error">{{ message }}</p>
-          </div>
-        </form>
+        <p v-if="message" class="delete-popup-error">{{ message }}</p>
       </div>
     </div>
   </Teleport>
@@ -145,68 +110,40 @@ const clearError = () => {
 <style scoped>
 @reference '@/assets/styles/main.css';
 
-.folder-popup-overlay {
+/* Figma 1948:6602 — fixed padding & controls; card width from content (w-fit) */
+.delete-popup-overlay {
   @apply fixed inset-0 z-100 flex items-center justify-center p-4;
 }
 
-.folder-popup-backdrop {
+.delete-popup-backdrop {
   @apply absolute inset-0 bg-black/60 backdrop-blur-sm;
 }
 
-.folder-popup-card {
-  @apply relative z-1 box-border w-full max-w-2xl shrink-0 rounded-xl border-2 border-neutral-900 bg-black px-18 pb-10 pt-9.5;
+.delete-popup-card {
+  @apply relative z-1 box-border w-fit max-w-[calc(100vw-2rem)] shrink-0 rounded-[10px] border-2 border-[#212121] bg-black px-[88px] py-[75px];
 }
 
-.folder-popup-form {
-  @apply flex w-full flex-col gap-20;
+.delete-popup-message {
+  @apply text-base font-medium leading-none tracking-[0.5px] text-white/75;
 }
 
-.folder-popup-body {
-  @apply flex w-full flex-col gap-11;
+.delete-popup-actions {
+  @apply mt-[66px] flex items-center justify-center gap-5;
 }
 
-.folder-popup-header {
-  @apply flex w-full items-center justify-between gap-4;
+.delete-popup-btn {
+  @apply flex h-12 shrink-0 items-center justify-center rounded-[10px] px-7 text-base font-medium leading-[1.1] transition-opacity disabled:cursor-not-allowed disabled:opacity-40;
 }
 
-.folder-popup-title {
-  @apply text-base font-medium leading-none tracking-wide text-white;
+.delete-popup-btn--cancel {
+  @apply min-w-[91px] bg-white text-black hover:opacity-90;
 }
 
-.folder-popup-cancel {
-  @apply shrink-0 text-sm font-medium leading-none tracking-wide text-white/50 transition-colors hover:text-white;
+.delete-popup-btn--delete {
+  @apply min-w-[224px] bg-[#ad2222] px-[92px] text-white hover:bg-[#c42828];
 }
 
-.folder-popup-warning {
-  @apply text-sm font-medium leading-normal tracking-tight text-white/70;
-}
-
-.folder-popup-fields {
-  @apply flex w-full flex-col gap-5;
-}
-
-.folder-popup-field {
-  @apply box-border w-full rounded-xl border-0 bg-neutral-800 px-6 text-sm font-medium leading-normal tracking-tight text-white outline-none transition-shadow placeholder:text-white/50 focus:ring-1 focus:ring-white/20;
-  @apply h-13 py-0;
-}
-
-.folder-popup-field--error {
-  @apply ring-2 ring-red-500;
-}
-
-.folder-popup-footer {
-  @apply flex w-full flex-col gap-3;
-}
-
-.folder-popup-submit {
-  @apply flex w-full items-center justify-center rounded-xl bg-white px-3 py-4 text-base font-medium leading-none tracking-wide text-black transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40;
-}
-
-.folder-popup-submit--danger {
-  @apply bg-[#ad2222] text-white hover:opacity-100 hover:bg-[#c42828];
-}
-
-.folder-popup-error {
-  @apply text-center text-sm font-medium text-red-400;
+.delete-popup-error {
+  @apply mt-4 text-center text-sm font-medium text-red-400;
 }
 </style>

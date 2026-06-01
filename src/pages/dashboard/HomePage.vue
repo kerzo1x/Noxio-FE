@@ -8,7 +8,10 @@ import {
   parseEdupageDateTime,
 } from '@/utils/edupageTime'
 import { subjectAbbrev } from '@/utils/subjectAbbrev'
+import { listTaskCategories } from '@/api/taskCategories'
+import { listTodoListTasks } from '@/api/todoLists'
 import { useFoldersStore, type Folder } from '@/stores/folders'
+import { useTodoListsStore, type TodoTask } from '@/stores/todoLists'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useTimetableStore } from '@/stores/timetable'
 import EditFolderPopup from '@/components/dashboard/EditFolderPopup.vue'
@@ -19,7 +22,23 @@ import bigFolder from '@/assets/img/big-folder.svg'
 const router = useRouter()
 const workspaceStore = useWorkspaceStore()
 const foldersStore = useFoldersStore()
+const todoListsStore = useTodoListsStore()
 const timetableStore = useTimetableStore()
+
+interface UpcomingDeadlineRow {
+  taskId: string
+  todoListId: string
+  name: string
+  category: string
+  todoList: string
+  deadlineAt: string
+}
+
+const upcomingRows = ref<UpcomingDeadlineRow[]>([])
+const upcomingLoading = ref(false)
+const upcomingError = ref<string | null>(null)
+
+const UPCOMING_DEADLINES_LIMIT = 50
 
 const menuOpenFolderId = ref<string | null>(null)
 const folderToEdit = ref<Folder | null>(null)
@@ -133,6 +152,123 @@ function handleDelete(folder: Folder) {
   folderToDelete.value = folder
   showDeletePopup.value = true
 }
+
+function formatDeadlineDate(deadlineAt: string): string {
+  const date = new Date(deadlineAt)
+  if (Number.isNaN(date.getTime())) return ''
+  return `${date.getDate()}.${date.getMonth() + 1}.${date.getFullYear()}`
+}
+
+function resolveCategoryName(
+  categoryId: string | null,
+  categoryById: Map<string, string>,
+): string {
+  if (!categoryId) return '—'
+  return categoryById.get(categoryId) ?? categoryId
+}
+
+function isUpcomingTask(task: TodoTask, startOfToday: Date): boolean {
+  if (!task.deadlineAt || task.status === 'DONE') return false
+  const deadline = new Date(task.deadlineAt)
+  return !Number.isNaN(deadline.getTime()) && deadline >= startOfToday
+}
+
+async function fetchUpcomingDeadlines(workspaceId: string) {
+  upcomingLoading.value = true
+  upcomingError.value = null
+
+  try {
+    const lists = todoListsStore.todoLists.filter((list) => list.workspaceId === workspaceId)
+
+    if (lists.length === 0) {
+      upcomingRows.value = []
+      return
+    }
+
+    const startOfToday = new Date()
+    startOfToday.setHours(0, 0, 0, 0)
+
+    const [categoriesResponse, ...taskResponses] = await Promise.all([
+      listTaskCategories(workspaceId),
+      ...lists.map((list) =>
+        listTodoListTasks(list.id, {
+          page: 1,
+          limit: 100,
+          sortBy: 'deadlineAt',
+          sortOrder: 'asc',
+          deadlineFilter: 'month',
+        }),
+      ),
+    ])
+
+    const categoriesPayload = categoriesResponse.data
+    const categoryById = new Map<string, string>()
+    if (categoriesPayload?.success) {
+      for (const category of categoriesPayload.data) {
+        categoryById.set(category.id, category.name)
+      }
+    }
+
+    const listById = new Map(lists.map((list) => [list.id, list.name]))
+    const merged: UpcomingDeadlineRow[] = []
+
+    for (let index = 0; index < lists.length; index += 1) {
+      const list = lists[index]
+      const payload = taskResponses[index]?.data
+      if (!payload?.success) continue
+
+      for (const task of payload.data) {
+        if (!isUpcomingTask(task, startOfToday)) continue
+
+        merged.push({
+          taskId: task.id,
+          todoListId: task.todoListId,
+          name: task.title,
+          category: resolveCategoryName(task.categoryId, categoryById),
+          todoList: listById.get(list.id) ?? '—',
+          deadlineAt: task.deadlineAt!,
+        })
+      }
+    }
+
+    merged.sort(
+      (a, b) => new Date(a.deadlineAt).getTime() - new Date(b.deadlineAt).getTime(),
+    )
+    upcomingRows.value = merged.slice(0, UPCOMING_DEADLINES_LIMIT)
+  } catch (error) {
+    upcomingError.value =
+      error instanceof Error ? error.message : 'Failed to load upcoming deadlines'
+    upcomingRows.value = []
+  } finally {
+    upcomingLoading.value = false
+  }
+}
+
+function openTodoList(todoListId: string) {
+  router.push({
+    name: 'DashboardTodoList',
+    params: { todoListId },
+  })
+}
+
+watch(
+  () =>
+    [
+      workspaceStore.activeWorkspace?.id ?? null,
+      todoListsStore.loadedWorkspaceId,
+      todoListsStore.todoLists.length,
+    ] as const,
+  ([workspaceId]) => {
+    if (!workspaceId) {
+      upcomingRows.value = []
+      upcomingError.value = null
+      return
+    }
+    if (todoListsStore.loadedWorkspaceId !== workspaceId) return
+    void fetchUpcomingDeadlines(workspaceId)
+  },
+  { immediate: true },
+)
 </script>
 
 <template>
@@ -271,7 +407,7 @@ function handleDelete(folder: Folder) {
       <div v-if="recentFolders.length === 0" class="pb-6 text-sm text-white/45">
         No folders in this workspace yet.
       </div>
-      <div v-else class="grid grid-cols-4 gap-[34px] pb-6">
+      <div v-else class="grid grid-cols-4 gap-[34px] pb-10">
         <div
           v-for="folder in recentFolders"
           :key="folder.id"
@@ -299,6 +435,66 @@ function handleDelete(folder: Folder) {
               @edit="handleEdit(folder)"
               @delete="handleDelete(folder)"
             />
+          </div>
+        </div>
+      </div>
+
+      <h2
+        class="mb-5 text-[20px] font-medium tracking-[-0.011em] text-white"
+      >
+        Upcoming deadlines
+      </h2>
+
+      <div
+        class="mb-6 overflow-hidden rounded-[10px] border border-[#161616] bg-[#101010]"
+      >
+        <div
+          class="grid grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.85fr)] gap-4 px-4 py-3.5 text-[10px] font-bold leading-normal text-[#a2a2a2]"
+        >
+          <span>Name</span>
+          <span>Category</span>
+          <span>Todo List</span>
+          <span class="text-right">Deadline</span>
+        </div>
+
+        <div
+          class="min-h-[120px] rounded-[10px] border border-[#212121] bg-[#161616]"
+        >
+          <div
+            v-if="upcomingLoading"
+            class="flex min-h-[120px] items-center justify-center px-4 text-sm text-white/50"
+          >
+            Loading deadlines…
+          </div>
+          <div
+            v-else-if="upcomingError"
+            class="flex min-h-[120px] items-center justify-center px-4 text-center text-sm text-red-400/90"
+          >
+            {{ upcomingError }}
+          </div>
+          <div
+            v-else-if="upcomingRows.length === 0"
+            class="flex min-h-[120px] items-center justify-center px-4 text-sm text-white/45"
+          >
+            No upcoming deadlines this month.
+          </div>
+          <div v-else class="flex flex-col gap-1 py-2">
+            <div
+              v-for="row in upcomingRows"
+              :key="row.taskId"
+              role="button"
+              tabindex="0"
+              class="grid cursor-pointer grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.85fr)] gap-4 rounded-[6px] px-4 py-3 text-sm leading-normal text-white transition-colors hover:bg-white/5"
+              @click="openTodoList(row.todoListId)"
+              @keydown.enter="openTodoList(row.todoListId)"
+            >
+              <span class="truncate">{{ row.name }}</span>
+              <span class="truncate text-white/90">{{ row.category }}</span>
+              <span class="truncate text-white/90">{{ row.todoList }}</span>
+              <span class="truncate text-right text-white/90">
+                {{ formatDeadlineDate(row.deadlineAt) }}
+              </span>
+            </div>
           </div>
         </div>
       </div>
