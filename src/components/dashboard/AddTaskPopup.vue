@@ -1,6 +1,14 @@
 <script setup lang="ts">
 import { computed, ref, watch, onMounted, onUnmounted } from 'vue'
+import ColorSwatchRow from '@/components/ui/color/ColorSwatchRow.vue'
+import {
+  createTaskCategory,
+  listTaskCategories,
+  type TaskCategory,
+} from '@/api/taskCategories'
+import { useWorkspaceStore } from '@/stores/workspace'
 import { useTodoListsStore } from '@/stores/todoLists'
+import { fromApiColor, toApiColor } from '@/utils/colorUtils'
 
 const open = defineModel<boolean>({ default: false })
 
@@ -8,23 +16,66 @@ const props = defineProps<{
   todoListId: string
 }>()
 
+const workspaceStore = useWorkspaceStore()
 const todoListsStore = useTodoListsStore()
+
+const CATEGORY_PRESETS = ['#3C6EEC', '#EAE35F', '#AD2222'] as const
+const DEFAULT_CATEGORY_COLOR = CATEGORY_PRESETS[0]
 
 const title = ref('')
 const description = ref('')
 const deadlineInput = ref('')
-const classValue = ref('')
+
+const categories = ref<TaskCategory[]>([])
+const categoriesLoading = ref(false)
+const selectedCategoryId = ref<string | null>(null)
+const categoryDropdownOpen = ref(false)
+const createCategoryOpen = ref(false)
+const categoryPickerOpen = ref(false)
+
+const newCategoryName = ref('')
+const newCategoryColor = ref<string>(DEFAULT_CATEGORY_COLOR)
+const isCreatingCategory = ref(false)
 
 const isSubmitting = ref(false)
 const isError = ref(false)
 const showDeadlineError = ref(false)
 const message = ref('')
 
+const categoryTriggerRef = ref<HTMLElement | null>(null)
+const categoryDropdownRef = ref<HTMLElement | null>(null)
+const createCategoryPanelRef = ref<HTMLElement | null>(null)
+
+const selectedCategory = computed(() =>
+  categories.value.find((c) => c.id === selectedCategoryId.value) ?? null,
+)
+
+const categoryPillStyle = computed(() => {
+  if (!selectedCategory.value) {
+    return { backgroundColor: '#1c1b1b' }
+  }
+  return { backgroundColor: fromApiColor(selectedCategory.value.color) }
+})
+
+const categoryPillLabel = computed(
+  () => selectedCategory.value?.name ?? 'Select',
+)
+
+function categoryPillStyleFor(category: TaskCategory) {
+  return { backgroundColor: fromApiColor(category.color) }
+}
+
 const resetForm = () => {
   title.value = ''
   description.value = ''
   deadlineInput.value = ''
-  classValue.value = ''
+  selectedCategoryId.value = null
+  categoryDropdownOpen.value = false
+  createCategoryOpen.value = false
+  categoryPickerOpen.value = false
+  newCategoryName.value = ''
+  newCategoryColor.value = DEFAULT_CATEGORY_COLOR
+  isCreatingCategory.value = false
   isError.value = false
   showDeadlineError.value = false
   message.value = ''
@@ -36,20 +87,149 @@ const close = () => {
   open.value = false
 }
 
+async function fetchCategories() {
+  const workspaceId = workspaceStore.activeWorkspace?.id
+  if (!workspaceId) {
+    categories.value = []
+    return
+  }
+
+  categoriesLoading.value = true
+  try {
+    const response = await listTaskCategories(workspaceId)
+    const payload = response.data
+    if (payload?.success) {
+      categories.value = payload.data.filter(
+        (c) => c.todoListId === props.todoListId || c.todoListId === null,
+      )
+    } else {
+      categories.value = []
+    }
+  } catch {
+    categories.value = []
+  } finally {
+    categoriesLoading.value = false
+  }
+}
+
 watch(open, (isOpen) => {
-  if (isOpen) resetForm()
+  if (isOpen) {
+    resetForm()
+    void fetchCategories()
+  }
 })
 
 const onKeydown = (e: KeyboardEvent) => {
-  if (e.key === 'Escape' && open.value) close()
+  if (!open.value) return
+  if (e.key !== 'Escape') return
+
+  if (categoryPickerOpen.value) {
+    categoryPickerOpen.value = false
+    e.stopPropagation()
+    return
+  }
+  if (createCategoryOpen.value) {
+    createCategoryOpen.value = false
+    e.stopPropagation()
+    return
+  }
+  if (categoryDropdownOpen.value) {
+    categoryDropdownOpen.value = false
+    e.stopPropagation()
+    return
+  }
+  close()
+}
+
+function onDocumentPointerDown(e: PointerEvent) {
+  if (!open.value || categoryPickerOpen.value) return
+
+  const target = e.target as Node
+
+  if (createCategoryOpen.value) {
+    if (createCategoryPanelRef.value?.contains(target)) return
+    if (categoryDropdownRef.value?.contains(target)) return
+    if (categoryTriggerRef.value?.contains(target)) return
+    createCategoryOpen.value = false
+    return
+  }
+
+  if (categoryDropdownOpen.value) {
+    if (categoryDropdownRef.value?.contains(target)) return
+    if (categoryTriggerRef.value?.contains(target)) return
+    categoryDropdownOpen.value = false
+  }
 }
 
 onMounted(() => {
   document.addEventListener('keydown', onKeydown)
+  document.addEventListener('pointerdown', onDocumentPointerDown, true)
 })
 onUnmounted(() => {
   document.removeEventListener('keydown', onKeydown)
+  document.removeEventListener('pointerdown', onDocumentPointerDown, true)
 })
+
+function toggleCategoryDropdown() {
+  categoryDropdownOpen.value = !categoryDropdownOpen.value
+  if (!categoryDropdownOpen.value) {
+    createCategoryOpen.value = false
+  }
+}
+
+function selectCategory(categoryId: string) {
+  selectedCategoryId.value = categoryId
+  categoryDropdownOpen.value = false
+  createCategoryOpen.value = false
+  clearError()
+}
+
+function openCreateCategoryPanel() {
+  categoryDropdownOpen.value = true
+  createCategoryOpen.value = true
+  newCategoryName.value = ''
+  newCategoryColor.value = DEFAULT_CATEGORY_COLOR
+}
+
+async function handleCreateCategory() {
+  const trimmedName = newCategoryName.value.trim()
+  if (!trimmedName || isCreatingCategory.value) return
+
+  const workspaceId = workspaceStore.activeWorkspace?.id
+  if (!workspaceId) {
+    isError.value = true
+    message.value = 'No workspace selected.'
+    return
+  }
+
+  isCreatingCategory.value = true
+  isError.value = false
+  message.value = ''
+
+  try {
+    const response = await createTaskCategory(workspaceId, {
+      name: trimmedName,
+      color: toApiColor(newCategoryColor.value),
+      todoListId: props.todoListId,
+    })
+    const envelope = response.data
+    if (!envelope?.success) {
+      throw new Error(envelope?.message || 'Failed to create category.')
+    }
+
+    categories.value = [...categories.value, envelope.data]
+    selectedCategoryId.value = envelope.data.id
+    createCategoryOpen.value = false
+    categoryDropdownOpen.value = false
+    categoryPickerOpen.value = false
+  } catch (err) {
+    isError.value = true
+    message.value =
+      err instanceof Error ? err.message : 'Failed to create category.'
+  } finally {
+    isCreatingCategory.value = false
+  }
+}
 
 const clearError = () => {
   isError.value = false
@@ -181,11 +361,10 @@ const handleSubmit = async () => {
   message.value = ''
 
   try {
-    const categoryId = classValue.value.trim() || null
     await todoListsStore.createTodoTask(props.todoListId, {
       title: trimmed,
       description: description.value,
-      categoryId,
+      categoryId: selectedCategoryId.value,
       deadlineAt: deadlineInput.value.trim()
         ? deadlineToIso(deadlineInput.value)
         : null,
@@ -276,16 +455,98 @@ const handleSubmit = async () => {
                 Enter a valid date (e.g. 10.5.2026)
               </p>
 
-              <div class="task-popup-meta-row">
-                <span class="task-popup-meta-label">Class</span>
-                <input
-                  v-model="classValue"
-                  type="text"
-                  name="task-class"
-                  placeholder="slovenčina"
-                  class="task-popup-class"
-                  autocomplete="off"
-                />
+              <div class="task-popup-meta-row task-popup-category-row">
+                <span class="task-popup-meta-label">Category</span>
+                <button
+                  ref="categoryTriggerRef"
+                  type="button"
+                  class="task-popup-category-pill"
+                  :class="{
+                    'task-popup-category-pill--placeholder': !selectedCategory,
+                  }"
+                  :style="categoryPillStyle"
+                  :aria-expanded="categoryDropdownOpen"
+                  aria-haspopup="listbox"
+                  @click.stop="toggleCategoryDropdown"
+                >
+                  {{ categoryPillLabel }}
+                </button>
+
+                <div
+                  v-if="categoryDropdownOpen && !createCategoryOpen"
+                  ref="categoryDropdownRef"
+                  class="task-popup-category-dropdown"
+                  role="listbox"
+                  @click.stop
+                >
+                  <p
+                    v-if="categoriesLoading"
+                    class="task-popup-category-dropdown-empty"
+                  >
+                    Loading...
+                  </p>
+                  <template v-else>
+                    <button
+                      v-for="category in categories"
+                      :key="category.id"
+                      type="button"
+                      class="task-popup-category-option"
+                      :style="categoryPillStyleFor(category)"
+                      role="option"
+                      :aria-selected="selectedCategoryId === category.id"
+                      @click="selectCategory(category.id)"
+                    >
+                      {{ category.name }}
+                    </button>
+                    <p
+                      v-if="categories.length === 0"
+                      class="task-popup-category-dropdown-empty"
+                    >
+                      No categories yet
+                    </p>
+                  </template>
+
+                  <button
+                    type="button"
+                    class="task-popup-create-category-trigger"
+                    @click.stop="openCreateCategoryPanel"
+                  >
+                    Create category
+                  </button>
+                </div>
+
+                <div
+                  v-if="createCategoryOpen"
+                  ref="createCategoryPanelRef"
+                  class="task-popup-create-category"
+                  @click.stop
+                >
+                  <input
+                    v-model="newCategoryName"
+                    type="text"
+                    name="category-name"
+                    placeholder="Category name"
+                    class="task-popup-create-category-name"
+                    autocomplete="off"
+                  />
+
+                  <ColorSwatchRow
+                    v-model="newCategoryColor"
+                    v-model:picker-open="categoryPickerOpen"
+                    :presets="CATEGORY_PRESETS"
+                    size="sm"
+                    picker-panel-class="task-popup-category-picker"
+                  />
+
+                  <button
+                    type="button"
+                    class="task-popup-create-category-submit"
+                    :disabled="isCreatingCategory || !newCategoryName.trim()"
+                    @click="handleCreateCategory"
+                  >
+                    {{ isCreatingCategory ? 'Loading...' : 'Create category' }}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -309,7 +570,6 @@ const handleSubmit = async () => {
 <style scoped>
 @reference '@/assets/styles/main.css';
 
-/* Figma 1731:6330 — content 539px + px-18 (72px) ≈ max-w-2xl card */
 .task-popup-overlay {
   @apply fixed inset-0 z-100 flex items-center justify-center p-4;
 }
@@ -319,7 +579,7 @@ const handleSubmit = async () => {
 }
 
 .task-popup-card {
-  @apply relative z-1 box-border w-full max-w-2xl shrink-0 rounded-[10px] border-2 border-[#212121] bg-black px-18 pb-[39px] pt-[34px];
+  @apply relative z-1 box-border w-full max-w-2xl shrink-0 overflow-visible rounded-[10px] border-2 border-[#212121] bg-black px-18 pb-[39px] pt-[34px];
 }
 
 .task-popup-form {
@@ -347,7 +607,7 @@ const handleSubmit = async () => {
 }
 
 .task-popup-fields {
-  @apply flex w-full flex-col gap-[19px];
+  @apply flex w-full flex-col gap-5;
 }
 
 .task-popup-field {
@@ -394,8 +654,48 @@ const handleSubmit = async () => {
   @apply text-red-400;
 }
 
-.task-popup-class {
-  @apply box-border h-7 w-[117px] shrink-0 rounded-[10px] border-0 bg-[#3c6eec] px-5 py-1.5 text-center text-xs tracking-[0.12px] text-white outline-none transition-shadow placeholder:text-white/70 focus:ring-1 focus:ring-white/20;
+.task-popup-category-row {
+  @apply relative;
+}
+
+.task-popup-category-pill {
+  @apply box-border flex h-7 w-[117px] shrink-0 cursor-pointer items-center justify-center rounded-[10px] border-0 px-5 py-1.5 text-center text-xs tracking-[0.12px] text-white outline-none transition-shadow focus-visible:ring-1 focus-visible:ring-white/20;
+}
+
+.task-popup-category-pill--placeholder {
+  @apply text-white/70;
+}
+
+.task-popup-category-dropdown {
+  @apply absolute left-[225px] top-0 z-20 flex w-[181px] flex-col items-center gap-2.5 rounded-[10px] border border-[#212121] bg-black px-8 pb-4 pt-5;
+}
+
+.task-popup-category-option {
+  @apply flex h-7 w-[117px] shrink-0 cursor-pointer items-center justify-center rounded-[10px] border-0 px-5 py-1.5 text-center text-xs tracking-[0.12px] text-white transition-opacity hover:opacity-90;
+}
+
+.task-popup-category-dropdown-empty {
+  @apply w-full text-center text-[10px] text-white/50;
+}
+
+.task-popup-create-category-trigger {
+  @apply flex h-7 w-[117px] shrink-0 cursor-pointer items-center justify-center rounded-[10px] border-0 bg-white px-4 py-1.5 text-[10px] tracking-[0.1px] text-black transition-opacity hover:opacity-90;
+}
+
+.task-popup-create-category {
+  @apply absolute left-[225px] top-0 z-20 flex w-[181px] flex-col items-center gap-2.5 rounded-[10px] border border-[#212121] bg-black px-8 pb-4 pt-5;
+}
+
+.task-popup-create-category-name {
+  @apply box-border h-7 w-[117px] shrink-0 rounded-[10px] border-0 bg-[#262626] px-4 py-0 text-[10px] font-medium tracking-tight text-white outline-none placeholder:text-white/50 focus:ring-1 focus:ring-white/20;
+}
+
+:deep(.task-popup-category-picker) {
+  @apply left-[calc(100%+12px)] top-0;
+}
+
+.task-popup-create-category-submit {
+  @apply flex h-7 w-[117px] shrink-0 cursor-pointer items-center justify-center rounded-[10px] border-0 bg-white px-4 py-1.5 text-[10px] tracking-[0.1px] text-black transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40;
 }
 
 .task-popup-footer {

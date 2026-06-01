@@ -16,3 +16,13 @@ export function listTaskCategories(workspaceId: string, params?: { search?: stri
     params,
   })
 }
+
+export function createTaskCategory(
+  workspaceId: string,
+  body: { name: string; color: string; todoListId?: string | null },
+) {
+  return api.post<ApiSuccess<TaskCategory>>(
+    `/workspaces/${workspaceId}/task-categories`,
+    body,
+  )
+}

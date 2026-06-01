@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, ref, watch, onMounted, onUnmounted } from 'vue'
+import { ref, watch, onMounted, onUnmounted } from 'vue'
+import ColorSwatchRow from '@/components/ui/color/ColorSwatchRow.vue'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useTodoListsStore } from '@/stores/todoLists'
 
@@ -13,128 +14,10 @@ const PRESET_COLORS = [
   '#AD2222',
   '#E85102',
   '#23A0E8',
-  '#F900FD'
+  '#F900FD',
 ] as const
 
 const DEFAULT_HEX = PRESET_COLORS[0]
-
-function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
-  const h = hex.replace('#', '').trim()
-  if (!/^[0-9A-Fa-f]{6}$/.test(h)) return null
-  return {
-    r: Number.parseInt(h.slice(0, 2), 16),
-    g: Number.parseInt(h.slice(2, 4), 16),
-    b: Number.parseInt(h.slice(4, 6), 16)
-  }
-}
-
-function rgbToHex(r: number, g: number, b: number): string {
-  const c = (n: number) =>
-    Math.max(0, Math.min(255, Math.round(n)))
-      .toString(16)
-      .padStart(2, '0')
-  return `#${c(r)}${c(g)}${c(b)}`.toUpperCase()
-}
-
-function rgbToHsv(
-  r: number,
-  g: number,
-  b: number
-): { h: number; s: number; v: number } {
-  r /= 255
-  g /= 255
-  b /= 255
-  const max = Math.max(r, g, b)
-  const min = Math.min(r, g, b)
-  const d = max - min
-  let h = 0
-  if (d !== 0) {
-    switch (max) {
-      case r:
-        h = ((g - b) / d + (g < b ? 6 : 0)) / 6
-        break
-      case g:
-        h = ((b - r) / d + 2) / 6
-        break
-      default:
-        h = ((r - g) / d + 4) / 6
-        break
-    }
-  }
-  return {
-    h: h * 360,
-    s: max === 0 ? 0 : d / max,
-    v: max
-  }
-}
-
-function hsvToRgb(
-  h: number,
-  s: number,
-  v: number
-): { r: number; g: number; b: number } {
-  const hh = ((h % 360) + 360) % 360
-  const i = Math.floor(hh / 60)
-  const f = hh / 60 - i
-  const p = v * (1 - s)
-  const q = v * (1 - f * s)
-  const t = v * (1 - (1 - f) * s)
-  let r = 0
-  let g = 0
-  let b = 0
-  switch (i % 6) {
-    case 0:
-      r = v
-      g = t
-      b = p
-      break
-    case 1:
-      r = q
-      g = v
-      b = p
-      break
-    case 2:
-      r = p
-      g = v
-      b = t
-      break
-    case 3:
-      r = p
-      g = q
-      b = v
-      break
-    case 4:
-      r = t
-      g = p
-      b = v
-      break
-    default:
-      r = v
-      g = p
-      b = q
-      break
-  }
-  return {
-    r: Math.round(r * 255),
-    g: Math.round(g * 255),
-    b: Math.round(b * 255)
-  }
-}
-
-function clamp(n: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, n))
-}
-
-function normalizeHex(hex: string): string {
-  const h = hex.trim().replace(/^#/, '')
-  if (!/^[0-9A-Fa-f]{6}$/.test(h)) return DEFAULT_HEX
-  return `#${h.toUpperCase()}`
-}
-
-function isPresetColor(hex: string): boolean {
-  const normalized = normalizeHex(hex)
-  return PRESET_COLORS.some((preset) => normalizeHex(preset) === normalized)
-}
 
 const name = ref('')
 const description = ref('')
@@ -145,84 +28,6 @@ const isError = ref(false)
 const message = ref('')
 
 const pickerOpen = ref(false)
-const pickHue = ref(0)
-const pickSat = ref(1)
-const pickVal = ref(1)
-
-const pickerPanelRef = ref<HTMLElement | null>(null)
-const customSwatchRef = ref<HTMLElement | null>(null)
-const svPanelRef = ref<HTMLElement | null>(null)
-const hueTrackRef = ref<HTMLElement | null>(null)
-
-const draggingSv = ref(false)
-const draggingHue = ref(false)
-
-const hexField = ref('')
-const rField = ref('')
-const gField = ref('')
-const bField = ref('')
-
-function syncHsvFromHex(hex: string) {
-  const rgb = hexToRgb(hex)
-  if (!rgb) return
-  const { h, s, v } = rgbToHsv(rgb.r, rgb.g, rgb.b)
-  pickHue.value = h
-  pickSat.value = s
-  pickVal.value = v
-}
-
-function applyHsvToHex() {
-  const { r, g, b } = hsvToRgb(pickHue.value, pickSat.value, pickVal.value)
-  colorHex.value = rgbToHex(r, g, b)
-  syncInputFieldsFromHex()
-}
-
-function syncInputFieldsFromHex() {
-  const rgb = hexToRgb(colorHex.value)
-  if (!rgb) return
-  hexField.value = colorHex.value.toUpperCase()
-  rField.value = String(rgb.r)
-  gField.value = String(rgb.g)
-  bField.value = String(rgb.b)
-}
-
-const displayHex = computed(() => colorHex.value.toUpperCase())
-
-const previewColorStyle = computed(() => ({
-  backgroundColor: displayHex.value
-}))
-
-const isCustomColorActive = computed(
-  () => pickerOpen.value || !isPresetColor(colorHex.value)
-)
-
-const customSwatchStyle = computed(() => ({
-  backgroundColor: isCustomColorActive.value ? displayHex.value : '#000000'
-}))
-
-const svThumbStyle = computed(() => ({
-  left: `${pickSat.value * 100}%`,
-  top: `${(1 - pickVal.value) * 100}%`,
-  backgroundColor: displayHex.value
-}))
-
-const hueThumbStyle = computed(() => ({
-  left: `${(pickHue.value / 360) * 100}%`,
-  backgroundColor: `hsl(${pickHue.value}, 100%, 50%)`
-}))
-
-function isPresetSelected(preset: string): boolean {
-  return (
-    isPresetColor(colorHex.value) &&
-    normalizeHex(colorHex.value) === normalizeHex(preset)
-  )
-}
-
-function selectPreset(hex: string) {
-  colorHex.value = normalizeHex(hex)
-  pickerOpen.value = false
-  syncHsvFromHex(colorHex.value)
-}
 
 const resetForm = () => {
   name.value = ''
@@ -232,8 +37,6 @@ const resetForm = () => {
   message.value = ''
   isSubmitting.value = false
   pickerOpen.value = false
-  syncHsvFromHex(DEFAULT_HEX)
-  syncInputFieldsFromHex()
 }
 
 const close = () => {
@@ -257,145 +60,11 @@ const onKeydown = (e: KeyboardEvent) => {
   }
 }
 
-function onDocumentPointerDown(e: PointerEvent) {
-  if (!pickerOpen.value) return
-  const target = e.target as Node
-  if (pickerPanelRef.value?.contains(target)) return
-  if (customSwatchRef.value?.contains(target)) return
-  pickerOpen.value = false
-}
-
-function setSvFromClient(clientX: number, clientY: number) {
-  const el = svPanelRef.value
-  if (!el) return
-  const rect = el.getBoundingClientRect()
-  pickSat.value = clamp((clientX - rect.left) / rect.width, 0, 1)
-  pickVal.value = clamp(1 - (clientY - rect.top) / rect.height, 0, 1)
-  applyHsvToHex()
-}
-
-function setHueFromClient(clientX: number) {
-  const el = hueTrackRef.value
-  if (!el) return
-  const rect = el.getBoundingClientRect()
-  pickHue.value = clamp(
-    ((clientX - rect.left) / rect.width) * 360,
-    0,
-    359.999
-  )
-  applyHsvToHex()
-}
-
-function onSvPointerDown(e: PointerEvent) {
-  e.preventDefault()
-  e.stopPropagation()
-  ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
-  draggingSv.value = true
-  setSvFromClient(e.clientX, e.clientY)
-}
-
-function onSvPointerMove(e: PointerEvent) {
-  if (!draggingSv.value) return
-  setSvFromClient(e.clientX, e.clientY)
-}
-
-function onSvPointerUp(e: PointerEvent) {
-  if (draggingSv.value) {
-    draggingSv.value = false
-    try {
-      ;(e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId)
-    } catch {
-      /* ignore */
-    }
-  }
-}
-
-function onHuePointerDown(e: PointerEvent) {
-  e.preventDefault()
-  e.stopPropagation()
-  ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
-  draggingHue.value = true
-  setHueFromClient(e.clientX)
-}
-
-function onHuePointerMove(e: PointerEvent) {
-  if (!draggingHue.value) return
-  setHueFromClient(e.clientX)
-}
-
-function onHuePointerUp(e: PointerEvent) {
-  if (draggingHue.value) {
-    draggingHue.value = false
-    try {
-      ;(e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId)
-    } catch {
-      /* ignore */
-    }
-  }
-}
-
-function togglePicker() {
-  if (pickerOpen.value) {
-    pickerOpen.value = false
-    return
-  }
-  syncHsvFromHex(colorHex.value)
-  syncInputFieldsFromHex()
-  pickerOpen.value = true
-}
-
-function parseHexInput(raw: string): boolean {
-  let h = raw.trim().replace(/^#/, '')
-  if (h.length === 3) {
-    h = h
-      .split('')
-      .map((c) => c + c)
-      .join('')
-  }
-  if (!/^[0-9A-Fa-f]{6}$/.test(h)) return false
-  colorHex.value = `#${h.toUpperCase()}`
-  syncHsvFromHex(colorHex.value)
-  syncInputFieldsFromHex()
-  return true
-}
-
-function onHexFieldChange() {
-  parseHexInput(hexField.value)
-}
-
-function onRgbFieldCommit() {
-  const r = clamp(Number.parseInt(rField.value, 10) || 0, 0, 255)
-  const g = clamp(Number.parseInt(gField.value, 10) || 0, 0, 255)
-  const b = clamp(Number.parseInt(bField.value, 10) || 0, 0, 255)
-  colorHex.value = rgbToHex(r, g, b)
-  syncHsvFromHex(colorHex.value)
-  syncInputFieldsFromHex()
-}
-
-async function pickWithEyedropper() {
-  if (!('EyeDropper' in window)) return
-  try {
-    const dropper = new (
-      window as Window & { EyeDropper: new () => { open: () => Promise<{ sRGBHex: string }> } }
-    ).EyeDropper()
-    const result = await dropper.open()
-    if (result?.sRGBHex) {
-      colorHex.value = normalizeHex(result.sRGBHex)
-      syncHsvFromHex(colorHex.value)
-      syncInputFieldsFromHex()
-    }
-  } catch {
-    /* cancelled */
-  }
-}
-
 onMounted(() => {
   document.addEventListener('keydown', onKeydown)
-  document.addEventListener('pointerdown', onDocumentPointerDown, true)
 })
 onUnmounted(() => {
   document.removeEventListener('keydown', onKeydown)
-  document.removeEventListener('pointerdown', onDocumentPointerDown, true)
 })
 
 const clearError = () => {
@@ -422,7 +91,7 @@ const handleSubmit = async () => {
     await todoListsStore.createTodoList(workspaceId, {
       name: trimmed,
       description: description.value,
-      color: colorHex.value
+      color: colorHex.value,
     })
     close()
   } catch (err) {
@@ -486,34 +155,13 @@ const handleSubmit = async () => {
               />
             </div>
 
-            <div class="todo-list-popup-swatches">
-              <button
-                v-for="preset in PRESET_COLORS"
-                :key="preset"
-                type="button"
-                class="todo-list-popup-swatch"
-                :class="{
-                  'todo-list-popup-swatch--selected': isPresetSelected(preset)
-                }"
-                :style="{ backgroundColor: preset }"
-                :aria-label="`Select color ${preset}`"
-                :aria-pressed="isPresetSelected(preset)"
-                @click="selectPreset(preset)"
-              />
-
-              <button
-                ref="customSwatchRef"
-                type="button"
-                class="todo-list-popup-swatch todo-list-popup-swatch--custom"
-                :class="{
-                  'todo-list-popup-swatch--selected': isCustomColorActive
-                }"
-                :style="customSwatchStyle"
-                aria-label="Open color picker"
-                :aria-expanded="pickerOpen"
-                @click.stop="togglePicker"
-              />
-            </div>
+            <ColorSwatchRow
+              v-model="colorHex"
+              v-model:picker-open="pickerOpen"
+              :presets="PRESET_COLORS"
+              size="lg"
+              picker-panel-class="todo-list-popup-picker-panel"
+            />
           </div>
 
           <div class="todo-list-popup-footer">
@@ -527,103 +175,6 @@ const handleSubmit = async () => {
             <p v-if="message" class="todo-list-popup-error">{{ message }}</p>
           </div>
         </form>
-
-        <div
-          v-show="pickerOpen"
-          ref="pickerPanelRef"
-          class="color-picker-panel"
-          role="dialog"
-          aria-label="Color picker"
-          @click.stop
-        >
-          <div
-            ref="svPanelRef"
-            class="color-picker-sv"
-            :style="{ '--hue': pickHue }"
-            @pointerdown="onSvPointerDown"
-            @pointermove="onSvPointerMove"
-            @pointerup="onSvPointerUp"
-            @pointercancel="onSvPointerUp"
-          >
-            <div class="color-picker-sv-thumb" :style="svThumbStyle">
-              <span class="color-picker-sv-thumb-ring" />
-            </div>
-          </div>
-
-          <div class="color-picker-controls">
-            <button
-              type="button"
-              class="color-picker-preview"
-              aria-label="Pick color from screen"
-              @click="pickWithEyedropper"
-            >
-              <span class="color-picker-preview-fill" :style="previewColorStyle" />
-            </button>
-
-            <div class="color-picker-sliders">
-              <div
-                ref="hueTrackRef"
-                class="color-picker-slider color-picker-slider--hue"
-                @pointerdown="onHuePointerDown"
-                @pointermove="onHuePointerMove"
-                @pointerup="onHuePointerUp"
-                @pointercancel="onHuePointerUp"
-              >
-                <div class="color-picker-slider-thumb" :style="hueThumbStyle" />
-              </div>
-            </div>
-          </div>
-
-          <div class="color-picker-inputs">
-            <label class="color-picker-field color-picker-field--hex">
-              <span class="color-picker-field-label">HEX</span>
-              <input
-                v-model="hexField"
-                type="text"
-                class="color-picker-field-input"
-                maxlength="7"
-                spellcheck="false"
-                @change="onHexFieldChange"
-              />
-            </label>
-
-            <div class="color-picker-rgb">
-              <label class="color-picker-field">
-                <span class="color-picker-field-label">R</span>
-                <input
-                  v-model="rField"
-                  type="text"
-                  inputmode="numeric"
-                  class="color-picker-field-input"
-                  maxlength="3"
-                  @change="onRgbFieldCommit"
-                />
-              </label>
-              <label class="color-picker-field">
-                <span class="color-picker-field-label">G</span>
-                <input
-                  v-model="gField"
-                  type="text"
-                  inputmode="numeric"
-                  class="color-picker-field-input"
-                  maxlength="3"
-                  @change="onRgbFieldCommit"
-                />
-              </label>
-              <label class="color-picker-field">
-                <span class="color-picker-field-label">B</span>
-                <input
-                  v-model="bField"
-                  type="text"
-                  inputmode="numeric"
-                  class="color-picker-field-input color-picker-field-input--last"
-                  maxlength="3"
-                  @change="onRgbFieldCommit"
-                />
-              </label>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   </Teleport>
@@ -682,118 +233,8 @@ const handleSubmit = async () => {
   @apply ring-2 ring-red-500;
 }
 
-.todo-list-popup-swatches {
-  @apply flex flex-wrap items-center gap-2;
-}
-
-.todo-list-popup-swatch {
-  @apply size-12 shrink-0 cursor-pointer rounded-[6px] border-0 transition-shadow focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40;
-}
-
-.todo-list-popup-swatch--selected {
-  @apply ring-2 ring-white ring-offset-2 ring-offset-black;
-}
-
-.todo-list-popup-swatch--custom {
-  @apply border border-[#373737];
-}
-
-.color-picker-panel {
-  @apply absolute left-[349px] top-[89px] z-30 flex w-[189px] flex-col items-center gap-2 rounded-[4px] bg-[#1c1b1b] p-2;
-  box-shadow: 0 0 12.5px rgba(0, 0, 0, 0.12);
-}
-
-.color-picker-sv {
-  @apply relative size-[174px] shrink-0 cursor-pointer touch-none overflow-hidden rounded-[4px];
-  background-color: hsl(calc(var(--hue) * 1deg), 100%, 50%);
-  background-image:
-    linear-gradient(to top, #000, transparent),
-    linear-gradient(to right, #fff, rgb(255 255 255 / 0));
-}
-
-.color-picker-sv-thumb {
-  @apply pointer-events-none absolute z-10 size-2.5 -translate-x-1/2 -translate-y-1/2;
-}
-
-.color-picker-sv-thumb-ring {
-  @apply absolute inset-0 rounded-full border-2 border-white shadow-[0_0_0_1px_rgba(0,0,0,0.25)];
-}
-
-.color-picker-controls {
-  @apply flex w-[173px] shrink-0 items-center justify-between;
-}
-
-.color-picker-preview {
-  @apply relative size-7 shrink-0 cursor-pointer overflow-hidden rounded-[4px] border-0 p-0;
-}
-
-.color-picker-preview-fill {
-  @apply absolute inset-0 block rounded-[4px];
-}
-
-.color-picker-sliders {
-  @apply flex h-7 w-[138px] items-center;
-}
-
-.color-picker-slider {
-  @apply relative h-2.5 w-full shrink-0 cursor-pointer touch-none rounded-full;
-}
-
-.color-picker-slider--hue {
-  background: linear-gradient(
-    to right,
-    #f00 0%,
-    #ff0 17%,
-    #0f0 33%,
-    #0ff 50%,
-    #00f 67%,
-    #f0f 83%,
-    #f00 100%
-  );
-}
-
-.color-picker-slider-thumb {
-  @apply pointer-events-none absolute top-1/2 z-10 size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow-[0_0_0_1px_rgba(0,0,0,0.2)];
-}
-
-.color-picker-inputs {
-  @apply flex w-full shrink-0 items-center justify-center gap-2;
-}
-
-.color-picker-field {
-  @apply flex min-w-0 flex-col gap-1;
-}
-
-.color-picker-field--hex {
-  @apply w-[59px];
-}
-
-.color-picker-rgb {
-  @apply flex gap-px;
-}
-
-.color-picker-rgb .color-picker-field {
-  @apply w-[35px];
-}
-
-.color-picker-field-label {
-  @apply text-[8px] font-medium leading-none text-[#fafafa];
-}
-
-.color-picker-field-input {
-  @apply box-border w-full rounded-[4px] border-0 bg-[#454545] px-2 py-1 text-[10px] font-normal leading-5 tracking-wide text-[#fafafa] outline-none focus:ring-1 focus:ring-white/20;
-}
-
-.color-picker-rgb .color-picker-field:first-child .color-picker-field-input {
-  @apply rounded-l-[4px] rounded-r-none;
-}
-
-.color-picker-rgb .color-picker-field:nth-child(2) .color-picker-field-input {
-  @apply rounded-none;
-}
-
-.color-picker-field-input--last {
-  @apply rounded-l-none rounded-r-[4px];
+:deep(.todo-list-popup-picker-panel) {
+  @apply left-[349px] top-[89px];
 }
 
 .todo-list-popup-footer {
