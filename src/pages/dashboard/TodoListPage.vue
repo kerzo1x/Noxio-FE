@@ -1,11 +1,16 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import BaseButton from '@/components/ui/buttons/BaseButton.vue'
 import AddTaskPopup from '@/components/dashboard/AddTaskPopup.vue'
 import { useTodoListsStore, type TodoTask, type TodoTaskStatus } from '@/stores/todoLists'
+import {
+  getTodoTasksPeriodFilter,
+  setTodoTasksPeriodFilter,
+  type TodoTasksPeriodFilter,
+} from '@/utils/todoTasksPeriodFilter'
 
-type PeriodFilter = 'today' | 'week' | 'month' | 'all'
+type PeriodFilter = TodoTasksPeriodFilter
 
 const props = defineProps<{
   todoListId: string
@@ -14,7 +19,7 @@ const props = defineProps<{
 const router = useRouter()
 const todoListsStore = useTodoListsStore()
 
-const activePeriod = ref<PeriodFilter>('week')
+const activePeriod = ref<PeriodFilter>(getTodoTasksPeriodFilter())
 const showAddTaskPopup = ref(false)
 
 const periodOptions: { id: PeriodFilter; label: string }[] = [
@@ -35,7 +40,15 @@ const columns: {
 ]
 
 const draggedTaskId = ref<string | null>(null)
+const hideDragSource = ref(false)
 const dropTarget = ref<{ status: TodoTaskStatus; index: number } | null>(null)
+let dragPreviewEl: HTMLElement | null = null
+
+const dropLineBase =
+  'w-full rounded-full transition-[height,background-color,box-shadow,opacity] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]'
+const dropLineActive = 'h-px bg-white/70 shadow-[0_0_4px_rgba(255,255,255,0.2)]'
+const dropLineHint = 'h-px bg-white/[0.07]'
+const dropLineHidden = 'h-px bg-transparent opacity-0'
 
 const tasksByColumn = computed(() => {
   const grouped: Record<TodoTaskStatus, TodoTask[]> = {
@@ -76,40 +89,95 @@ function onDragStart(event: DragEvent, task: TodoTask) {
   dropTarget.value = null
   event.dataTransfer?.setData('text/plain', task.id)
   event.dataTransfer!.effectAllowed = 'move'
+
+  const source = event.currentTarget as HTMLElement | null
+  if (!source || !event.dataTransfer) return
+
+  const rect = source.getBoundingClientRect()
+  dragPreviewEl = source.cloneNode(true) as HTMLElement
+  dragPreviewEl.style.position = 'fixed'
+  dragPreviewEl.style.top = '-9999px'
+  dragPreviewEl.style.left = '0'
+  dragPreviewEl.style.width = `${rect.width}px`
+  dragPreviewEl.style.height = `${rect.height}px`
+  dragPreviewEl.style.opacity = '1'
+  dragPreviewEl.style.pointerEvents = 'none'
+  dragPreviewEl.style.boxShadow = '0 14px 36px rgba(0,0,0,0.5)'
+  document.body.appendChild(dragPreviewEl)
+  event.dataTransfer.setDragImage(dragPreviewEl, rect.width / 2, rect.height / 2)
+
+  void nextTick(() => {
+    hideDragSource.value = true
+  })
 }
 
 function onDragEnd() {
+  dragPreviewEl?.remove()
+  dragPreviewEl = null
+  hideDragSource.value = false
   draggedTaskId.value = null
   dropTarget.value = null
 }
 
-function onSlotDragOver(event: DragEvent, status: TodoTaskStatus, index: number) {
-  event.preventDefault()
-  event.stopPropagation()
+function getColumnEl(event: DragEvent): HTMLElement | null {
+  return (event.currentTarget as HTMLElement).closest('.column-drop-zone')
+}
+
+function resolveDropIndex(event: DragEvent, status: TodoTaskStatus): number {
+  const columnEl = getColumnEl(event)
+  if (!columnEl) return 0
+
+  const tasks = tasksForColumn(status)
+  if (tasks.length === 0) return 0
+
+  const cards = Array.from(
+    columnEl.querySelectorAll<HTMLElement>('[data-task-card]'),
+  ).filter((card) => card.dataset.taskId !== draggedTaskId.value)
+
+  if (cards.length === 0) return 0
+
+  const y = event.clientY
+
+  for (const card of cards) {
+    const rect = card.getBoundingClientRect()
+    if (y < rect.top + rect.height / 2) {
+      const taskId = card.dataset.taskId
+      const index = tasks.findIndex((task) => task.id === taskId)
+      return index === -1 ? 0 : index
+    }
+  }
+
+  const lastCard = cards[cards.length - 1]
+  if (lastCard && y >= lastCard.getBoundingClientRect().bottom - 12) {
+    return tasks.length
+  }
+
+  return tasks.length
+}
+
+function onColumnDragEnter(event: DragEvent) {
   if (!draggedTaskId.value) return
-  event.dataTransfer!.dropEffect = 'move'
-  dropTarget.value = { status, index }
+  event.preventDefault()
 }
 
 function onColumnDragOver(event: DragEvent, status: TodoTaskStatus) {
   event.preventDefault()
   if (!draggedTaskId.value) return
   event.dataTransfer!.dropEffect = 'move'
-  if (tasksForColumn(status).length === 0) {
-    dropTarget.value = { status, index: 0 }
-  }
+  dropTarget.value = { status, index: resolveDropIndex(event, status) }
 }
 
-function onSlotDrop(event: DragEvent, status: TodoTaskStatus, index: number) {
-  event.stopPropagation()
-  onDrop(status, index)
+function onColumnDrop(event: DragEvent, status: TodoTaskStatus) {
+  event.preventDefault()
+  onDrop(status, resolveDropIndex(event, status))
 }
 
 function onDrop(status: TodoTaskStatus, index: number) {
-  if (!draggedTaskId.value) return
-  todoListsStore.moveTaskLocally(draggedTaskId.value, status, index)
+  const taskId = draggedTaskId.value
+  if (!taskId) return
   draggedTaskId.value = null
   dropTarget.value = null
+  void todoListsStore.moveTask(taskId, status, index)
 }
 
 function isDropIndicatorVisible(status: TodoTaskStatus, index: number) {
@@ -142,6 +210,10 @@ watch(
   },
   { immediate: true },
 )
+
+watch(activePeriod, (period) => {
+  setTodoTasksPeriodFilter(period)
+})
 
 watch(
   () => [props.todoListId, activePeriod.value] as const,
@@ -202,16 +274,18 @@ watch(
 
     <div
       v-else
-      class="relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      class="relative flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
     >
-      <div class="grid w-full max-w-[985px] grid-cols-3 gap-5">
+      <div
+        class="grid min-h-full w-full max-w-[985px] flex-1 grid-cols-3 gap-5"
+      >
         <div
           v-for="column in columns"
           :key="column.status"
-          class="flex min-w-0 flex-col"
+          class="flex min-h-full min-w-0 flex-col"
         >
           <h2
-            class="sticky top-0 z-[1] mb-5 bg-black pb-2 text-[16px] font-semibold tracking-[-0.176px] text-white"
+            class="sticky top-0 z-[1] mb-5 shrink-0 bg-black pb-2 text-[16px] font-semibold tracking-[-0.176px] text-white"
           >
             {{ column.label }}
             <span :style="{ color: column.countColor }">
@@ -219,59 +293,67 @@ watch(
             </span>
           </h2>
           <div
-            class="flex min-h-[127px] flex-col"
+            class="column-drop-zone flex min-h-[calc(100dvh-240px)] flex-1 flex-col"
+            @dragenter="onColumnDragEnter"
             @dragover="onColumnDragOver($event, column.status)"
-            @drop.prevent="onSlotDrop($event, column.status, 0)"
+            @drop.prevent="onColumnDrop($event, column.status)"
           >
-            <template v-if="tasksForColumn(column.status).length === 0">
+            <div
+              v-if="tasksForColumn(column.status).length === 0"
+              class="flex h-[20px] shrink-0 items-center px-1"
+            >
               <div
-                class="flex min-h-[127px] flex-1 items-center px-1"
-                @dragover="onSlotDragOver($event, column.status, 0)"
-                @drop.prevent="onSlotDrop($event, column.status, 0)"
-              >
-                <div
-                  class="h-[3px] w-full rounded-full transition-all duration-150"
-                  :class="
-                    isDropSlotActive(column.status, 0)
-                      ? 'bg-white shadow-[0_0_8px_rgba(255,255,255,0.45)]'
-                      : draggedTaskId
-                        ? 'bg-white/25'
-                        : 'bg-transparent'
-                  "
-                  aria-hidden="true"
-                />
-              </div>
-            </template>
+                :class="[
+                  dropLineBase,
+                  isDropSlotActive(column.status, 0)
+                    ? dropLineActive
+                    : draggedTaskId
+                      ? dropLineHint
+                      : dropLineHidden,
+                ]"
+                aria-hidden="true"
+              />
+            </div>
 
-            <template v-else>
-              <template
+            <TransitionGroup
+              v-else
+              name="todo-task"
+              tag="div"
+              class="flex shrink-0 flex-col"
+            >
+              <div
                 v-for="(task, index) in tasksForColumn(column.status)"
                 :key="task.id"
+                class="flex flex-col"
               >
-                <div
-                  class="flex h-[20px] shrink-0 items-center px-1"
-                  @dragover="onSlotDragOver($event, column.status, index)"
-                  @drop.prevent="onSlotDrop($event, column.status, index)"
-                >
+                <div class="flex h-[20px] shrink-0 items-center px-1">
                   <div
-                    class="w-full rounded-full transition-all duration-150"
-                    :class="
+                    :class="[
+                      dropLineBase,
                       isDropSlotActive(column.status, index)
-                        ? 'h-[4px] bg-white shadow-[0_0_8px_rgba(255,255,255,0.45)]'
+                        ? dropLineActive
                         : isDropSlotHintVisible(column.status, index)
-                          ? 'h-[2px] bg-white/25'
-                          : 'h-[2px] bg-transparent'
-                    "
+                          ? dropLineHint
+                          : dropLineHidden,
+                    ]"
                     aria-hidden="true"
                   />
                 </div>
 
                 <article
                   draggable="true"
-                  class="relative h-[127px] w-full shrink-0 cursor-grab overflow-hidden rounded-[10px] bg-gradient-to-b from-[#343434] to-[#161616] transition-opacity active:cursor-grabbing"
-                  :class="{ 'opacity-40': isDraggingTask(task.id) }"
+                  data-task-card
+                  :data-task-id="task.id"
+                  class="relative h-[127px] w-full shrink-0 cursor-grab overflow-hidden rounded-[10px] bg-gradient-to-b from-[#343434] to-[#161616] transition-[opacity,transform,box-shadow] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] active:cursor-grabbing"
+                  :class="{
+                    'opacity-0': hideDragSource && isDraggingTask(task.id),
+                  }"
                   @dragstart="onDragStart($event, task)"
                   @dragend="onDragEnd"
+                  @dragover.prevent="
+                    hideDragSource ? onColumnDragOver($event, column.status) : undefined
+                  "
+                  @drop.prevent="onColumnDrop($event, column.status)"
                 >
                   <h3
                     class="absolute left-[15px] top-[15px] text-[14px] font-bold tracking-[-0.154px] text-white"
@@ -291,37 +373,38 @@ watch(
                     {{ formatTaskDate(task.deadlineAt) }}
                   </p>
                 </article>
-              </template>
+              </div>
+            </TransitionGroup>
 
+            <div
+              class="column-drop-fill flex min-h-[127px] flex-1 flex-col"
+              @dragenter="onColumnDragEnter"
+              @dragover="onColumnDragOver($event, column.status)"
+              @drop.prevent="onColumnDrop($event, column.status)"
+            >
               <div
+                v-if="tasksForColumn(column.status).length > 0"
                 class="flex h-[20px] shrink-0 items-center px-1"
-                @dragover="
-                  onSlotDragOver(
-                    $event,
-                    column.status,
-                    tasksForColumn(column.status).length,
-                  )
-                "
-                @drop.prevent="
-                  onSlotDrop($event, column.status, tasksForColumn(column.status).length)
-                "
               >
                 <div
-                  class="w-full rounded-full transition-all duration-150"
-                  :class="
-                    isDropSlotActive(column.status, tasksForColumn(column.status).length)
-                      ? 'h-[4px] bg-white shadow-[0_0_8px_rgba(255,255,255,0.45)]'
+                  :class="[
+                    dropLineBase,
+                    isDropSlotActive(
+                      column.status,
+                      tasksForColumn(column.status).length,
+                    )
+                      ? dropLineActive
                       : isDropSlotHintVisible(
                           column.status,
                           tasksForColumn(column.status).length,
                         )
-                        ? 'h-[2px] bg-white/25'
-                        : 'h-[2px] bg-transparent'
-                  "
+                        ? dropLineHint
+                        : dropLineHidden,
+                  ]"
                   aria-hidden="true"
                 />
               </div>
-            </template>
+            </div>
           </div>
         </div>
       </div>
@@ -335,3 +418,9 @@ watch(
     <AddTaskPopup v-model="showAddTaskPopup" :todo-list-id="todoListId" />
   </section>
 </template>
+
+<style scoped>
+.todo-task-move {
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+</style>

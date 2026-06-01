@@ -6,6 +6,7 @@ import {
   listTodoListTasks,
   listTodoLists,
   updateTodoList as updateTodoListApi,
+  updateTodoTaskPosition,
   type CreateTodoTaskBody,
   type TodoListsQuery,
   type TodoTasksQuery,
@@ -401,6 +402,71 @@ export const useTodoListsStore = defineStore('todo-lists', {
       }
 
       this.tasks = updatedTasks
+    },
+
+    buildTaskPositionPayload(
+      taskId: string,
+      toStatus: TodoTaskStatus,
+      toIndex: number,
+    ): { afterId: string | null; beforeId: string | null; status: TodoTaskStatus } {
+      const columnTasks = this.tasks
+        .filter((item) => item.status === toStatus && item.id !== taskId)
+        .sort((a, b) => a.position - b.position)
+
+      if (columnTasks.length === 0) {
+        return { afterId: null, beforeId: null, status: toStatus }
+      }
+
+      // afterId: neighbor above (lower position); beforeId: neighbor below (higher position)
+      if (toIndex <= 0) {
+        return { afterId: null, beforeId: columnTasks[0].id, status: toStatus }
+      }
+
+      if (toIndex >= columnTasks.length) {
+        return {
+          afterId: columnTasks[columnTasks.length - 1].id,
+          beforeId: null,
+          status: toStatus,
+        }
+      }
+
+      return {
+        afterId: columnTasks[toIndex - 1].id,
+        beforeId: columnTasks[toIndex].id,
+        status: toStatus,
+      }
+    },
+
+    async moveTask(taskId: string, toStatus: TodoTaskStatus, toIndex: number) {
+      const task = this.tasks.find((item) => item.id === taskId)
+      if (!task) return
+
+      const previousTasks = this.tasks.map((item) => ({ ...item }))
+      const positionBody = this.buildTaskPositionPayload(taskId, toStatus, toIndex)
+
+      this.moveTaskLocally(taskId, toStatus, toIndex)
+
+      try {
+        const response = await updateTodoTaskPosition(taskId, positionBody)
+        const envelope = response.data
+        if (!envelope?.success) {
+          throw new Error(envelope?.message || 'Failed to move task.')
+        }
+
+        const updated = envelope.data
+        const index = this.tasks.findIndex((item) => item.id === taskId)
+        if (index !== -1) {
+          const { position, status } = this.tasks[index]
+          this.tasks = [
+            ...this.tasks.slice(0, index),
+            { ...updated, position, status },
+            ...this.tasks.slice(index + 1),
+          ]
+        }
+      } catch (error: unknown) {
+        this.tasks = previousTasks
+        this.tasksError = getApiErrorMessage(error, 'Failed to move task.')
+      }
     },
 
     async createTodoTask(

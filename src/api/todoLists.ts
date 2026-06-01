@@ -59,3 +59,16 @@ export function listTodoListTasks(todoListId: string, params?: TodoTasksQuery) {
 export function createTodoListTask(todoListId: string, body: CreateTodoTaskBody) {
   return api.post<ApiSuccess<TodoTask>>(`/todo-lists/${todoListId}/tasks`, body)
 }
+
+export interface UpdateTodoTaskPositionBody {
+  afterId: string | null
+  beforeId: string | null
+  status?: TodoTaskStatus
+}
+
+export function updateTodoTaskPosition(
+  taskId: string,
+  body: UpdateTodoTaskPositionBody,
+) {
+  return api.patch<ApiSuccess<TodoTask>>(`/tasks/${taskId}/position`, body)
+}
