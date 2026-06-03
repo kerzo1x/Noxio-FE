@@ -66,9 +66,33 @@ export interface UpdateTodoTaskPositionBody {
   status?: TodoTaskStatus
 }
 
+function normalizeNeighborId(value: string | null | undefined): string | null {
+  if (value == null || value === '') return null
+  return value
+}
+
+function normalizeTaskId(taskId: string): string {
+  const match = taskId.match(
+    /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i,
+  )
+  if (!match) {
+    throw new Error('Invalid task id')
+  }
+  return match[0]
+}
+
+/** PATCH /tasks/{taskId}/position — only afterId, beforeId, optional status (never position index). */
 export function updateTodoTaskPosition(
   taskId: string,
   body: UpdateTodoTaskPositionBody,
 ) {
-  return api.patch<ApiSuccess<TodoTask>>(`/tasks/${taskId}/position`, body)
+  const id = normalizeTaskId(taskId)
+  const payload: UpdateTodoTaskPositionBody = {
+    afterId: normalizeNeighborId(body.afterId),
+    beforeId: normalizeNeighborId(body.beforeId),
+  }
+  if (body.status) {
+    payload.status = body.status
+  }
+  return api.patch<ApiSuccess<TodoTask>>(`/tasks/${id}/position`, payload)
 }
