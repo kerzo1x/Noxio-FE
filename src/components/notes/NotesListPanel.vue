@@ -18,8 +18,8 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <section class="flex h-full min-h-0 w-full flex-col px-4">
-    <div class="mx-auto flex w-full min-h-0 max-w-[20.9375rem] flex-1 flex-col">
+  <section class="flex h-full min-h-0 w-full flex-col pr-4">
+    <div class="flex w-full min-h-0 max-w-[20.9375rem] flex-1 flex-col">
       <header class="mb-5 flex shrink-0 items-center justify-between gap-4">
         <h1 class="text-xl font-medium tracking-tight text-white">Notes</h1>
         <div class="h-7 w-[12.6875rem] shrink-0">

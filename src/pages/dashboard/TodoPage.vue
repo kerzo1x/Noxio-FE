@@ -82,7 +82,7 @@ const getCardAccentStyle = (color: string | null) => {
 </script>
 
 <template>
-  <section class="isolate flex h-full min-h-0 w-full max-w-[892px] flex-col">
+  <section class="dashboard-page-column">
     <header
       class="sticky mb-5 top-0 z-10 shrink-0 -mx-1 bg-black px-1 shadow-[0_6px_16px_-4px_rgba(0,0,0,0.45)]"
     >
@@ -103,7 +103,7 @@ const getCardAccentStyle = (color: string | null) => {
     <div
       class="relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden pt-[74px] [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
     >
-      <div class="grid w-full max-w-[892px] grid-cols-4 gap-[20px]">
+      <div class="grid w-full grid-cols-4 gap-[20px]">
         <div
           v-for="todoList in todoListsStore.todoLists"
           :key="todoList.id"

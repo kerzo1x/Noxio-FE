@@ -227,7 +227,7 @@ watch(
 </script>
 
 <template>
-  <section class="isolate flex h-full min-h-0 w-full max-w-[985px] flex-col">
+  <section class="dashboard-page-column">
     <header
       class="sticky top-0 z-10 mb-[35px] shrink-0 -mx-1 bg-black px-1 shadow-[0_6px_16px_-4px_rgba(0,0,0,0.45)]"
     >
@@ -277,7 +277,7 @@ watch(
       class="relative flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
     >
       <div
-        class="grid min-h-full w-full max-w-[985px] flex-1 grid-cols-3 gap-5"
+        class="grid min-h-full w-full flex-1 grid-cols-3 gap-5"
       >
         <div
           v-for="column in columns"
