@@ -526,13 +526,17 @@ export const useTodoListsStore = defineStore('todo-lists', {
           throw new Error(envelope?.message || 'Failed to move task.')
         }
 
-        const query: TodoTasksQuery = this.tasksDeadlineFilter
-          ? { deadlineFilter: this.tasksDeadlineFilter }
-          : {}
-        await this.fetchTodoListTasks(todoListId, query, { force: true })
-      } catch (error: unknown) {
+        const updated = envelope.data
+        const index = this.tasks.findIndex((item) => item.id === taskId)
+        if (index !== -1) {
+          this.tasks = [
+            ...this.tasks.slice(0, index),
+            updated,
+            ...this.tasks.slice(index + 1),
+          ]
+        }
+      } catch {
         this.tasks = previousTasks
-        this.tasksError = getApiErrorMessage(error, 'Failed to move task.')
       }
     },
 
