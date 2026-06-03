@@ -86,7 +86,7 @@ const handleGoogleLogin = () => {
               name="firstName"
               autocomplete="off"
               label="Name"
-              place-holder="Tomáš"
+              place-holder="Name"
               :is-error="isError"
               @clear-error="isError = false; message=''"
             />
@@ -96,7 +96,7 @@ const handleGoogleLogin = () => {
                 name="lastName"
                 autocomplete="off"
                 label="Surname"
-                place-holder="Lukačko"
+                place-holder="Surname"
                 :is-error="isError"
                 @clear-error="isError = false; message=''"
               />
@@ -107,7 +107,7 @@ const handleGoogleLogin = () => {
               name="email"
               autocomplete="off"
               label="Email"
-              place-holder="tomas.lukacko@gmail.com"
+              place-holder="your@email.com"
               :is-error="isError"
               @clear-error="isError = false; message=''"
             />
@@ -117,7 +117,7 @@ const handleGoogleLogin = () => {
               name="password"
               autocomplete="off"
               label="Password"
-              place-holder="password123"
+              place-holder="password"
               :is-error="isError"
               @clear-error="isError = false; message=''"
             />

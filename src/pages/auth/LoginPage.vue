@@ -101,7 +101,7 @@ const handleForgotPasswordClick = () => {
                             type="username"
                             label="Email"
                             name="email"
-                            place-holder="tomas.lukacko@gmail.com" 
+                            place-holder="your@email.com" 
                             autocomplete="email"
                             :is-error="isError"
                             @clear-error="isError = false; message=''" 
@@ -112,7 +112,7 @@ const handleForgotPasswordClick = () => {
                             type="password"
                             autocomplete="current-password"
                             label="Password"
-                            place-holder="password123"
+                            place-holder="password"
                             :is-error="isError"
                             @clear-error="isError = false; message=''"
                         />
