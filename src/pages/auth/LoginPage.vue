@@ -4,7 +4,9 @@ import router from '@/router'
 import { RouterLink } from 'vue-router'
 import BaseInput from '@/components/ui/inputs/BaseInput.vue'
 import BaseButton from '@/components/ui/buttons/BaseButton.vue'
-import AuthBannerComponent from '@/components/auth/AuthBannerComponent.vue'
+import AuthFormLayout from '@/components/auth/AuthFormLayout.vue'
+import GoogleAuthButton from '@/components/auth/GoogleAuthButton.vue'
+import FormMessage from '@/components/ui/FormMessage.vue'
 import { login } from '@/api/auth'
 import { persistAuthTokensFromEnvelope } from '@/utils/authTokens'
 import { savePendingVerifyEmail } from '@/utils/authVerifySession'
@@ -14,175 +16,128 @@ const email = ref('')
 const password = ref('')
 const message = ref('')
 const isError = ref(false)
-const isForgotAnimating = ref(false)
-const FORGOT_GRADIENT_ANIM_MS = 850
 
-const handleLogin = async () => {
-    if (!email.value || !password.value) {
-        message.value = 'Please fill in all fields.'
-        isError.value = true
-        return
-    }
-
-    isLoading.value = false
-    message.value = ''
-    isError.value = false
-
-    try {
-        const { data: result } = await login(email.value, password.value)
-
-        if (result.success) {
-            if (result.data.requires2fa === false && result.data.accessToken) {
-                persistAuthTokensFromEnvelope(result as unknown as Record<string, unknown>)
-                isError.value = false
-                message.value = result.message ?? ''
-
-                setTimeout(() => router.push({name: 'DashboardLayout'}), 1500)
-            }
-            else if (result.data.requires2fa === true && result.data.sessionToken) {
-                localStorage.setItem('session_token', result.data.sessionToken);
-                savePendingVerifyEmail(email.value)
-                isError.value = false
-                message.value = result.message ?? ''
-                setTimeout(() => router.push({name: 'Verify', query: {from: "login"}}), 1500)
-
-            }
-        } else {
-            isError.value = true
-            message.value = result.message || 'Login failed.'
-        }
-    } catch (error) {
-        isError.value = true
-        message.value = 'Network error. Please check your connection.'
-    } finally {
-        isLoading.value = false
-    }
+function clearError() {
+  isError.value = false
+  message.value = ''
 }
 
-const handleGoogleLogin = () => {
-    // TODO: implement Google OAuth
+const handleLogin = async () => {
+  if (!email.value || !password.value) {
+    message.value = 'Please fill in all fields.'
+    isError.value = true
+    return
+  }
+
+  isLoading.value = true
+  message.value = ''
+  isError.value = false
+
+  try {
+    const { data: result } = await login(email.value, password.value)
+
+    if (result.success) {
+      if (result.data.requires2fa === false && result.data.accessToken) {
+        persistAuthTokensFromEnvelope(result as unknown as Record<string, unknown>)
+        isError.value = false
+        message.value = result.message ?? ''
+        setTimeout(() => router.push({ name: 'DashboardLayout' }), 1500)
+      } else if (result.data.requires2fa === true && result.data.sessionToken) {
+        localStorage.setItem('session_token', result.data.sessionToken)
+        savePendingVerifyEmail(email.value)
+        isError.value = false
+        message.value = result.message ?? ''
+        setTimeout(
+          () => router.push({ name: 'Verify', query: { from: 'login' } }),
+          1500,
+        )
+      }
+    } else {
+      isError.value = true
+      message.value = result.message || 'Login failed.'
+    }
+  } catch {
+    isError.value = true
+    message.value = 'Network error. Please check your connection.'
+  } finally {
+    isLoading.value = false
+  }
 }
 
 const prefill = () => {
-    email.value = 'myronsnikers@gmail.com';
-    password.value = 'password1234';
-    handleLogin()
+  email.value = 'myronsnikers@gmail.com';
+  password.value = 'password1234';
+  handleLogin()
 }
 
-const handleForgotPasswordClick = () => {
-    if (isForgotAnimating.value) return
-
-    isForgotAnimating.value = true
-    window.setTimeout(() => {
-        router.push('/auth/forgot-password')
-    }, FORGOT_GRADIENT_ANIM_MS)
+function handleForgotPasswordClick() {
+  router.push('/auth/forgot-password')
 }
-
 </script>
 
 <template>
-    <div class="min-h-screen flex bg-surface text-text-main" :class="{ 'forgot-transitioning': isForgotAnimating }">
+  <AuthFormLayout>
+    <template #title>
+      <h1 class="text-4xl font-bold text-panel-text">Log In</h1>
+      <span
+        class="absolute top-2 left-2 block h-3 w-3 cursor-pointer opacity-0"
+        @click="prefill"
+      />
+    </template>
 
-        <AuthBannerComponent />
+    <form class="flex flex-col gap-4" @submit.prevent="handleLogin">
+      <div class="flex flex-col gap-4">
+        <base-input
+          v-model="email"
+          type="username"
+          label="Email"
+          name="email"
+          place-holder="your@email.com"
+          autocomplete="email"
+          :is-error="isError"
+          @clear-error="clearError"
+        />
+        <base-input
+          v-model="password"
+          name="password"
+          type="password"
+          autocomplete="current-password"
+          label="Password"
+          place-holder="password"
+          :is-error="isError"
+          @clear-error="clearError"
+        />
+      </div>
 
-        <div class="w-full lg:w-1/2 flex items-center justify-center p-10 bg-panel-bg">
-            <Transition name="auth-fade" appear>
-            <div class="auth-form-panel w-full max-w-md space-y-6">
+      <div class="flex justify-end">
+        <button
+          type="button"
+          class="text-sm text-panel-label hover:text-panel-text transition-colors duration-200 cursor-pointer"
+          @click="handleForgotPasswordClick"
+        >
+          Forgot Password?
+        </button>
+      </div>
 
-                <h1 class="text-4xl font-bold text-panel-text">Log In</h1>
-                <span
-                    class="absolute top-2 left-2 block h-3 w-3 cursor-pointer opacity-0"
-                    @click="prefill"
-                />
-                <form @submit.prevent="handleLogin" class="space-y-4">
-                    <div class="flex flex-col gap-4">
-                        <base-input
-                            v-model="email"
-                            type="username"
-                            label="Email"
-                            name="email"
-                            place-holder="your@email.com" 
-                            autocomplete="email"
-                            :is-error="isError"
-                            @clear-error="isError = false; message=''" 
-                        />
-                        <base-input
-                            v-model="password"
-                            name="password"
-                            type="password"
-                            autocomplete="current-password"
-                            label="Password"
-                            place-holder="password"
-                            :is-error="isError"
-                            @clear-error="isError = false; message=''"
-                        />
-                    </div>
+      <base-button :is-loading="isLoading" text="Log in" />
+    </form>
 
-                    <div class="flex justify-end">
-                        <button
-                            type="button"
-                            class="text-sm text-panel-label hover:text-panel-text transition-colors duration-200 cursor-pointer"
-                            @click="handleForgotPasswordClick"
-                        >
-                            Forgot Password?
-                        </button>
-                    </div>
+    <template #footer>
+      <div class="text-center text-sm text-panel-label tracking-wider">or</div>
 
-                    <base-button 
-                        :is-loading="isLoading"
-                        text="Log in"
-                    />
-                </form>
+      <GoogleAuthButton label="Log in with Google" @click="() => {}" />
 
-                <div class="text-center text-sm text-panel-label tracking-wider">or</div>
+      <p class="text-center text-sm">
+        <span class="text-panel-label">Don't have an account? </span>
+        <router-link
+          to="/auth/register"
+          class="text-panel-text font-semibold hover:underline transition-all"
+        >
+          Sign up
+        </router-link>
+      </p>
 
-                <button type="button" class="google-btn" @click="handleGoogleLogin">
-                    <img src="../../assets/img/google.png" class="w-5 h-5" alt="Google" />
-                    Log in with Google
-                </button>
-
-                <p class="text-center text-sm">
-                    <span class="text-panel-label">Don't have an account? </span>
-                    <router-link to="/auth/register"
-                        class="text-panel-text font-semibold hover:underline transition-all">
-                        Sign up
-                    </router-link>
-                </p>
-
-                <div class="h-6 flex items-center justify-center mt-2">
-                    <p v-show="message" class="text-sm font-medium transition-opacity duration-300"
-                        :class="isError ? 'text-error' : 'text-green-400'">
-                        {{ message }}
-                    </p>
-                </div>
-
-            </div>
-            </Transition>
-        </div>
-    </div>
+      <FormMessage :message="message" :is-error="isError" />
+    </template>
+  </AuthFormLayout>
 </template>
-
-<style scoped>
-@reference "../../assets/styles/main.css";
-
-.google-btn {
-    @apply w-full flex items-center justify-center gap-3 px-4 py-3 rounded-auth font-semibold text-panel-text border border-panel-input-border hover:bg-white/5 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 cursor-pointer;
-}
-
-.auth-form-panel {
-    transition: opacity 850ms ease-in-out, transform 850ms ease-in-out;
-}
-
-.forgot-transitioning .auth-form-panel {
-    opacity: 0;
-    transform: translateX(-18px);
-}
-
-.auth-fade-enter-active {
-    transition: opacity 500ms ease-in-out;
-}
-
-.auth-fade-enter-from {
-    opacity: 0;
-}
-</style>

@@ -23,7 +23,7 @@ const visibleEditors = computed(
 <template>
   <button
     type="button"
-    class="flex w-full max-w-[20.9375rem] min-h-36 cursor-pointer flex-col justify-between gap-2 rounded-lg border p-5 text-left transition-colors"
+    class="flex w-full note-card-max-w min-h-36 cursor-pointer flex-col justify-between gap-2 rounded-lg border p-5 text-left transition-colors"
     :class="
       selected
         ? 'border-2 border-[rgba(76,76,76,0.52)] bg-black text-white'

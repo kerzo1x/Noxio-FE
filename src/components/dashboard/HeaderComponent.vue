@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted, inject } from 'vue'
-import { dashboardLayoutMetricsKey } from '@/composables/dashboardLayoutMetrics'
+import { dashboardLayoutMetricsKey } from '@/composables/useDashboardContentAlign'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { storeToRefs } from 'pinia'
-import NotificationsPopup from '@/components/dashboard/NotificationsPopup.vue'
 import HeaderSearch from '@/components/dashboard/HeaderSearch.vue'
+import HeaderSharePlaceholder from '@/components/dashboard/HeaderSharePlaceholder.vue'
+import HeaderProfileMenu from '@/components/dashboard/HeaderProfileMenu.vue'
 import { useWorkspaceMembers } from '@/composables/useWorkspaceMembers'
 import { useWorkspaceSearch } from '@/composables/useWorkspaceSearch'
 import type { WorkspaceSearchResult } from '@/types/search'
@@ -14,10 +15,6 @@ import type { WorkspaceSearchResult } from '@/types/search'
 import defaultAvatar from '@/assets/img/user.svg'
 import logoIcon from '@/assets/img/logo.svg'
 import bellIcon from '@/assets/img/bell.svg'
-import arrowIcon from '@/assets/img/arrow.svg'
-import settingsIcon from '@/assets/img/settings.svg'
-import exitIcon from '@/assets/img/exit.svg'
-
 const props = defineProps<{
   hasNotifications: boolean
   notifications: Array<{ id: string; title: string; read: boolean }>
@@ -95,8 +92,6 @@ watch(
   () => layoutMetrics?.contentAlignLeft.value,
   () => measureHeaderSidebar(),
 )
-
-const sharedUsers = [1, 2, 3]
 
 const activeWorkspaceId = computed(
   () => workspaceStore.activeWorkspace?.id ?? null,
@@ -375,50 +370,18 @@ onUnmounted(() => {
 
     <!-- Right: spacing per Figma — Share↔avatars 27px, avatars↔bell 27px, bell↔profile 70px, pic↔name 15px, name↔arrow 12px -->
     <div class="flex h-full shrink-0 items-center pr-[94px]">
-      <div ref="shareMenuRef" class="relative">
-        <button
-          type="button"
-          class="group flex cursor-pointer items-center gap-[1.6875rem] border-0 bg-transparent p-0 leading-none"
-          aria-label="Share"
-          :aria-expanded="isShareMenuOpen"
-          aria-haspopup="dialog"
-          @click="toggleShareMenu"
-        >
-          <span
-            class="share-button-label opacity-50 transition-opacity group-hover:opacity-40"
-            aria-hidden="true"
-          >
-            Share
-          </span>
-          <span
-            class="flex items-center -space-x-2.5 opacity-100 transition-opacity group-hover:opacity-90"
-            aria-hidden="true"
-          >
-            <span
-              v-for="i in sharedUsers"
-              :key="i"
-              class="flex h-6 w-6 items-center justify-center overflow-hidden rounded-full border-2 border-panel-bg bg-panel-input-bg"
-              :style="{ zIndex: 10 - i }"
-            >
-              <img
-                :src="defaultAvatar"
-                class="h-full w-full bg-[#E5E5E5] object-cover"
-                alt=""
-              />
-            </span>
-          </span>
-        </button>
-
-        <NotificationsPopup
-          v-if="isShareMenuOpen"
+      <div ref="shareMenuRef">
+        <HeaderSharePlaceholder
+          :is-open="isShareMenuOpen"
           :workspace-name="activeWorkspaceName"
           :owner-id="activeWorkspaceOwnerId"
           :is-loading="isMembersLoading"
-          :load-error="membersLoadError"
+          :load-error="membersLoadError ?? ''"
           :search-query="membersSearchQuery"
           :filtered-members="filteredMembers"
           :member-display-name="memberDisplayName"
           :member-role-label="memberRoleLabel"
+          @toggle="toggleShareMenu"
           @update:search-query="membersSearchQuery = $event"
         />
       </div>
@@ -497,146 +460,22 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <div ref="profileMenuRef" class="relative ml-[4.375rem]">
-        <button
-          type="button"
-          class="group flex cursor-pointer items-center justify-end gap-[0.9375rem]"
-          :aria-expanded="isProfileMenuOpen"
-          @click="toggleProfileMenu"
-        >
-          <div
-            class="h-8 w-8 shrink-0 overflow-hidden rounded-full"
-          >
-            <img
-              :src="avatarUrl"
-              :alt="userName"
-              class="h-full w-full object-cover"
-              @error="($event.target as HTMLImageElement).src = defaultAvatar"
-            />
-          </div>
-
-          <span class="flex min-w-0 items-center gap-[0.75rem]">
-            <span
-              class="text truncate opacity-75 transition-opacity group-hover:opacity-100"
-            >
-              {{ userName }}
-            </span>
-
-            <img
-              :src="arrowIcon"
-              class="h-4 w-4 shrink-0 opacity-60 transition-opacity group-hover:opacity-100"
-              alt=""
-            />
-          </span>
-        </button>
-
-        <div
-          v-if="isProfileMenuOpen"
-          class="profile-menu"
-          role="menu"
-        >
-          <button
-            type="button"
-            class="profile-menu__action profile-menu__action--settings"
-            role="menuitem"
-            @click="handleSettings"
-          >
-            <span>Settings</span>
-            <img
-              :src="settingsIcon"
-              alt=""
-              class="profile-menu__icon profile-menu__icon--settings h-5 w-5 shrink-0"
-            />
-          </button>
-          <button
-            type="button"
-            class="profile-menu__action profile-menu__action--logout"
-            role="menuitem"
-            :disabled="isLoggingOut"
-            @click="handleLogout"
-          >
-            <span>{{ isLoggingOut ? 'Logging out...' : 'Log out' }}</span>
-            <img :src="exitIcon" alt="" class="h-5 w-5 shrink-0" />
-          </button>
-        </div>
+      <div ref="profileMenuRef">
+        <HeaderProfileMenu
+          :is-open="isProfileMenuOpen"
+          :user-name="userName"
+          :avatar-url="avatarUrl"
+          :is-logging-out="isLoggingOut"
+          @toggle="toggleProfileMenu"
+          @settings="handleSettings"
+          @logout="handleLogout"
+        />
       </div>
     </div>
   </header>
 </template>
 
 <style scoped>
-.text {
-  font-family: 'Inter', sans-serif;
-  font-weight: 500;
-  font-size: 12px;
-  line-height: 150%;
-  letter-spacing: -0.011em;
-  color: var(--color-brand-white);
-}
-
-.share-button-label {
-  font-family: 'Inter', sans-serif;
-  font-weight: 500;
-  font-size: 12px;
-  line-height: 150%;
-  letter-spacing: -0.011em;
-  color: var(--color-brand-white);
-}
-
-.profile-menu {
-  position: absolute;
-  right: 0;
-  top: 100%;
-  z-index: 50;
-  margin-top: 1.25rem;
-  display: flex;
-  align-items: center;
-  gap: 49px;
-  padding: 15px 26px;
-  border: 1px solid #212121;
-  border-radius: 10px;
-  background: #000000;
-  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.25);
-}
-
-.profile-menu__action {
-  display: flex;
-  align-items: center;
-  gap: 19px;
-  border: none;
-  background: transparent;
-  padding: 0;
-  font-family: 'Inter', sans-serif;
-  font-weight: 500;
-  font-size: 12px;
-  line-height: 150%;
-  letter-spacing: -0.132px;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: opacity 0.15s ease;
-}
-
-.profile-menu__action:hover:not(:disabled) {
-  opacity: 0.85;
-}
-
-.profile-menu__action:disabled {
-  cursor: not-allowed;
-  opacity: 0.5;
-}
-
-.profile-menu__action--settings {
-  color: #ffffff;
-}
-
-.profile-menu__icon--settings {
-  filter: brightness(0) invert(1);
-}
-
-.profile-menu__action--logout {
-  color: #ad2222;
-}
-
 .notifications-dropdown {
   position: absolute;
   right: 0;

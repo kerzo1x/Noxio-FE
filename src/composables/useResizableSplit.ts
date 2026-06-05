@@ -16,24 +16,24 @@ function readStoredRatio(): number {
   return Math.min(MAX_RATIO, Math.max(0, parsed))
 }
 
+function getMinRatio(width: number): number {
+  if (width <= 0) return 1
+  const minWidthPx = getNotesListMinWidthPx()
+  return Math.min(1, minWidthPx / width)
+}
+
+function clampExpandedRatio(ratio: number, width: number): number {
+  if (ratio <= COLLAPSE_THRESHOLD) return 0
+  const minRatio = getMinRatio(width)
+  return Math.min(MAX_RATIO, Math.max(minRatio, ratio))
+}
+
 export function useResizableSplit(containerRef: { value: HTMLElement | null }) {
   const listRatio = ref(readStoredRatio())
   const isDragging = ref(false)
   const isListCollapsed = computed(() => listRatio.value <= COLLAPSE_THRESHOLD)
 
   let resizeObserver: ResizeObserver | null = null
-
-  function getMinRatio(width: number): number {
-    if (width <= 0) return 1
-    const minWidthPx = getNotesListMinWidthPx()
-    return Math.min(1, minWidthPx / width)
-  }
-
-  function clampExpandedRatio(ratio: number, width: number): number {
-    if (ratio <= COLLAPSE_THRESHOLD) return 0
-    const minRatio = getMinRatio(width)
-    return Math.min(MAX_RATIO, Math.max(minRatio, ratio))
-  }
 
   function normalizeRatioForContainer(width: number) {
     if (width <= 0) return

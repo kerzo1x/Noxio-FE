@@ -8,12 +8,13 @@ export function hexToRgb(hex: string): { r: number; g: number; b: number } | nul
   }
 }
 
+function padHex(channel: number): string {
+  const clamped = Math.max(0, Math.min(255, Math.round(channel)))
+  return clamped.toString(16).padStart(2, '0')
+}
+
 export function rgbToHex(r: number, g: number, b: number): string {
-  const c = (n: number) =>
-    Math.max(0, Math.min(255, Math.round(n)))
-      .toString(16)
-      .padStart(2, '0')
-  return `#${c(r)}${c(g)}${c(b)}`.toUpperCase()
+  return `#${padHex(r)}${padHex(g)}${padHex(b)}`.toUpperCase()
 }
 
 export function rgbToHsv(

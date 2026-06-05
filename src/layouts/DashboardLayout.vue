@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, provide, ref, watch } from 'vue'
 import { useDashboardContentAlign } from '@/composables/useDashboardContentAlign'
-import { dashboardLayoutMetricsKey } from '@/composables/dashboardLayoutMetrics'
+import { dashboardLayoutMetricsKey } from '@/composables/useDashboardContentAlign'
 import { useUserStore } from '@/stores/user'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useNotificationsStore } from '@/stores/notifications'

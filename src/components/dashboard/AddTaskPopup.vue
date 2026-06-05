@@ -52,7 +52,7 @@ const selectedCategory = computed(() =>
 
 const categoryPillStyle = computed(() => {
   if (!selectedCategory.value) {
-    return { backgroundColor: '#1c1b1b' }
+    return { backgroundColor: 'var(--color-dashboard-surface)' }
   }
   return { backgroundColor: fromApiColor(selectedCategory.value.color) }
 })

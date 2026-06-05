@@ -13,6 +13,7 @@
     --color-surface: var(--brand-gray-light);
     --font-sans: "Inter", sans-serif;
     --radius-auth: var(--radius-auth);
+    --radius-card: var(--radius-card);
 
     --color-panel-bg: var(--panel-bg);
     --color-panel-text: var(--panel-text);
@@ -20,6 +21,10 @@
     --color-panel-input-border: var(--panel-input-border);
     --color-panel-placeholder: var(--panel-input-placeholder);
     --color-panel-label: var(--panel-label);
+
+    --color-dashboard-border: var(--color-dashboard-border);
+    --color-dashboard-surface: var(--color-dashboard-surface);
+    --color-danger: var(--color-danger);
 }
 
 @layer components {
@@ -37,7 +42,11 @@
     }
 
     .btn-base {
-        @apply w-full bg-brand-white text-brand-black px-4 py-3 rounded-auth font-semibold hover:opacity-90 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer;
+        @apply w-full bg-brand-white text-brand-black px-4 py-3 rounded-auth font-semibold hover:opacity-90 transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer;
+    }
+
+    .google-btn {
+        @apply w-full flex items-center justify-center gap-3 px-4 py-3 rounded-auth font-semibold text-panel-text border border-panel-input-border hover:bg-white/5 hover:opacity-80 transition-all duration-200 cursor-pointer;
     }
 
     .sidebar-link {
@@ -88,6 +97,146 @@
     .dashboard-page-column {
         @apply isolate flex h-full min-h-0 w-full flex-col;
         max-width: var(--dashboard-page-max-width);
+    }
+
+    .popup-overlay {
+        @apply fixed inset-0 z-100 flex items-center justify-center p-4;
+    }
+
+    .popup-backdrop {
+        @apply absolute inset-0 bg-black/60 backdrop-blur-sm;
+    }
+
+    .dashboard-sticky-shadow {
+        box-shadow: var(--shadow-dashboard-sticky);
+    }
+
+    .dashboard-bottom-fade {
+        box-shadow: var(--shadow-dashboard-bottom);
+    }
+
+    .dashboard-page-header {
+        @apply sticky mb-5 top-0 z-10 shrink-0 -mx-1 bg-black px-1;
+        box-shadow: var(--shadow-dashboard-sticky);
+    }
+
+    .dashboard-page-title {
+        @apply text-xl font-medium tracking-tight text-white;
+    }
+
+    .dashboard-action-slot {
+        height: var(--dashboard-action-h);
+        width: var(--dashboard-action-w);
+    }
+
+    .folder-card {
+        width: var(--folder-card-w);
+        height: var(--folder-card-h);
+        aspect-ratio: 186 / 146;
+        @apply relative cursor-pointer transition-opacity duration-200 hover:opacity-80;
+    }
+
+    .todo-card {
+        width: var(--todo-card-w);
+        height: var(--todo-card-h);
+        @apply relative cursor-pointer transition-opacity duration-200 hover:opacity-80;
+    }
+
+    .grid-folders {
+        gap: var(--grid-gap-folders);
+    }
+
+    .grid-todos {
+        gap: var(--grid-gap-todos);
+    }
+
+    .rounded-card {
+        border-radius: var(--radius-card);
+    }
+
+    .note-card-max-w {
+        max-width: var(--note-card-max-width);
+    }
+
+    .delete-popup-card {
+        @apply relative z-1 box-border w-fit max-w-[calc(100vw-2rem)] shrink-0 border-2 bg-black px-[88px] py-[75px];
+        border-radius: var(--radius-card);
+        border-color: var(--color-dashboard-border);
+    }
+
+    .delete-popup-message {
+        @apply text-base font-medium leading-none tracking-wide text-white/75;
+    }
+
+    .delete-popup-actions {
+        @apply mt-[66px] flex items-center justify-center gap-5;
+    }
+
+    .delete-popup-btn {
+        @apply flex h-12 shrink-0 items-center justify-center px-7 text-base font-medium leading-tight transition-opacity disabled:cursor-not-allowed disabled:opacity-40;
+        border-radius: var(--radius-card);
+    }
+
+    .delete-popup-btn--cancel {
+        @apply min-w-[91px] bg-white text-black hover:opacity-90;
+    }
+
+    .delete-popup-btn--delete {
+        @apply min-w-[224px] px-[92px] text-white;
+        background-color: var(--color-danger);
+    }
+
+    .delete-popup-btn--delete:hover {
+        background-color: var(--color-danger-hover);
+    }
+
+    .delete-popup-error {
+        @apply mt-4 text-center text-sm font-medium text-red-400;
+    }
+
+    .modal-form-card {
+        @apply relative z-1 box-border w-full max-w-2xl shrink-0 rounded-xl border-2 border-neutral-900 bg-black px-18 pb-10 pt-9.5;
+    }
+
+    .modal-form-card--picker {
+        @apply overflow-visible;
+    }
+
+    .modal-form-form {
+        @apply flex w-full flex-col gap-20;
+    }
+
+    .modal-form-body {
+        @apply flex w-full flex-col gap-11;
+    }
+
+    .modal-form-header {
+        @apply flex w-full items-center justify-between gap-4;
+    }
+
+    .modal-form-title {
+        @apply text-base font-medium leading-none tracking-wide text-white;
+    }
+
+    .modal-form-cancel {
+        @apply shrink-0 text-sm font-medium leading-none tracking-wide text-white/50 transition-colors hover:text-white;
+    }
+
+    .modal-form-footer {
+        @apply flex w-full flex-col gap-3;
+    }
+
+    .modal-form-submit {
+        @apply flex w-full items-center justify-center rounded-xl bg-white px-3 py-4 text-base font-medium leading-none tracking-wide text-black transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40;
+    }
+
+    .modal-form-error {
+        @apply text-center text-sm font-medium text-red-400;
+    }
+
+    .todo-list-picker-panel {
+        left: 349px;
+        top: 89px;
     }
 
 }

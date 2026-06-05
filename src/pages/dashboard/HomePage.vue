@@ -413,7 +413,7 @@ watch(
           :key="folder.id"
           role="button"
           tabindex="0"
-          class="relative aspect-186/146 h-[146px] w-[186px] cursor-pointer transition-transform duration-200 hover:scale-[1.02]"
+          class="folder-card"
           @click="openFolderNotes(folder.id)"
           @keydown.enter="openFolderNotes(folder.id)"
         >
