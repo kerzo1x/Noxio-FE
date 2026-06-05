@@ -15497,8 +15497,7 @@
                     "maxLength": 100,
                     "type": "string"
                   }
-                },
-                "additionalProperties": false
+                }
               }
             },
             "multipart/form-data": {
@@ -15513,8 +15512,7 @@
                     "maxLength": 100,
                     "type": "string"
                   }
-                },
-                "additionalProperties": false
+                }
               }
             },
             "text/plain": {
@@ -15529,8 +15527,7 @@
                     "maxLength": 100,
                     "type": "string"
                   }
-                },
-                "additionalProperties": false
+                }
               }
             }
           }
@@ -28720,8 +28717,7 @@
                     "maxLength": 64,
                     "type": "string"
                   }
-                },
-                "additionalProperties": false
+                }
               }
             },
             "multipart/form-data": {
@@ -28755,8 +28751,7 @@
                     "maxLength": 64,
                     "type": "string"
                   }
-                },
-                "additionalProperties": false
+                }
               }
             },
             "text/plain": {
@@ -28790,8 +28785,7 @@
                     "maxLength": 64,
                     "type": "string"
                   }
-                },
-                "additionalProperties": false
+                }
               }
             }
           }
@@ -30264,7 +30258,8 @@
                     "format": "email",
                     "type": "string"
                   }
-                }
+                },
+                "additionalProperties": false
               }
             },
             "multipart/form-data": {
@@ -30278,7 +30273,8 @@
                     "format": "email",
                     "type": "string"
                   }
-                }
+                },
+                "additionalProperties": false
               }
             },
             "text/plain": {
@@ -30292,7 +30288,8 @@
                     "format": "email",
                     "type": "string"
                   }
-                }
+                },
+                "additionalProperties": false
               }
             }
           }
@@ -34145,7 +34142,8 @@
                     "pattern": "^[A-Z0-9]{5}$",
                     "type": "string"
                   }
-                }
+                },
+                "additionalProperties": false
               }
             },
             "multipart/form-data": {
@@ -34165,7 +34163,8 @@
                     "pattern": "^[A-Z0-9]{5}$",
                     "type": "string"
                   }
-                }
+                },
+                "additionalProperties": false
               }
             },
             "text/plain": {
@@ -34185,7 +34184,8 @@
                     "pattern": "^[A-Z0-9]{5}$",
                     "type": "string"
                   }
-                }
+                },
+                "additionalProperties": false
               }
             }
           }
@@ -41792,8 +41792,7 @@
                     "minLength": 1,
                     "type": "string"
                   }
-                },
-                "additionalProperties": false
+                }
               }
             },
             "multipart/form-data": {
@@ -41812,8 +41811,7 @@
                     "minLength": 1,
                     "type": "string"
                   }
-                },
-                "additionalProperties": false
+                }
               }
             },
             "text/plain": {
@@ -41832,8 +41830,7 @@
                     "minLength": 1,
                     "type": "string"
                   }
-                },
-                "additionalProperties": false
+                }
               }
             }
           }
@@ -46636,8 +46633,7 @@
                     "pattern": "^[0-9A-Fa-f]{6}$",
                     "type": "string"
                   }
-                },
-                "additionalProperties": false
+                }
               }
             },
             "multipart/form-data": {
@@ -46661,8 +46657,7 @@
                     "pattern": "^[0-9A-Fa-f]{6}$",
                     "type": "string"
                   }
-                },
-                "additionalProperties": false
+                }
               }
             },
             "text/plain": {
@@ -46686,8 +46681,7 @@
                     "pattern": "^[0-9A-Fa-f]{6}$",
                     "type": "string"
                   }
-                },
-                "additionalProperties": false
+                }
               }
             }
           }
@@ -56838,8 +56832,7 @@
                       }
                     ]
                   }
-                },
-                "additionalProperties": false
+                }
               }
             },
             "multipart/form-data": {
@@ -56886,8 +56879,7 @@
                       }
                     ]
                   }
-                },
-                "additionalProperties": false
+                }
               }
             },
             "text/plain": {
@@ -56934,8 +56926,7 @@
                       }
                     ]
                   }
-                },
-                "additionalProperties": false
+                }
               }
             }
           }
@@ -58833,8 +58824,7 @@
                     "pattern": "^[0-9A-Fa-f]{6}$",
                     "type": "string"
                   }
-                },
-                "additionalProperties": false
+                }
               }
             },
             "multipart/form-data": {
@@ -58865,8 +58855,7 @@
                     "pattern": "^[0-9A-Fa-f]{6}$",
                     "type": "string"
                   }
-                },
-                "additionalProperties": false
+                }
               }
             },
             "text/plain": {
@@ -58897,8 +58886,7 @@
                     "pattern": "^[0-9A-Fa-f]{6}$",
                     "type": "string"
                   }
-                },
-                "additionalProperties": false
+                }
               }
             }
           }
