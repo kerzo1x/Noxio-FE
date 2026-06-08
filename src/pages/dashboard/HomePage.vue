@@ -38,7 +38,7 @@ const upcomingRows = ref<UpcomingDeadlineRow[]>([])
 const upcomingLoading = ref(false)
 const upcomingError = ref<string | null>(null)
 
-const UPCOMING_DEADLINES_LIMIT = 50
+const UPCOMING_DEADLINES_LIMIT = 50 // TODO: tu je zadefinovana konstanta, ale v listTaskCategories je hardcoded 100 ...
 
 const menuOpenFolderId = ref<string | null>(null)
 const folderToEdit = ref<Folder | null>(null)
@@ -188,6 +188,7 @@ async function fetchUpcomingDeadlines(workspaceId: string) {
     const startOfToday = new Date()
     startOfToday.setHours(0, 0, 0, 0)
 
+    // TODO: toto robi direct API call a vsade to mas cez Pinia store
     const [categoriesResponse, ...taskResponses] = await Promise.all([
       listTaskCategories(workspaceId),
       ...lists.map((list) =>

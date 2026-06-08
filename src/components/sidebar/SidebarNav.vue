@@ -23,6 +23,7 @@ const isActive = (item: (typeof topNav)[number]) =>
 </script>
 
 <template>
+  <!-- TODO: preco je tu div a robi to co button?? toto treba urcite zmenit na button alebo rovno pouzi RouterLink -->
   <div
     v-for="item in topNav"
     :key="item.label"

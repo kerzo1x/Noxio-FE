@@ -19,13 +19,13 @@ const isTimerActive = computed(() => timer.value > 0)
 let intervalId: number | null = null
 
 const startTimer = () => {
-    timer.value = 2
+    timer.value = 2 // TODO: preco tu je 2? ten timer ma bezat minutu ...
     if (intervalId) clearInterval(intervalId)
     intervalId = window.setInterval(() => {
         if (timer.value > 0) {
             timer.value--
         } else {
-            if (intervalId) clearInterval(intervalId)
+            if (intervalId) clearInterval(intervalId) // TODO: intervalId nie je nullovany, ze chyba tam toto --> intervalId = null
         }
     }, 1000)
 }
@@ -97,7 +97,7 @@ const handleVerify = async () => {
         if (result.success) {
             if (result.data.sessionToken && route.query.from === "forgot") {
                 localStorage.setItem('session_token', result.data.sessionToken)
-                localStorage.setItem('verification_code', finalCode)
+                localStorage.setItem('verification_code', finalCode) // TODO: preco sa verification code uklada do local storage? lebo je to dost bezpecnostna chyba
                 router.push('/auth/reset-password')
             } else {
                 if (result.data.accessToken) {

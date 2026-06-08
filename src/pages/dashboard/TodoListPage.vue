@@ -88,7 +88,7 @@ function onDragStart(event: DragEvent, task: TodoTask) {
   draggedTaskId.value = task.id
   dropTarget.value = null
   event.dataTransfer?.setData('text/plain', task.id)
-  event.dataTransfer!.effectAllowed = 'move'
+  event.dataTransfer!.effectAllowed = 'move' // TODO: ten event.dataTransfer moze byt null, takze tam daj skor nieco ako --> if (!event.dataTransfer) return event.dataTransfer.effectAllowed = 'move'
 
   const source = event.currentTarget as HTMLElement | null
   if (!source || !event.dataTransfer) return

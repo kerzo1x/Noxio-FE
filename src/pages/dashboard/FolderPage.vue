@@ -78,6 +78,7 @@ function handleDelete(folder: Folder) {
       </div>
     </div>
 
+    <!-- TODO: preco je tu z-[1px]? to je nevalidna hodnota, daj tam cislo -->
     <div
       class="pointer-events-none sticky bottom-0 z-[1px] h-0.5 w-full bg-black dashboard-bottom-fade"
       aria-hidden="true"

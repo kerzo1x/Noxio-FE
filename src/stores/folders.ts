@@ -29,7 +29,7 @@ const defaultQuery: Required<FoldersQuery> = {
   sortOrder: 'asc',
   filter: 'recentlyUpdated',
 }
-
+// TODO: resolveWorkspaceId aj getApiErrorMessage su tu a v src/stores/todoLists.ts zaroven a treba to dat do nejakeho shared suboru
 function resolveWorkspaceId(storeLoadedId: string | null): string | null {
   const activeId = useWorkspaceStore().activeWorkspace?.id ?? null
   return activeId ?? storeLoadedId
@@ -218,7 +218,7 @@ export const useFoldersStore = defineStore('folders', {
         if (!isHttpSuccess || isJsonFailure) {
           throw new Error(
             (payload && typeof payload === 'object' && payload.message) ||
-              'Failed to delete folder',
+            'Failed to delete folder',
           )
         }
 

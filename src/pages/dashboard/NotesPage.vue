@@ -51,6 +51,7 @@ watch(
   { immediate: true },
 )
 
+// TODO: naco je tento watch? Lebo doslova je prazdny
 watch(
   () => [props.noteId, props.folderId, notesStore.noteIds] as const,
   () => {

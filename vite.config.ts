@@ -5,13 +5,13 @@ import { fileURLToPath, URL } from 'url'
 
 export default defineConfig({
   plugins: [vue(), tailwindcss()],
-  
+
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url))
     }
   },
-  compilerOptions: {
+  compilerOptions: { // TODO: toto nerieši vite, ale typescript, cize to treba dat do tsconfig.json
     types: ["vite/client"]
   },
   server: {
@@ -21,7 +21,7 @@ export default defineConfig({
       usePolling: true,
     },
     hmr: {
-      clientPort: 5173, 
+      clientPort: 5173,
     },
   },
 })

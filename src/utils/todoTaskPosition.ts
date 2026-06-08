@@ -3,11 +3,16 @@ import type { TodoTask, TodoTaskStatus } from '@/stores/todoLists'
 function sortTasksByPosition(tasks: TodoTask[]): TodoTask[] {
   const sorted: TodoTask[] = []
   for (let i = 0; i < tasks.length; i++) {
-    sorted.push(tasks[i])
+    sorted.push(tasks[i]) // TODO: toto je manualna kopia a vies to cele fixnut funkciou pod tym
   }
   sorted.sort((a, b) => a.position - b.position)
   return sorted
 }
+/**
+ * function sortTasksByPosition(tasks: TodoTask[]): TodoTask[] {
+ *   return [...tasks].sort((a, b) => a.position - b.position)
+ * }
+ */
 
 function columnTasksForStatus(
   tasks: TodoTask[],

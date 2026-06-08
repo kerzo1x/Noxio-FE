@@ -54,6 +54,7 @@ function close() {
   open.value = false
 }
 
+// TODO: preco tu je 2x watch na open a props folder??
 watch(open, (isOpen) => {
   if (isOpen) {
     loadFolderIntoForm()

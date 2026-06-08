@@ -70,8 +70,13 @@ const inputType = computed(() => {
         </div>
     </div>
 </template>
-<style>
+
+<style scoped>
+/** 
+ * TODO: preco tu nie je scoped?
+ */
 @reference "@/assets/styles/main.css";
+
 .field-input-wrap {
     @apply mt-1;
 }

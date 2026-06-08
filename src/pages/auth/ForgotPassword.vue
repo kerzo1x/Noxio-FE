@@ -62,6 +62,7 @@ const handleSendCode = async () => {
 
       <form @submit.prevent="handleSendCode" class="space-y-6 text-left">
         <div class="space-y-2">
+          <!-- TODO: preco je type text? tam by mal byt email -->
           <base-input
             v-model="email"
             type="text"

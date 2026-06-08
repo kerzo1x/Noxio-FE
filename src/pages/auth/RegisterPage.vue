@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import router from '@/router'
+import router from '@/router' // TODO: preco importujes priamo router? ja by som tam dal import { useRouter } from 'vue-router' a const router = useRouter()
 import { RouterLink } from 'vue-router'
 import BaseInput from '@/components/ui/inputs/BaseInput.vue'
 import BaseButton from '@/components/ui/buttons/BaseButton.vue'

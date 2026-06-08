@@ -86,6 +86,7 @@ onMounted(() => {
   headerSidebarObserver = new ResizeObserver(measureHeaderSidebar)
   headerSidebarObserver.observe(headerSidebarRef.value)
   window.addEventListener('resize', measureHeaderSidebar, { passive: true })
+  // TODO: ResizeObserver je cleanup-ovany neskor, ale kde je window.removeEventListener?
 })
 
 watch(

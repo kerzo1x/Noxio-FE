@@ -39,6 +39,7 @@ function onKeydown(e: KeyboardEvent) {
   if (e.key === 'Escape' && open.value) close()
 }
 
+// TODO: toto je v kazdom komponente a dal by som to do spolocneho useEscapeKey
 onMounted(() => document.addEventListener('keydown', onKeydown))
 onUnmounted(() => document.removeEventListener('keydown', onKeydown))
 

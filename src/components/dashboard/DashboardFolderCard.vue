@@ -25,6 +25,7 @@ const cardClass =
 </script>
 
 <template>
+  <!-- TODO: tu ti chyba @keydown.space -->
   <div
     role="button"
     tabindex="0"

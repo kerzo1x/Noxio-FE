@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import router from '@/router'
+import router from '@/router' // TODO: preco importujes priamo router? ja by som tam dal import { useRouter } from 'vue-router' a const router = useRouter()
 import { RouterLink } from 'vue-router'
 import BaseInput from '@/components/ui/inputs/BaseInput.vue'
 import BaseButton from '@/components/ui/buttons/BaseButton.vue'
@@ -38,7 +38,7 @@ const handleLogin = async () => {
 
     if (result.success) {
       if (result.data.requires2fa === false && result.data.accessToken) {
-        persistAuthTokensFromEnvelope(result as unknown as Record<string, unknown>)
+        persistAuthTokensFromEnvelope(result as unknown as Record<string, unknown>) // TODO: preco tu je unknown?? to je doslova ze obchadzanie typescriptu a pouzivas typescript :D
         isError.value = false
         message.value = result.message ?? ''
         setTimeout(() => router.push({ name: 'DashboardLayout' }), 1500)
@@ -64,7 +64,7 @@ const handleLogin = async () => {
   }
 }
 
-const prefill = () => {
+const prefill = () => { // TODO: toto by som tu kludne nehal, ale ide o to, ze tu chyba nejake overenie enviromentu, lebo na produkciu toto urcize nemoze ist. Cize sprav si nejaky napr. NODE_ENV a ked bude 'local', tak ti to moze aj rovno prefillnut tie data do inputov a inak to bude zablokovane
   email.value = 'myronsnikers@gmail.com';
   password.value = 'password1234';
   handleLogin()
@@ -87,6 +87,7 @@ function handleForgotPasswordClick() {
 
     <form class="flex flex-col gap-4" @submit.prevent="handleLogin">
       <div class="flex flex-col gap-4">
+        <!-- TODO: preco tu je type username? mal by byt email ... a tiez type username neexistuje v HTMLku-->
         <base-input
           v-model="email"
           type="username"

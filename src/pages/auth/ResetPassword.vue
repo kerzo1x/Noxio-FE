@@ -79,6 +79,7 @@ const handleResetPassword = async () => {
 
       <form @submit.prevent="handleResetPassword" class="space-y-6">
         <div class="space-y-4">
+          <!-- TODO preco ma ten password type text? mal by tam byt password ... -->
           <base-input
               v-model="password"
               type="text"

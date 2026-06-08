@@ -2,6 +2,7 @@ const INPUT_DEBOUNCE_MS = 600
 
 type FlushFn = (text: string) => void
 
+// TODO: toto je globalne nastavene a nemalo by byt, lebo keby napr. mas otvorene dva editory, tak toto zdiela tie hodnoty medzi oboma, cize bud to daj do factory function alebo ref/reactive
 const paragraphPending = new Map<number, string>()
 const paragraphTimers = new Map<number, ReturnType<typeof setTimeout>>()
 const listItemPending = new Map<string, string>()
