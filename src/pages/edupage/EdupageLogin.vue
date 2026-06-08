@@ -68,7 +68,7 @@ const handleLogin = async () => {
                         name="username"
                         autocomplete="off"
                         label="Username"
-                        place-holder="Edu Page username"
+                        place-holder="Edu Page username"b                                       
                         :is-error="isError"
                         @clear-error="isError = false; message = ''"
                     />
