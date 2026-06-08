@@ -7,7 +7,7 @@ import settingsIcon from '@/assets/img/settings.svg'
 const topNav = [
   { label: 'Home', icon: homeIcon, routeName: 'DashboardHome' },
   { label: 'Noxio AI', icon: noxioIcon, routeName: 'DashboardNoxioAi' },
-  { label: 'Settings', icon: settingsIcon, routeName: 'DashboardSettings' },
+  { label: 'Settings', icon: settingsIcon, routeName: 'SettingsProfile' },
 ]
 
 const route = useRoute()
@@ -18,11 +18,17 @@ const handleClick = (item: (typeof topNav)[number]) => {
   router.push({ name: item.routeName })
 }
 
-const isActive = (item: (typeof topNav)[number]) =>
-  item.routeName != null && route.name === item.routeName
+const isActive = (item: (typeof topNav)[number]) => {
+  if (!item.routeName) return false
+  if (item.routeName === 'SettingsProfile') {
+    return String(route.name ?? '').startsWith('Settings')
+  }
+  return route.name === item.routeName
+}
 </script>
 
 <template>
+  <!-- TODO: preco je tu div a robi to co button?? toto treba urcite zmenit na button alebo rovno pouzi RouterLink -->
   <div
     v-for="item in topNav"
     :key="item.label"

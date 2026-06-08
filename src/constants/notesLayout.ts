@@ -1,7 +1,7 @@
 export const NOTE_CARD_MAX_WIDTH_REM = 20.9375
-export const NOTES_LIST_SIDE_PADDING_REM = 1 // px-4
+export const NOTES_LIST_SIDE_PADDING_REM = 1 // pr-4
 export const NOTES_LIST_MIN_WIDTH_REM =
-  NOTE_CARD_MAX_WIDTH_REM + NOTES_LIST_SIDE_PADDING_REM * 2
+  NOTE_CARD_MAX_WIDTH_REM + NOTES_LIST_SIDE_PADDING_REM
 
 export function getNotesListMinWidthPx(): number {
   if (typeof document === 'undefined') {

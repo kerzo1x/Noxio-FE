@@ -44,8 +44,30 @@ const routes: Array<RouteRecordRaw> = [
             },
             {
                 path: 'settings',
-                name: 'DashboardSettings',
-                component: () => import('../pages/dashboard/SettingsPage.vue')
+                component: () => import('../pages/dashboard/SettingsPage.vue'),
+                redirect: { name: 'SettingsProfile' },
+                children: [
+                    {
+                        path: 'profile',
+                        name: 'SettingsProfile',
+                        component: () => import('../pages/dashboard/settings/SettingsProfilePage.vue'),
+                    },
+                    {
+                        path: 'security',
+                        name: 'SettingsSecurity',
+                        component: () => import('../pages/dashboard/settings/SettingsSecurityPage.vue'),
+                    },
+                    {
+                        path: 'workspace',
+                        name: 'SettingsWorkspace',
+                        component: () => import('../pages/dashboard/settings/SettingsWorkspacePage.vue'),
+                    },
+                    {
+                        path: 'edupage',
+                        name: 'SettingsEdupage',
+                        component: () => import('../pages/dashboard/settings/SettingsEdupagePage.vue'),
+                    },
+                ],
             }
         ]
     },
@@ -98,6 +120,8 @@ const routes: Array<RouteRecordRaw> = [
         redirect: '/auth/login'
     }
 ]
+
+// TODO: ten router nema ziadny guard na FE. to ze to overuje BE (API) je super, ale aj frontend by mal mat guard, ktory ked napr. nemas access token a ides na dashboard, tak uz frontend by ta mal dat na login a nie az BE
 
 const router = createRouter({
     history: createWebHistory(),

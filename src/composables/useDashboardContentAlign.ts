@@ -4,9 +4,17 @@ import {
   onUnmounted,
   nextTick,
   watch,
+  type InjectionKey,
   type Ref,
 } from 'vue'
 import { useRoute } from 'vue-router'
+
+export interface DashboardLayoutMetrics {
+  contentAlignLeft: Ref<number>
+}
+
+export const dashboardLayoutMetricsKey: InjectionKey<DashboardLayoutMetrics> =
+  Symbol('dashboardLayoutMetrics')
 
 const PAGE_COLUMN_SELECTOR = '.dashboard-page-column'
 

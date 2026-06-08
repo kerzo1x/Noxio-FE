@@ -2,6 +2,7 @@ const INPUT_DEBOUNCE_MS = 600
 
 type FlushFn = (text: string) => void
 
+// TODO: toto je globalne nastavene a nemalo by byt, lebo keby napr. mas otvorene dva editory, tak toto zdiela tie hodnoty medzi oboma, cize bud to daj do factory function alebo ref/reactive
 const paragraphPending = new Map<number, string>()
 const paragraphTimers = new Map<number, ReturnType<typeof setTimeout>>()
 const listItemPending = new Map<string, string>()
@@ -80,12 +81,15 @@ export function flushListItemInput(blockIndex: number, itemIndex: number, flush:
 
 export function flushListBlockInput(blockIndex: number, flushItem: (itemIndex: number) => void) {
   const prefix = `${blockIndex}:`
-  const itemIndices = [...listItemPending.keys()]
-    .filter((key) => key.startsWith(prefix))
-    .map((key) => Number(key.slice(prefix.length)))
-    .sort((a, b) => a - b)
+  const itemIndices: number[] = []
+  for (const key of listItemPending.keys()) {
+    if (!key.startsWith(prefix)) continue
+    itemIndices.push(Number(key.slice(prefix.length)))
+  }
+  itemIndices.sort((a, b) => a - b)
 
-  for (const itemIndex of itemIndices) {
+  for (let i = 0; i < itemIndices.length; i++) {
+    const itemIndex = itemIndices[i]
     flushItem(itemIndex)
   }
 }

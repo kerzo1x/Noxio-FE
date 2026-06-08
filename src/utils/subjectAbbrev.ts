@@ -6,29 +6,33 @@ function firstGrapheme(word: string): string {
   return typeof first === 'string' ? first : ''
 }
 
-/**
- * 2–3 letter code for timetable cells: initials from words (skip 1-letter tokens),
- * or first 3 letters of a single word.
- */
 export function subjectAbbrev(subject: string): string {
   const trimmed = subject.trim()
   if (!trimmed) return '—'
 
-  const words = trimmed.split(/\s+/).filter(Boolean)
-  if (words.length === 1) {
-    const w = words[0]
-    return w.slice(0, 3).toLocaleUpperCase()
+  const words: string[] = []
+  const parts = trimmed.split(/\s+/)
+  for (let i = 0; i < parts.length; i++) {
+    if (parts[i]) words.push(parts[i])
   }
 
-  const fromLongWords = words
-    .filter((w) => w.length >= 2)
-    .map((w) => firstGrapheme(w))
-    .join('')
+  if (words.length === 1) {
+    return words[0].slice(0, 3).toLocaleUpperCase()
+  }
 
-  const letters =
-    fromLongWords.length > 0
-      ? fromLongWords
-      : words.map((w) => firstGrapheme(w)).join('')
+  let fromLongWords = ''
+  for (let i = 0; i < words.length; i++) {
+    const w = words[i]
+    if (w.length < 2) continue
+    fromLongWords += firstGrapheme(w)
+  }
+
+  let letters = fromLongWords
+  if (letters.length === 0) {
+    for (let i = 0; i < words.length; i++) {
+      letters += firstGrapheme(words[i])
+    }
+  }
 
   const upper = letters.toLocaleUpperCase()
   if (upper.length >= 2) return upper.slice(0, 3)

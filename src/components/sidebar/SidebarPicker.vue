@@ -1,4 +1,5 @@
 <script setup>
+// TODO: v script setup chyba typescript
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useWorkspaceStore } from '@/stores/workspace'
 import selectorIcon from '@/assets/img/selector.svg'

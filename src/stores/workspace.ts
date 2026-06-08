@@ -118,7 +118,7 @@ export const useWorkspaceStore = defineStore('workspace', {
             savedId != null
               ? this.workspaces.find((w) => w.id === savedId)
               : undefined
-          const byActive =
+          const byActive = // TODO: tu si doslova o 6 riadkov vyssie overil toto --> this.activeWorkspace?.id != null, takze toto je zarucene v non-null blocku
             this.activeWorkspace?.id != null
               ? this.workspaces.find((w) => w.id === this.activeWorkspace!.id)
               : undefined

@@ -35,6 +35,7 @@ const emit = defineEmits<{
   focusBlock: [number, number | null]
 }>()
 
+// TODO: tu mas potencialny memory leak, lebo ked user vymaze napr. 100 blokov textu, tak toto to stale bude mat ako null blocky
 const paragraphRefs = ref<Record<number, InstanceType<typeof NoteParagraphBlockView> | null>>({})
 const listRefs = ref<Record<number, InstanceType<typeof NoteBulletedListBlockView> | null>>({})
 
@@ -57,7 +58,7 @@ function spansFromDomText(text: string, existingSpans: NoteSpan[]): NoteSpan[] {
 function focusParagraphAt(blockIndex: number, offset: number) {
   emit('focusBlock', blockIndex, null)
   nextTick(() => {
-    nextTick(() => {
+    nextTick(() => { // TODO: preco su tu 2x nexttick??
       paragraphRefs.value[blockIndex]?.focusAtOffset(offset)
     })
   })

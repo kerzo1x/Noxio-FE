@@ -1,5 +1,13 @@
 import { defineStore } from 'pinia'
-import { fetchMe, type AuthUser } from '@/api/user'
+import {
+  fetchMe,
+  updateProfile,
+  enable2fa,
+  disable2fa,
+  setUserAvatar,
+  removeUserAvatar,
+  type AuthUser,
+} from '@/api/user'
 import { logout as logoutApi } from '@/api/auth'
 
 export type User = AuthUser
@@ -20,8 +28,10 @@ export const useUserStore = defineStore('user', {
       this.loading = true
       try {
         const { data } = await fetchMe()
-        this.user = data.data
-        this.loaded = true
+        if (data.success) {
+          this.user = data.data
+          this.loaded = true
+        }
       } catch (err) {
         console.error('Error loading user:', err)
         this.user = null
@@ -29,6 +39,42 @@ export const useUserStore = defineStore('user', {
       } finally {
         this.loading = false
       }
+    },
+
+    async updateProfile(body: { name?: string; surname?: string }) {
+      const { data } = await updateProfile(body)
+      if (data.success) {
+        this.user = data.data
+      }
+      return data
+    },
+
+    async setAvatar(mediaId: string) {
+      const { data } = await setUserAvatar(mediaId)
+      if (data.success && this.user) {
+        await this.fetchUser({ force: true })
+      }
+      return data
+    },
+
+    async removeAvatar() {
+      const { data } = await removeUserAvatar()
+      if (data.success && this.user) {
+        await this.fetchUser({ force: true })
+      }
+      return data
+    },
+
+    async enable2fa() {
+      return enable2fa()
+    },
+
+    async disable2fa() {
+      const { data } = await disable2fa()
+      if (data.success) {
+        await this.fetchUser({ force: true })
+      }
+      return data
     },
 
     async logout() {

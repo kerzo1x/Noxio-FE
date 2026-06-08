@@ -47,6 +47,6 @@ function handleWorkspaceTabChange(tab: WorkspaceTab) {
         @update:active="handleWorkspaceTabChange"
       />
     </nav>
-    <SidebarPicker class="w-[203px] ml-[61px] mb-[49px]"/>
+    <SidebarPicker class="dashboard-action-slot ml-[61px] mb-[49px]"/>
   </aside>
 </template>

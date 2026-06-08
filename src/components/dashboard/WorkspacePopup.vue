@@ -42,6 +42,7 @@ function roleLabel(role: WorkspaceMemberRole): string {
   return roleOptions.find((option) => option.value === role)?.label ?? role
 }
 
+// TODO: tu mixujes arrow functions a regular functions ... napr. closeRoleSelect je arrow function a onDocumentClick je regular function
 const closeRoleSelect = () => {
   isRoleOpen.value = false
 }

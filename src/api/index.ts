@@ -49,7 +49,7 @@ api.interceptors.response.use(
       redirectToLogin();
       return Promise.reject(error);
     }
-    originalRequest._retry = true;
+    originalRequest._retry = true; // TODO: retry nie je type AxiosRequestConfig, takze treba dat extends na ten AxiosRequestConfig a tam das ten retry
     try {
       await runRefresh();
       return api(originalRequest);

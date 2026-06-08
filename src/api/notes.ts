@@ -17,7 +17,7 @@ export function listFolderNotes(folderId: string, params: NotesQuery) {
 
 export function createNoteInFolder(
   folderId: string,
-  body: { title: string; content: unknown },
+  body: { title: string; content: unknown }, // TODO: preco tu je unknown
 ) {
   return api.post<ApiSuccess<Partial<NoteDetail> & { id: string }>>(
     `/folders/${folderId}/notes`,

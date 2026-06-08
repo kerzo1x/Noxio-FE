@@ -94,7 +94,6 @@ function readExpandedSections(): Record<WorkspaceTab, boolean> {
     return { folders: false, todo: false }
   }
 }
-
 const expandedSections = reactive<Record<WorkspaceTab, boolean>>(readExpandedSections())
 
 watch(

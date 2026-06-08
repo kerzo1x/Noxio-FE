@@ -9,6 +9,8 @@
     --color-error: #ef4444;
 
     --radius-auth: 0.75rem;
+    --radius-card: 10px;
+    --radius-chip: 4px;
 
     /* Dark panel */
     --panel-bg: #000000;
@@ -18,9 +20,27 @@
     --panel-input-placeholder: #52525b;
     --panel-label: #a1a1aa;
 
+    /* Dashboard */
+    --color-dashboard-border: #212121;
+    --color-dashboard-surface: #1c1b1b;
+    --color-danger: #ad2222;
+    --color-danger-hover: #c42828;
+    --folder-card-w: 186px;
+    --folder-card-h: 146px;
+    --todo-card-w: 202px;
+    --todo-card-h: 163px;
+    --dashboard-action-w: 203px;
+    --dashboard-action-h: 29px;
+    --grid-gap-folders: 34px;
+    --grid-gap-todos: 20px;
+    --note-card-max-width: 20.9375rem;
+
     /* Dashboard shell (1920px artboard: 283 + 112 + 172 horizontal insets) */
     --dashboard-sidebar-width: 283px;
     --dashboard-content-inset-start: 5.83vw;
     --dashboard-content-inset-end: 8.96vw;
     --dashboard-page-max-width: 858px;
+
+    --shadow-dashboard-sticky: 0 6px 16px -4px rgba(0, 0, 0, 0.45);
+    --shadow-dashboard-bottom: 0 -3px 10px -1px rgba(0, 0, 0, 0.35);
 }

@@ -13,7 +13,6 @@ const handleSignIn = () => {
 
 <template>
     <div class="min-h-screen flex items-center justify-center bg-panel-bg">
-        <Transition name="auth-fade" appear>
         <div class="text-center space-y-10 px-8 w-full max-w-lg">
 
             <div class="space-y-3">
@@ -30,7 +29,6 @@ const handleSignIn = () => {
             </button>
 
         </div>
-        </Transition>
     </div>
 </template>
 
@@ -38,13 +36,5 @@ const handleSignIn = () => {
 @reference "../../assets/styles/main.css";
 .skip-link {
     @apply text-sm text-panel-label underline underline-offset-2 hover:text-panel-text transition-colors duration-200 cursor-pointer;
-}
-
-.auth-fade-enter-active {
-    transition: opacity 500ms ease-in-out;
-}
-
-.auth-fade-enter-from {
-    opacity: 0;
 }
 </style>

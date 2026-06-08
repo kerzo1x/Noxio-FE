@@ -38,7 +38,7 @@ const upcomingRows = ref<UpcomingDeadlineRow[]>([])
 const upcomingLoading = ref(false)
 const upcomingError = ref<string | null>(null)
 
-const UPCOMING_DEADLINES_LIMIT = 50
+const UPCOMING_DEADLINES_LIMIT = 50 // TODO: tu je zadefinovana konstanta, ale v listTaskCategories je hardcoded 100 ...
 
 const menuOpenFolderId = ref<string | null>(null)
 const folderToEdit = ref<Folder | null>(null)
@@ -188,6 +188,7 @@ async function fetchUpcomingDeadlines(workspaceId: string) {
     const startOfToday = new Date()
     startOfToday.setHours(0, 0, 0, 0)
 
+    // TODO: toto robi direct API call a vsade to mas cez Pinia store
     const [categoriesResponse, ...taskResponses] = await Promise.all([
       listTaskCategories(workspaceId),
       ...lists.map((list) =>
@@ -301,7 +302,7 @@ watch(
           <button
             type="button"
             class="mt-1 cursor-pointer border-0 bg-transparent text-sm text-white/40 transition-colors hover:text-white/60"
-            @click="router.push({ name: 'EdupageLogin' })"
+            @click="router.push({ name: 'SettingsEdupage' })"
           >
             connect
           </button>
@@ -413,7 +414,7 @@ watch(
           :key="folder.id"
           role="button"
           tabindex="0"
-          class="relative aspect-186/146 h-[146px] w-[186px] cursor-pointer transition-transform duration-200 hover:scale-[1.02]"
+          class="folder-card"
           @click="openFolderNotes(folder.id)"
           @keydown.enter="openFolderNotes(folder.id)"
         >

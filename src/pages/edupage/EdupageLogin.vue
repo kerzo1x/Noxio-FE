@@ -12,6 +12,11 @@ const password = ref('')
 const message = ref('')
 const isError = ref(false)
 
+function clearError() {
+  isError.value = false
+  message.value = ''
+}
+
 const handleSkip = async () => {
     await router.push({ name: 'DashboardLayout' })
 }
@@ -50,7 +55,6 @@ const handleLogin = async () => {
 
 <template>
     <div class="min-h-screen flex items-center justify-center p-6 bg-brand-black font-sans text-center">
-        <Transition name="auth-fade" appear>
         <div class="w-full max-w-lg flex flex-col items-center">
 
             <div class="space-y-4 mb-10 max-w-full">
@@ -60,7 +64,7 @@ const handleLogin = async () => {
                 <p class="text-panel-label text-sm tracking-wide">so you can see your timetable</p>
             </div>
 
-            <form @submit.prevent="handleLogin" class="w-full space-y-6 text-left">
+            <form @submit.prevent="handleLogin" class="w-full flex flex-col gap-6 text-left">
                 <div class="flex flex-col gap-4">
                     <base-input
                         v-model="email"
@@ -70,7 +74,7 @@ const handleLogin = async () => {
                         label="Username"
                         place-holder="Edu Page username"b                                       
                         :is-error="isError"
-                        @clear-error="isError = false; message = ''"
+                        @clear-error="clearError"
                     />
                     <base-input
                         v-model="password"
@@ -80,7 +84,7 @@ const handleLogin = async () => {
                         label="Password"
                         place-holder="Edu Page password"
                         :is-error="isError"
-                        @clear-error="isError = false; message = ''"
+                        @clear-error="clearError"
                     />
                 </div>
 
@@ -92,7 +96,6 @@ const handleLogin = async () => {
                 </button>
             </div>
         </div>
-        </Transition>
     </div>
 </template>
 
@@ -101,13 +104,5 @@ const handleLogin = async () => {
 
 .skip-link {
     @apply text-sm text-panel-label underline underline-offset-2 hover:text-panel-text transition-colors duration-200 cursor-pointer;
-}
-
-.auth-fade-enter-active {
-    transition: opacity 500ms ease-in-out;
-}
-
-.auth-fade-enter-from {
-    opacity: 0;
 }
 </style>

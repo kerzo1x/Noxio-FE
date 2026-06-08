@@ -1,0 +1,163 @@
+# TODO Review — текущая ветка
+# Всего: 43 комментария в 28 файлах
+
+================================================================================
+API
+================================================================================
+
+src/api/index.ts:52
+  retry nie je type AxiosRequestConfig, takze treba dat extends na ten AxiosRequestConfig a tam das ten retry
+
+src/api/integrations/edupage.ts:6
+  preco tu pouzivas authFetch a v src/api/auth.ts pouzivas axios?? lebo tiez ak je access token expirovany, tak nedostanes auto refresh
+
+src/api/notes.ts:20
+  preco tu je unknown
+
+================================================================================
+AUTH
+================================================================================
+
+src/pages/auth/LoginPage.vue:3
+  preco importujes priamo router? ja by som tam dal import { useRouter } from 'vue-router' a const router = useRouter()
+
+src/pages/auth/LoginPage.vue:41
+  preco tu je unknown?? to je doslova ze obchadzanie typescriptu a pouzivas typescript :D
+
+src/pages/auth/LoginPage.vue:67
+  toto by som tu kludne nehal, ale ide o to, ze tu chyba nejake overenie enviromentu, lebo na produkciu toto urcize nemoze ist. Cize sprav si nejaky napr. NODE_ENV a ked bude 'local', tak ti to moze aj rovno prefillnut tie data do inputov a inak to bude zablokovane
+
+src/pages/auth/LoginPage.vue:90
+  preco tu je type username? mal by byt email ... a tiez type username neexistuje v HTMLku
+
+src/pages/auth/RegisterPage.vue:3
+  preco importujes priamo router? ja by som tam dal import { useRouter } from 'vue-router' a const router = useRouter()
+
+src/pages/auth/ForgotPassword.vue:65
+  preco je type text? tam by mal byt email
+
+src/pages/auth/ResetPassword.vue:82
+  preco ma ten password type text? mal by tam byt password ...
+
+src/pages/auth/VerifyPassword.vue:22
+  preco tu je 2? ten timer ma bezat minutu ...
+
+src/pages/auth/VerifyPassword.vue:28
+  intervalId nie je nullovany, ze chyba tam toto --> intervalId = null
+
+src/pages/auth/VerifyPassword.vue:100
+  preco sa verification code uklada do local storage? lebo je to dost bezpecnostna chyba
+
+================================================================================
+DASHBOARD
+================================================================================
+
+src/pages/dashboard/FolderPage.vue:81
+  preco je tu z-[1px]? to je nevalidna hodnota, daj tam cislo
+
+src/pages/dashboard/TodoPage.vue:106
+  preco je tu z-[1px]? to je nevalidna hodnota, daj tam cislo
+
+src/pages/dashboard/TodoListPage.vue:91
+  ten event.dataTransfer moze byt null, takze tam daj skor nieco ako --> if (!event.dataTransfer) return event.dataTransfer.effectAllowed = 'move'
+
+src/pages/dashboard/HomePage.vue:41
+  tu je zadefinovana konstanta, ale v listTaskCategories je hardcoded 100 ...
+
+src/pages/dashboard/HomePage.vue:191
+  toto robi direct API call a vsade to mas cez Pinia store
+
+src/pages/dashboard/NotesPage.vue:54
+  naco je tento watch? Lebo doslova je prazdny
+
+src/layouts/DashboardLayout.vue:4
+  preco importujes dve veci z toho isteho suboru oddelene??
+
+src/layouts/DashboardLayout.vue:24
+  toto je vzdy true v watch callbacku, lebo watch sa zavola iba ked sa zmeni hodnota ...
+
+src/layouts/DashboardLayout.vue:30
+  toto sa nikdy nevykona, malo by to volat --> loadWorkspaceContext(workspaceId, { force: true })
+
+src/layouts/DashboardLayout.vue:35
+  toto je doslova fire and forget ... treba pridat await Promise.all() alebo nieco podobne
+
+src/components/dashboard/DashboardFolderCard.vue:28
+  tu ti chyba @keydown.space
+
+src/components/dashboard/DeleteFolderPopup.vue:42
+  toto je v kazdom komponente a dal by som to do spolocneho useEscapeKey
+
+src/components/dashboard/EditFolderPopup.vue:57
+  preco tu je 2x watch na open a props folder??
+
+src/components/dashboard/HeaderComponent.vue:89
+  ResizeObserver je cleanup-ovany neskor, ale kde je window.removeEventListener?
+
+src/components/dashboard/WorkspacePopup.vue:45
+  tu mixujes arrow functions a regular functions ... napr. closeRoleSelect je arrow function a onDocumentClick je regular function
+
+================================================================================
+NOTES
+================================================================================
+
+src/components/notes/editor/NoteBlockList.vue:38
+  tu mas potencialny memory leak, lebo ked user vymaze napr. 100 blokov textu, tak toto to stale bude mat ako null blocky
+
+src/components/notes/editor/NoteBlockList.vue:61
+  preco su tu 2x nexttick??
+
+src/composables/useDebouncedBlockInput.ts:5
+  toto je globalne nastavene a nemalo by byt, lebo keby napr. mas otvorene dva editory, tak toto zdiela tie hodnoty medzi oboma, cize bud to daj do factory function alebo ref/reactive
+
+src/composables/useResizableSplit.ts:51
+  tu chyba debounce, lebo teraz ti to pri 60 fps da 60 callov localStorage a daj tam nejaky debounce, aby to nesekalo
+
+================================================================================
+SIDEBAR
+================================================================================
+
+src/components/sidebar/SidebarNav.vue:26
+  preco je tu div a robi to co button?? toto treba urcite zmenit na button alebo rovno pouzi RouterLink
+
+src/components/sidebar/SidebarPicker.vue:2
+  v script setup chyba typescript
+
+================================================================================
+UI
+================================================================================
+
+src/components/ui/buttons/BaseButton.vue:8
+  preco je type hardcoded na submit? tam treba dat nejake moznosti
+
+src/components/ui/inputs/BaseInput.vue:76
+  preco tu nie je scoped?
+
+================================================================================
+STORES
+================================================================================
+
+src/stores/folders.ts:32
+  resolveWorkspaceId aj getApiErrorMessage su tu a v src/stores/todoLists.ts zaroven a treba to dat do nejakeho shared suboru
+
+src/stores/workspace.ts:121
+  tu si doslova o 6 riadkov vyssie overil toto --> this.activeWorkspace?.id != null, takze toto je zarucene v non-null blocku
+
+================================================================================
+UTILS / CONFIG / INFRA
+================================================================================
+
+src/utils/todoTaskPosition.ts:6
+  toto je manualna kopia a vies to cele fixnut funkciou pod tym
+
+src/router/index.ts:102
+  ten router nema ziadny guard na FE. to ze to overuje BE (API) je super, ale aj frontend by mal mat guard, ktory ked napr. nemas access token a ides na dashboard, tak uz frontend by ta mal dat na login a nie az BE
+
+src/main.ts:7
+  chyba tu handling errorov z vue komponentov, lebo teraz to vie crashnut celu appku a user nedostane ziadnu message
+
+src/vite-env.d.ts:18
+  any tu typuje celý component na any, treba pouzit @vitejs/plugin-vue s vue-tsc
+
+vite.config.ts:14
+  toto nerieši vite, ale typescript, cize to treba dat do tsconfig.json

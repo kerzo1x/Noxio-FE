@@ -67,8 +67,12 @@ const showEmpty = computed(
 )
 
 function resultLabel(item: WorkspaceSearchResult): string {
-  const typeLabel = item.type === 'folder' ? 'Folders' : 'Note'
-  return `${item.title} - ${typeLabel}`
+  const typeLabels: Record<WorkspaceSearchResult['type'], string> = {
+    folder: 'Folders',
+    note: 'Note',
+    todo_list: 'Todo list',
+  }
+  return `${item.title} - ${typeLabels[item.type]}`
 }
 
 function onInput(event: Event) {

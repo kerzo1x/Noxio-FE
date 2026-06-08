@@ -11,6 +11,10 @@ const email = ref('')
 const isError = ref(false)
 const isLoading = ref(false)
 
+function clearError() {
+  isError.value = false
+}
+
 const handleSendCode = async () => {
   if (!email.value) {
     isError.value = true
@@ -47,8 +51,7 @@ const handleSendCode = async () => {
 
 <template>
   <div class="min-h-screen flex items-center justify-center p-6 bg-brand-black font-sans">
-    <Transition name="auth-fade" appear>
-    <div class="forgot-form-shell w-full max-w-sm text-center space-y-8">
+    <div class="w-full max-w-sm text-center space-y-8">
       
       <div class="space-y-2 max-w-xs mx-auto text-center">
         <h1 class="text-4xl font-bold text-brand-white">Forgot password</h1>
@@ -59,6 +62,7 @@ const handleSendCode = async () => {
 
       <form @submit.prevent="handleSendCode" class="space-y-6 text-left">
         <div class="space-y-2">
+          <!-- TODO: preco je type text? tam by mal byt email -->
           <base-input
             v-model="email"
             type="text"
@@ -67,7 +71,7 @@ const handleSendCode = async () => {
             label="Email"
             place-holder="tomas.lukacko@gmail.com"
             :is-error="isError"
-            @clear-error="isError = false"
+            @clear-error="clearError"
           />
       </div>
 
@@ -83,28 +87,6 @@ const handleSendCode = async () => {
         </p>
       </div>
     </div>
-    </Transition>
   </div>
 </template>
 
-<style scoped>
-@reference "../../assets/styles/main.css";
-
-.forgot-form-shell {
-  transition: opacity 500ms ease-in-out;
-}
-
-.auth-fade-enter-active {
-  transition: opacity 500ms ease-in-out;
-}
-
-.auth-fade-enter-from {
-  opacity: 0;
-}
-
-.btn-primary {
-  @apply bg-brand-white text-brand-black py-3 rounded-auth font-semibold
-         hover:opacity-90 hover:scale-[1.01] active:scale-[0.99]
-         transition-all duration-200 disabled:opacity-50 cursor-pointer;
-}
-</style>

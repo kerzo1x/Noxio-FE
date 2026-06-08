@@ -27,3 +27,15 @@ export function createInvitation(
 ) {
   return api.post(`/workspaces/${workspaceId}/invitations`, { email, role })
 }
+
+export function updateWorkspace(workspaceId: string, body: { name: string }) {
+  return api.patch<ApiSuccess<Workspace>>(`/workspaces/${workspaceId}`, body)
+}
+
+export function updateMemberRole(
+  workspaceId: string,
+  memberId: string,
+  role: WorkspaceMemberRole,
+) {
+  return api.patch(`/workspaces/${workspaceId}/members/${memberId}`, { role })
+}

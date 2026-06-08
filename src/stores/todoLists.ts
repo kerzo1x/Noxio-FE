@@ -13,6 +13,7 @@ import {
 } from '@/api/todoLists'
 import { useWorkspaceStore } from '@/stores/workspace'
 import type { PaginationMeta } from '@/types/api'
+import { buildTaskPositionPayloadFromTasks } from '@/utils/todoTaskPosition'
 
 function resolveWorkspaceId(storeLoadedId: string | null): string | null {
   const activeId = useWorkspaceStore().activeWorkspace?.id ?? null
@@ -32,69 +33,18 @@ function getApiErrorMessage(error: unknown, fallback: string): string {
   return fallback
 }
 
-function sortTasksByPosition(tasks: TodoTask[]): TodoTask[] {
-  return [...tasks].sort((a, b) => a.position - b.position)
-}
-
-function columnTasksForStatus(
-  tasks: TodoTask[],
-  status: TodoTaskStatus,
-  excludeTaskId?: string,
-): TodoTask[] {
-  return sortTasksByPosition(
-    tasks.filter((item) => item.status === status && item.id !== excludeTaskId),
-  )
-}
-
-/** Build afterId/beforeId from the full list; drop index comes from the visible column. */
-function buildTaskPositionPayloadFromTasks(
-  allTasks: TodoTask[],
-  visibleTasks: TodoTask[],
-  taskId: string,
-  toStatus: TodoTaskStatus,
-  toIndex: number,
-): { afterId: string | null; beforeId: string | null; status: TodoTaskStatus } {
-  const columnAll = columnTasksForStatus(allTasks, toStatus, taskId)
-
-  if (columnAll.length === 0) {
-    return { afterId: null, beforeId: null, status: toStatus }
+async function fetchAllTodoListTasks(todoListId: string): Promise<TodoTask[]> {
+  const response = await listTodoListTasks(todoListId, {
+    page: 1,
+    limit: 100,
+    sortBy: 'createdAt',
+    sortOrder: 'asc',
+  })
+  const payload = response.data
+  if (!payload?.success) {
+    throw new Error(payload?.message || 'Failed to fetch tasks')
   }
-
-  const visibleColumn = sortTasksByPosition(
-    visibleTasks.filter((item) => item.status === toStatus),
-  )
-
-  let insertBeforeId: string | null = null
-  if (toIndex < visibleColumn.length) {
-    insertBeforeId = visibleColumn[toIndex].id
-  }
-
-  if (insertBeforeId === taskId) {
-    insertBeforeId = visibleColumn[toIndex + 1]?.id ?? null
-  }
-
-  if (!insertBeforeId) {
-    return {
-      afterId: columnAll[columnAll.length - 1]?.id ?? null,
-      beforeId: null,
-      status: toStatus,
-    }
-  }
-
-  const beforeIdx = columnAll.findIndex((item) => item.id === insertBeforeId)
-  if (beforeIdx === -1) {
-    return { afterId: null, beforeId: insertBeforeId, status: toStatus }
-  }
-
-  if (beforeIdx === 0) {
-    return { afterId: null, beforeId: insertBeforeId, status: toStatus }
-  }
-
-  return {
-    afterId: columnAll[beforeIdx - 1].id,
-    beforeId: insertBeforeId,
-    status: toStatus,
-  }
+  return payload.data
 }
 
 export interface TodoList {
@@ -377,7 +327,7 @@ export const useTodoListsStore = defineStore('todo-lists', {
     async fetchTodoListTasks(
       todoListId: string,
       query: TodoTasksQuery = {},
-      opts?: { force?: boolean },
+      opts?: { force?: boolean; silent?: boolean },
     ) {
       if (!todoListId) {
         this.resetTasks()
@@ -394,7 +344,9 @@ export const useTodoListsStore = defineStore('todo-lists', {
         return
       }
 
-      this.tasksLoading = true
+      if (!opts?.silent) {
+        this.tasksLoading = true
+      }
       this.tasksError = null
 
       try {
@@ -421,7 +373,9 @@ export const useTodoListsStore = defineStore('todo-lists', {
         this.tasksTodoListId = null
         this.tasksDeadlineFilter = null
       } finally {
-        this.tasksLoading = false
+        if (!opts?.silent) {
+          this.tasksLoading = false
+        }
       }
     },
 
@@ -471,14 +425,17 @@ export const useTodoListsStore = defineStore('todo-lists', {
 
     buildTaskPositionPayload(
       taskId: string,
+      fromStatus: TodoTaskStatus,
       toStatus: TodoTaskStatus,
       toIndex: number,
-      allTasks?: TodoTask[],
-    ): { afterId: string | null; beforeId: string | null; status: TodoTaskStatus } {
+      allTasks: TodoTask[],
+      visibleTasks: TodoTask[],
+    ): { afterId: string | null; beforeId: string | null; status?: TodoTaskStatus } {
       return buildTaskPositionPayloadFromTasks(
-        allTasks ?? this.tasks,
-        this.tasks,
+        allTasks,
+        visibleTasks,
         taskId,
+        fromStatus,
         toStatus,
         toIndex,
       )
@@ -492,34 +449,21 @@ export const useTodoListsStore = defineStore('todo-lists', {
       if (!todoListId) return
 
       const previousTasks = this.tasks.map((item) => ({ ...item }))
-
-      let allTasks = this.tasks
-      if (this.tasksDeadlineFilter) {
-        try {
-          const response = await listTodoListTasks(todoListId, {
-            page: 1,
-            limit: 100,
-            sortBy: 'createdAt',
-            sortOrder: 'asc',
-          })
-          if (response.data?.success) {
-            allTasks = response.data.data
-          }
-        } catch {
-          /* use visible tasks if full list fetch fails */
-        }
-      }
-
-      const positionBody = this.buildTaskPositionPayload(
-        taskId,
-        toStatus,
-        toIndex,
-        allTasks,
-      )
+      const visibleSnapshot = this.tasks.map((item) => ({ ...item }))
 
       this.moveTaskLocally(taskId, toStatus, toIndex)
 
       try {
+        const allTasks = await fetchAllTodoListTasks(todoListId)
+        const positionBody = this.buildTaskPositionPayload(
+          taskId,
+          task.status,
+          toStatus,
+          toIndex,
+          allTasks,
+          visibleSnapshot,
+        )
+
         const response = await updateTodoTaskPosition(taskId, positionBody)
         const envelope = response.data
         if (!envelope?.success) {
@@ -529,10 +473,12 @@ export const useTodoListsStore = defineStore('todo-lists', {
         const query: TodoTasksQuery = this.tasksDeadlineFilter
           ? { deadlineFilter: this.tasksDeadlineFilter }
           : {}
-        await this.fetchTodoListTasks(todoListId, query, { force: true })
-      } catch (error: unknown) {
+        await this.fetchTodoListTasks(todoListId, query, {
+          force: true,
+          silent: true,
+        })
+      } catch {
         this.tasks = previousTasks
-        this.tasksError = getApiErrorMessage(error, 'Failed to move task.')
       }
     },
 

@@ -19,13 +19,13 @@ const isTimerActive = computed(() => timer.value > 0)
 let intervalId: number | null = null
 
 const startTimer = () => {
-    timer.value = 2
+    timer.value = 2 // TODO: preco tu je 2? ten timer ma bezat minutu ...
     if (intervalId) clearInterval(intervalId)
     intervalId = window.setInterval(() => {
         if (timer.value > 0) {
             timer.value--
         } else {
-            if (intervalId) clearInterval(intervalId)
+            if (intervalId) clearInterval(intervalId) // TODO: intervalId nie je nullovany, ze chyba tam toto --> intervalId = null
         }
     }, 1000)
 }
@@ -97,7 +97,7 @@ const handleVerify = async () => {
         if (result.success) {
             if (result.data.sessionToken && route.query.from === "forgot") {
                 localStorage.setItem('session_token', result.data.sessionToken)
-                localStorage.setItem('verification_code', finalCode)
+                localStorage.setItem('verification_code', finalCode) // TODO: preco sa verification code uklada do local storage? lebo je to dost bezpecnostna chyba
                 router.push('/auth/reset-password')
             } else {
                 if (result.data.accessToken) {
@@ -122,7 +122,6 @@ const handleVerify = async () => {
         <AuthBannerComponent />
 
         <div class="w-full lg:w-1/2 flex items-center justify-center p-10 bg-panel-bg">
-            <Transition name="auth-fade" appear>
             <div class="w-full max-w-sm text-center space-y-8">
 
                 <div class="space-y-2">
@@ -184,7 +183,6 @@ const handleVerify = async () => {
                 </div>
 
             </div>
-            </Transition>
         </div>
     </div>
 </template>
@@ -206,11 +204,11 @@ const handleVerify = async () => {
 }
 
 .btn-primary {
-    @apply bg-brand-white text-brand-black py-3 rounded-auth font-semibold hover:opacity-90 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 cursor-pointer;
+    @apply bg-brand-white text-brand-black py-3 rounded-auth font-semibold hover:opacity-90 transition-all duration-200 cursor-pointer;
 }
 
 .btn-secondary {
-    @apply py-3 rounded-auth font-semibold text-panel-label border border-panel-input-border hover:bg-white/5 hover:text-panel-text hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 cursor-pointer;
+    @apply py-3 rounded-auth font-semibold text-panel-label border border-panel-input-border hover:bg-white/5 hover:text-panel-text hover:opacity-80 transition-all duration-200 cursor-pointer;
 }
 .resend-link {
     @apply text-panel-text font-semibold transition-colors duration-200 cursor-pointer;
@@ -224,11 +222,4 @@ const handleVerify = async () => {
     @apply text-brand-white underline;
 }
 
-.auth-fade-enter-active {
-    transition: opacity 500ms ease-in-out;
-}
-
-.auth-fade-enter-from {
-    opacity: 0;
-}
 </style>
