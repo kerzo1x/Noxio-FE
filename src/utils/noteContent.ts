@@ -85,11 +85,21 @@ function normalizeSpans(spans: unknown): NoteSpan[] {
   }
 
   return spans.map((span) => {
-    const record = span as { text?: string; bold?: boolean }
-    return {
+    const record = span as {
+      text?: string
+      bold?: boolean
+      underline?: boolean
+      color?: string
+    }
+    const normalized: NoteSpan = {
       text: typeof record.text === 'string' ? record.text : '',
       ...(record.bold ? { bold: true } : {}),
+      ...(record.underline ? { underline: true } : {}),
     }
+    if (typeof record.color === 'string' && /^#[0-9A-Fa-f]{6}$/.test(record.color)) {
+      normalized.color = record.color
+    }
+    return normalized
   })
 }
 

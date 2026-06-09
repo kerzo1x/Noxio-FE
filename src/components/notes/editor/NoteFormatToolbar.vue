@@ -4,12 +4,10 @@ import type { NoteBlockSize } from '@/types/notes'
 
 defineProps<{
   size: NoteBlockSize
-  bold: boolean
 }>()
 
 const emit = defineEmits<{
   'update:size': [NoteBlockSize]
-  toggleBold: []
 }>()
 
 const sizeOptions: { value: NoteBlockSize; label: string }[] = [
@@ -60,30 +58,10 @@ onUnmounted(() => {
 <template>
   <div
     ref="rootRef"
-    class="flex h-[46px] w-full max-w-[22.0625rem] items-center gap-9 rounded-[10px] bg-[#fafafa] px-8"
+    class="flex h-[46px] w-full max-w-[22.0625rem] items-center justify-center rounded-[10px] bg-[#fafafa] px-8"
     role="toolbar"
-    aria-label="Text formatting"
+    aria-label="Block size"
   >
-    <button
-      type="button"
-      disabled
-      title="Underline is not supported yet"
-      class="cursor-not-allowed text-[19px] font-normal leading-normal text-black/40 underline decoration-from-font underline-offset-2"
-    >
-      U
-    </button>
-
-    <button
-      type="button"
-      title="Bold"
-      class="text-[19px] font-bold leading-normal text-black transition-opacity hover:opacity-70"
-      :class="bold ? 'opacity-100' : 'opacity-60'"
-      @mousedown.prevent
-      @click="emit('toggleBold')"
-    >
-      B
-    </button>
-
     <div class="relative shrink-0">
       <button
         type="button"
@@ -122,15 +100,5 @@ onUnmounted(() => {
         </button>
       </div>
     </div>
-
-    <button
-      type="button"
-      disabled
-      title="Text color is not supported yet"
-      class="inline-flex cursor-not-allowed flex-col items-center justify-center gap-0.5 text-black/40"
-    >
-      <span class="text-[19px] font-medium leading-none">A</span>
-      <span class="h-[3px] w-[23px] rounded-[10px] bg-[#ad2222]/40" />
-    </button>
   </div>
 </template>

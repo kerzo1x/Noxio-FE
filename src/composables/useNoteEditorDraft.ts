@@ -1,26 +1,34 @@
 import { computed, onBeforeUnmount, ref, watch, type Ref } from 'vue'
 import { useNotesStore } from '@/stores/notes'
-import type { NoteBlock, NoteBlockSize, NoteDetail } from '@/types/notes'
+import type { NoteBlock, NoteDetail } from '@/types/notes'
 import {
   blocksSnapshotEqual,
   cloneBlocks,
   createDefaultNoteContent,
-  getBlockSize,
-  isBlockBold,
   normalizeBlocksForApi,
-  setBlockSize,
-  toggleBlockBold,
 } from '@/utils/noteContent'
+import { validateNoteBlocks } from '@/utils/validateNoteBlocks'
 
 const SAVE_DEBOUNCE_MS = 600
+const SAVE_RETRY_MS = 2000
+
+function isRetriableError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return true
+  if ('response' in error) {
+    const status = (error as { response?: { status?: number } }).response?.status
+    if (status && status >= 400 && status < 500) return false
+  }
+  return true
+}
 
 export function useNoteEditorDraft(note: Ref<NoteDetail | null | undefined>) {
   const notesStore = useNotesStore()
 
   const title = ref('')
   const content = ref<NoteBlock[]>(createDefaultNoteContent())
-  const focusedBlockIndex = ref<number | null>(null)
-  const focusedListItemIndex = ref<number | null>(null)
+  const remoteConflict = ref(false)
+  const validationWarnings = ref<string[]>([])
+  const serverSyncGeneration = ref(0)
 
   let serverTitle = ''
   let serverContent: NoteBlock[] = createDefaultNoteContent()
@@ -38,8 +46,8 @@ export function useNoteEditorDraft(note: Ref<NoteDetail | null | undefined>) {
       content.value = createDefaultNoteContent()
       serverTitle = ''
       serverContent = createDefaultNoteContent()
-      focusedBlockIndex.value = null
-      focusedListItemIndex.value = null
+      remoteConflict.value = false
+      validationWarnings.value = []
       return
     }
 
@@ -51,9 +59,19 @@ export function useNoteEditorDraft(note: Ref<NoteDetail | null | undefined>) {
     content.value = cloneBlocks(normalizedContent)
     serverTitle = title.value
     serverContent = cloneBlocks(normalizedContent)
-    focusedBlockIndex.value = null
-    focusedListItemIndex.value = null
+    remoteConflict.value = false
+    validationWarnings.value = []
+    serverSyncGeneration.value += 1
   }
+
+  const isDirty = computed(() => {
+    const trimmedTitle = title.value.trim() || 'Untitled'
+    const serverTrimmed = serverTitle.trim() || 'Untitled'
+    return (
+      trimmedTitle !== serverTrimmed ||
+      !blocksSnapshotEqual(content.value, serverContent)
+    )
+  })
 
   watch(
     () => [note.value?.id, note.value?.contentVersion] as const,
@@ -71,37 +89,17 @@ export function useNoteEditorDraft(note: Ref<NoteDetail | null | undefined>) {
         return
       }
 
+      if (versionChanged && isDirty.value && !notesStore.isSaving) {
+        remoteConflict.value = true
+        return
+      }
+
       if (versionChanged && !isDirty.value && !notesStore.isSaving) {
         syncFromNote(note.value)
       }
     },
     { immediate: true },
   )
-
-  const focusedBlock = computed(() => {
-    const index = focusedBlockIndex.value
-    if (index === null) return null
-    return content.value[index] ?? null
-  })
-
-  const focusedBlockSize = computed<NoteBlockSize>(() => {
-    const block = focusedBlock.value
-    return block ? getBlockSize(block) : 'medium'
-  })
-
-  const focusedBlockBold = computed(() => {
-    const block = focusedBlock.value
-    return block ? isBlockBold(block) : false
-  })
-
-  const isDirty = computed(() => {
-    const trimmedTitle = title.value.trim() || 'Untitled'
-    const serverTrimmed = serverTitle.trim() || 'Untitled'
-    return (
-      trimmedTitle !== serverTrimmed ||
-      !blocksSnapshotEqual(content.value, serverContent)
-    )
-  })
 
   function scheduleSave() {
     if (!note.value?.id || !isDirty.value) return
@@ -114,13 +112,15 @@ export function useNoteEditorDraft(note: Ref<NoteDetail | null | undefined>) {
     }, SAVE_DEBOUNCE_MS)
   }
 
-  async function flushSave() {
+  async function attemptSave(): Promise<{ ok: boolean; error?: unknown }> {
     const noteId = note.value?.id
-    if (!noteId || !isDirty.value) return
+    if (!noteId || !isDirty.value) return { ok: true }
 
     const generation = ++saveGeneration
     const payloadTitle = title.value.trim() || 'Untitled'
-    const payloadContent = normalizeBlocksForApi(content.value)
+    const validated = validateNoteBlocks(content.value)
+    validationWarnings.value = validated.warnings
+    const payloadContent = validated.blocks
 
     try {
       await notesStore.updateNote(noteId, {
@@ -128,13 +128,32 @@ export function useNoteEditorDraft(note: Ref<NoteDetail | null | undefined>) {
         content: payloadContent,
       })
 
-      if (generation !== saveGeneration) return
+      if (generation !== saveGeneration) return { ok: true }
 
       serverTitle = payloadTitle
       serverContent = cloneBlocks(payloadContent)
+      content.value = cloneBlocks(payloadContent)
+      remoteConflict.value = false
+      return { ok: true }
     } catch (error) {
       console.error('Failed to save note:', error)
+      return { ok: false, error }
     }
+  }
+
+  async function flushSave(): Promise<boolean> {
+    if (saveTimer) {
+      clearTimeout(saveTimer)
+      saveTimer = null
+    }
+
+    const first = await attemptSave()
+    if (first.ok) return true
+    if (!isRetriableError(first.error)) return false
+
+    await new Promise((resolve) => setTimeout(resolve, SAVE_RETRY_MS))
+    const second = await attemptSave()
+    return second.ok
   }
 
   function setTitle(next: string) {
@@ -142,65 +161,21 @@ export function useNoteEditorDraft(note: Ref<NoteDetail | null | undefined>) {
     scheduleSave()
   }
 
-  function setContent(next: NoteBlock[]) {
+  function setContent(next: NoteBlock[], warnings: string[] = []) {
     content.value = next
-    scheduleSave()
-  }
-
-  function updateBlock(index: number, block: NoteBlock) {
-    const next = [...content.value]
-    next[index] = block
-    content.value = next
-    scheduleSave()
-  }
-
-  function insertBlockAfter(index: number, block: NoteBlock) {
-    const next = [...content.value]
-    next.splice(index + 1, 0, block)
-    content.value = next
-    scheduleSave()
-  }
-
-  function removeBlock(index: number) {
-    if (content.value.length <= 1) {
-      content.value = createDefaultNoteContent()
-      scheduleSave()
-      return
+    if (warnings.length > 0) {
+      validationWarnings.value = warnings
     }
-
-    const next = content.value.filter((_, i) => i !== index)
-    content.value = next
     scheduleSave()
   }
 
-  function mergeWithPrevious(index: number) {
-    if (index <= 0) return
-    removeBlock(index)
+  function dismissConflict() {
+    remoteConflict.value = false
   }
 
-  function setFocusedBlock(index: number | null, listItemIndex: number | null = null) {
-    focusedBlockIndex.value = index
-    focusedListItemIndex.value = listItemIndex
-  }
-
-  function applyBold() {
-    const index = focusedBlockIndex.value
-    if (index === null) return
-
-    const block = content.value[index]
-    if (!block) return
-
-    updateBlock(index, toggleBlockBold(block))
-  }
-
-  function applySize(size: NoteBlockSize) {
-    const index = focusedBlockIndex.value
-    if (index === null) return
-
-    const block = content.value[index]
-    if (!block) return
-
-    updateBlock(index, setBlockSize(block, size))
+  function acceptRemoteVersion() {
+    remoteConflict.value = false
+    syncFromNote(note.value)
   }
 
   onBeforeUnmount(() => {
@@ -223,22 +198,16 @@ export function useNoteEditorDraft(note: Ref<NoteDetail | null | undefined>) {
   return {
     title,
     content,
-    focusedBlockIndex,
-    focusedListItemIndex,
-    focusedBlockSize,
-    focusedBlockBold,
+    remoteConflict,
+    validationWarnings,
+    serverSyncGeneration,
     isDirty,
     isSaving: computed(() => notesStore.isSaving),
     saveError: computed(() => notesStore.saveError),
     setTitle,
     setContent,
-    updateBlock,
-    insertBlockAfter,
-    removeBlock,
-    mergeWithPrevious,
-    setFocusedBlock,
-    applyBold,
-    applySize,
+    dismissConflict,
+    acceptRemoteVersion,
     flushSave,
     scheduleSave,
   }

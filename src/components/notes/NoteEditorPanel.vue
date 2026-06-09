@@ -1,73 +1,69 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, toRef } from 'vue'
-import NoteBlockList from '@/components/notes/editor/NoteBlockList.vue'
 import NoteFormatToolbar from '@/components/notes/editor/NoteFormatToolbar.vue'
+import NoteTiptapEditor from '@/components/notes/editor/NoteTiptapEditor.vue'
 import NoteTitleField from '@/components/notes/editor/NoteTitleField.vue'
 import { useNoteEditorDraft } from '@/composables/useNoteEditorDraft'
 import type { NoteBlockSize, NoteDetail } from '@/types/notes'
-import { isBulletedList } from '@/utils/noteContent'
 
 const props = defineProps<{
   note?: NoteDetail | null
 }>()
 
 const noteRef = toRef(props, 'note')
-const blockListRef = ref<InstanceType<typeof NoteBlockList> | null>(null)
+const editorRef = ref<InstanceType<typeof NoteTiptapEditor> | null>(null)
+const blockLimitMessage = ref<string | null>(null)
 
 const {
   title,
   content,
-  focusedBlockIndex,
-  focusedBlockSize,
-  focusedBlockBold,
+  remoteConflict,
+  validationWarnings,
+  serverSyncGeneration,
   isSaving,
   saveError,
   setTitle,
   setContent,
-  setFocusedBlock,
-  applyBold,
-  applySize,
+  dismissConflict,
+  acceptRemoteVersion,
+  flushSave,
 } = useNoteEditorDraft(noteRef)
 
-const showToolbar = computed(() => focusedBlockIndex.value !== null)
+const showToolbar = computed(() => Boolean(props.note))
 
-function onBlocksUpdate(blocks: typeof content.value) {
-  setContent(blocks)
+const currentBlockSize = computed<NoteBlockSize>(() => {
+  return editorRef.value?.getBlockSize() ?? 'medium'
+})
+
+function onBlocksUpdate(blocks: typeof content.value, warnings: string[]) {
+  setContent(blocks, warnings)
 }
 
 function onToolbarSize(size: NoteBlockSize) {
-  blockListRef.value?.flushPendingInput()
-  applySize(size)
+  editorRef.value?.applyBlockSize(size)
 }
 
-function onToolbarBold() {
-  blockListRef.value?.flushPendingInput()
-  applyBold()
+function onAcceptRemote() {
+  acceptRemoteVersion()
+  editorRef.value?.loadBlocks(content.value)
+}
+
+function onBlockLimitReached() {
+  blockLimitMessage.value = 'This note has reached the maximum number of blocks (500).'
+  setTimeout(() => {
+    blockLimitMessage.value = null
+  }, 4000)
 }
 
 onBeforeUnmount(() => {
-  blockListRef.value?.flushPendingInput()
+  void flushSave()
 })
 
-function onEditorSurfaceMouseDown(event: MouseEvent) {
-  const target = event.target as HTMLElement
-  if (target.closest('[contenteditable="true"]')) return
-
-  event.preventDefault()
-
-  const lastIndex = content.value.length - 1
-  if (lastIndex < 0) return
-
-  const block = content.value[lastIndex]
-  const listItemIndex = block && isBulletedList(block) ? block.items.length - 1 : null
-
-  setFocusedBlock(lastIndex, listItemIndex)
-  void blockListRef.value?.focusBlockAtEnd(lastIndex)
-}
+defineExpose({ flushSave })
 </script>
 
 <template>
-  <section class="flex h-full min-h-0 flex-col overflow-hidden border-l border-[#212121] pl-6">
+  <section class="flex h-full min-h-0 flex-col overflow-hidden pl-4 pr-3">
     <div
       v-if="!note"
       class="flex flex-1 items-center justify-center"
@@ -82,7 +78,30 @@ function onEditorSurfaceMouseDown(event: MouseEvent) {
       class="flex min-h-0 flex-1 flex-col"
     >
       <div
-        class="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto overflow-x-hidden pr-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        v-if="remoteConflict"
+        class="mb-3 flex shrink-0 flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-2 text-sm text-amber-200"
+      >
+        <span>This note was updated elsewhere.</span>
+        <div class="flex gap-2">
+          <button
+            type="button"
+            class="rounded px-3 py-1 text-xs font-medium text-white/80 hover:bg-white/10"
+            @click="dismissConflict"
+          >
+            Keep mine
+          </button>
+          <button
+            type="button"
+            class="rounded bg-white/15 px-3 py-1 text-xs font-medium text-white hover:bg-white/20"
+            @click="onAcceptRemote"
+          >
+            Load from server
+          </button>
+        </div>
+      </div>
+
+      <div
+        class="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto overflow-x-hidden [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         <NoteTitleField
           :model-value="title"
@@ -99,6 +118,19 @@ function onEditorSurfaceMouseDown(event: MouseEvent) {
           @block-limit-reached="onBlockLimitReached"
         />
 
+        <p
+          v-if="blockLimitMessage"
+          class="text-xs text-amber-400"
+        >
+          {{ blockLimitMessage }}
+        </p>
+        <p
+          v-for="(warning, index) in validationWarnings"
+          :key="index"
+          class="text-xs text-amber-400/90"
+        >
+          {{ warning }}
+        </p>
         <p
           v-if="isSaving"
           class="text-xs text-white/40"
@@ -118,10 +150,8 @@ function onEditorSurfaceMouseDown(event: MouseEvent) {
         class="flex shrink-0 justify-center pb-6 pt-2"
       >
         <NoteFormatToolbar
-          :size="focusedBlockSize"
-          :bold="focusedBlockBold"
+          :size="currentBlockSize"
           @update:size="onToolbarSize"
-          @toggle-bold="onToolbarBold"
         />
       </div>
     </div>
