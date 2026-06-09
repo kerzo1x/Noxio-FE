@@ -235,7 +235,13 @@ export function createNoteEditorExtensions() {
     BackendParagraph,
     ListParagraph,
     BackendBulletedList,
-    BulletList.configure({
+    // disable the built-in "- " wrapping rule: it creates nested lists when
+    // typed inside a list item; our BulletListInputRule handles paragraphs
+    BulletList.extend({
+      addInputRules() {
+        return []
+      },
+    }).configure({
       HTMLAttributes: { class: 'note-editor-bullet-list' },
     }),
     BackendListItem,

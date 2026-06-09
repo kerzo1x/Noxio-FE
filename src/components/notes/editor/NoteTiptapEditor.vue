@@ -270,19 +270,6 @@ body.note-block-grabbing * {
   animation: note-block-drop-in 0.3s ease;
 }
 
-.note-drag-ghost {
-  position: absolute;
-  z-index: 40;
-  display: none;
-  opacity: 0.4;
-  color: rgba(255, 255, 255, 0.9);
-  pointer-events: none;
-}
-
-.note-drag-ghost li {
-  list-style: none;
-}
-
 @keyframes note-block-drop-in {
   from {
     opacity: 0;

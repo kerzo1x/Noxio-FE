@@ -30,7 +30,6 @@ class BlockDragHandleView {
   private handle: HTMLElement
   private indicator: HTMLElement
   private hoverOverlay: HTMLElement
-  private ghost: HTMLElement
   private hoveredEl: HTMLElement | null = null
   private currentGap: DropGap | null = null
   private gaps: DropGap[] = []
@@ -53,9 +52,6 @@ class BlockDragHandleView {
     this.hoverOverlay = document.createElement('div')
     this.hoverOverlay.className = 'note-block-hover-overlay'
 
-    this.ghost = document.createElement('div')
-    this.ghost.className = 'note-drag-ghost'
-
     this.view.dom.addEventListener('mousemove', this.onMouseMove)
     this.handle.addEventListener('pointerdown', this.onPointerDown)
     this.handle.addEventListener('pointermove', this.onPointerMove)
@@ -70,7 +66,6 @@ class BlockDragHandleView {
     this.handle.remove()
     this.indicator.remove()
     this.hoverOverlay.remove()
-    this.ghost.remove()
   }
 
   // The editor DOM is attached to the page after the plugin view is created,
@@ -85,7 +80,6 @@ class BlockDragHandleView {
       root.appendChild(this.hoverOverlay)
       root.appendChild(this.handle)
       root.appendChild(this.indicator)
-      root.appendChild(this.ghost)
       root.addEventListener('mouseleave', this.onRootLeave)
     }
     return true
@@ -184,9 +178,15 @@ class BlockDragHandleView {
         let deleteFrom = itemPos
         let deleteTo = itemPos + node.nodeSize
         if ($pos.node(d - 1).childCount === 1) {
-          // last item in the list: remove the whole backendBulletedList wrapper
-          deleteFrom = $pos.before(1)
-          deleteTo = $pos.after(1)
+          if (d === 3) {
+            // last item of a top-level list: remove the whole backendBulletedList wrapper
+            deleteFrom = $pos.before(1)
+            deleteTo = $pos.after(1)
+          } else {
+            // last item of a nested list: remove only that nested bulletList
+            deleteFrom = $pos.before(d - 1)
+            deleteTo = $pos.after(d - 1)
+          }
         }
         return { node, isListItem: true, deleteFrom, deleteTo, el }
       }
@@ -213,19 +213,6 @@ class BlockDragHandleView {
     info.el.classList.add('note-block-dragging')
     document.body.classList.add('note-block-grabbing')
     this.hoverOverlay.style.display = 'none'
-    // Notion-style ghost: a translucent clone of the block follows the cursor
-    this.ghost.innerHTML = ''
-    this.ghost.appendChild(info.el.cloneNode(true))
-    this.ghost.style.width = `${info.el.getBoundingClientRect().width}px`
-    this.moveGhost(e.clientX, e.clientY)
-    this.ghost.style.display = 'block'
-  }
-
-  private moveGhost(clientX: number, clientY: number) {
-    const rootRect = this.dragRootRect
-    if (!rootRect) return
-    this.ghost.style.left = `${clientX - rootRect.left + 14}px`
-    this.ghost.style.top = `${clientY - rootRect.top + 14}px`
   }
 
   private onPointerMove = (e: PointerEvent) => {
@@ -235,10 +222,7 @@ class BlockDragHandleView {
     this.rafPending = true
     requestAnimationFrame(() => {
       this.rafPending = false
-      if (this.source) {
-        this.moveGhost(x, y)
-        this.updateIndicator(x, y)
-      }
+      if (this.source) this.updateIndicator(x, y)
     })
   }
 
@@ -395,7 +379,6 @@ class BlockDragHandleView {
     this.dragRootRect = null
     document.body.classList.remove('note-block-grabbing')
     this.indicator.style.display = 'none'
-    this.ghost.style.display = 'none'
     this.clearHover()
   }
 }

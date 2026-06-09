@@ -175,7 +175,7 @@ async function handleCreateNote() {
 </script>
 
 <template>
-  <section class="dashboard-page-column">
+  <section class="dashboard-page-column max-w-none">
     <NotesSplitLayout>
       <template #list>
         <NotesListPanel
