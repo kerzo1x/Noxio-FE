@@ -89,18 +89,15 @@ function onEditorSurfaceMouseDown(event: MouseEvent) {
           @update:model-value="setTitle"
         />
 
-        <div
-          class="flex min-h-[200px] flex-1 cursor-text flex-col"
-          @mousedown="onEditorSurfaceMouseDown"
-        >
-          <NoteBlockList
-            ref="blockListRef"
-            :blocks="content"
-            :focused-block-index="focusedBlockIndex"
-            @update:blocks="onBlocksUpdate"
-            @focus-block="(index, listItemIndex) => setFocusedBlock(index, listItemIndex)"
-          />
-        </div>
+        <NoteTiptapEditor
+          :key="`${note.id}-${serverSyncGeneration}`"
+          ref="editorRef"
+          :blocks="content"
+          :note-id="note.id"
+          :server-sync-generation="serverSyncGeneration"
+          @update:blocks="onBlocksUpdate"
+          @block-limit-reached="onBlockLimitReached"
+        />
 
         <p
           v-if="isSaving"

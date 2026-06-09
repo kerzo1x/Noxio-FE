@@ -9,6 +9,7 @@ import {
   type AuthUser,
 } from '@/api/user'
 import { logout as logoutApi } from '@/api/auth'
+import { useNotesStore } from '@/stores/notes'
 
 export type User = AuthUser
 
@@ -86,6 +87,7 @@ export const useUserStore = defineStore('user', {
         localStorage.clear()
         this.user = null
         this.loaded = false
+        useNotesStore().reset()
       }
     },
   },
