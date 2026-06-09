@@ -231,6 +231,12 @@ defineExpose({
   cursor: grabbing;
 }
 
+body.note-block-grabbing,
+body.note-block-grabbing * {
+  cursor: grabbing !important;
+  user-select: none !important;
+}
+
 .note-block-hover-overlay {
   position: absolute;
   z-index: 10;

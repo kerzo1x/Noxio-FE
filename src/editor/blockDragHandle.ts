@@ -31,16 +31,19 @@ class BlockDragHandleView {
   private indicator: HTMLElement
   private hoverOverlay: HTMLElement
   private hoveredEl: HTMLElement | null = null
+  private hoveredRect: DOMRect | null = null
   private currentGap: DropGap | null = null
   private gaps: DropGap[] = []
-  source: DragSource | null = null
+  private dragRootRect: DOMRect | null = null
+  private dragPointerId: number | null = null
+  private rafPending = false
+  private source: DragSource | null = null
 
   constructor(view: EditorView) {
     this.view = view
 
     this.handle = document.createElement('div')
     this.handle.className = 'note-drag-handle'
-    this.handle.draggable = true
     this.handle.innerHTML = HANDLE_DOTS_SVG
 
     this.indicator = document.createElement('div')
@@ -50,15 +53,16 @@ class BlockDragHandleView {
     this.hoverOverlay.className = 'note-block-hover-overlay'
 
     this.view.dom.addEventListener('mousemove', this.onMouseMove)
-    this.handle.addEventListener('dragstart', this.onHandleDragStart)
-    this.handle.addEventListener('dragend', this.onHandleDragEnd)
+    this.handle.addEventListener('pointerdown', this.onPointerDown)
+    this.handle.addEventListener('pointermove', this.onPointerMove)
+    this.handle.addEventListener('pointerup', this.onPointerUp)
+    this.handle.addEventListener('pointercancel', this.onPointerCancel)
   }
 
   destroy() {
     this.view.dom.removeEventListener('mousemove', this.onMouseMove)
     this.root?.removeEventListener('mouseleave', this.onRootLeave)
-    this.handle.removeEventListener('dragstart', this.onHandleDragStart)
-    this.handle.removeEventListener('dragend', this.onHandleDragEnd)
+    document.body.classList.remove('note-block-grabbing')
     this.handle.remove()
     this.indicator.remove()
     this.hoverOverlay.remove()
@@ -92,9 +96,8 @@ class BlockDragHandleView {
       null) as HTMLElement | null
     if (!block || !this.view.dom.contains(block)) {
       // keep the handle while the pointer is in the gutter next to the hovered block
-      if (this.hoveredEl) {
-        const r = this.hoveredEl.getBoundingClientRect()
-        if (e.clientY >= r.top && e.clientY <= r.bottom) return
+      if (this.hoveredRect && e.clientY >= this.hoveredRect.top && e.clientY <= this.hoveredRect.bottom) {
+        return
       }
       this.clearHover()
       return
@@ -112,8 +115,12 @@ class BlockDragHandleView {
     this.hoveredEl = el
     const rootRect = this.root.getBoundingClientRect()
     const r = el.getBoundingClientRect()
-    this.handle.style.top = `${r.top - rootRect.top + 4}px`
-    this.handle.style.left = `${r.left - rootRect.left - 26}px`
+    this.hoveredRect = r
+    const lineHeight = parseFloat(getComputedStyle(el).lineHeight) || 24
+    // list items need extra room so the handle does not sit on the bullet marker
+    const offset = el.tagName === 'LI' ? 44 : 26
+    this.handle.style.top = `${r.top - rootRect.top + Math.max(0, (lineHeight - 22) / 2)}px`
+    this.handle.style.left = `${r.left - rootRect.left - offset}px`
     this.handle.classList.add('visible')
     this.hoverOverlay.style.top = `${r.top - rootRect.top - 2}px`
     this.hoverOverlay.style.left = `${r.left - rootRect.left - 4}px`
@@ -124,6 +131,7 @@ class BlockDragHandleView {
 
   private clearHover() {
     this.hoveredEl = null
+    this.hoveredRect = null
     this.handle.classList.remove('visible')
     this.hoverOverlay.style.display = 'none'
   }
@@ -160,36 +168,49 @@ class BlockDragHandleView {
     return { node, isListItem: false, deleteFrom: blockPos, deleteTo: blockPos + node.nodeSize, el }
   }
 
-  private onHandleDragStart = (e: DragEvent) => {
-    if (!this.hoveredEl || !e.dataTransfer) {
-      e.preventDefault()
-      return
-    }
+  private onPointerDown = (e: PointerEvent) => {
+    if (e.button !== 0 || !this.hoveredEl || !this.root) return
     const info = this.resolveBlock(this.hoveredEl)
-    if (!info) {
-      e.preventDefault()
-      return
-    }
+    if (!info) return
+    e.preventDefault()
     this.source = info
+    // all layout reads happen once here; pointer moves only reposition the indicator
+    this.dragRootRect = this.root.getBoundingClientRect()
     this.gaps = this.computeGaps()
-    e.dataTransfer.effectAllowed = 'move'
-    e.dataTransfer.setData('text/plain', info.node.textContent || ' ')
-    e.dataTransfer.setDragImage(this.hoveredEl, 12, 12)
-    const el = this.hoveredEl
-    // defer so the browser captures the drag image before the block turns transparent
-    requestAnimationFrame(() => el.classList.add('note-block-dragging'))
-    this.handle.classList.remove('visible')
+    this.dragPointerId = e.pointerId
+    this.handle.setPointerCapture(e.pointerId)
+    info.el.classList.add('note-block-dragging')
+    document.body.classList.add('note-block-grabbing')
     this.hoverOverlay.style.display = 'none'
   }
 
-  private onHandleDragEnd = () => {
+  private onPointerMove = (e: PointerEvent) => {
+    if (this.dragPointerId !== e.pointerId || !this.source || this.rafPending) return
+    const x = e.clientX
+    const y = e.clientY
+    this.rafPending = true
+    requestAnimationFrame(() => {
+      this.rafPending = false
+      if (this.source) this.updateIndicator(x, y)
+    })
+  }
+
+  private onPointerUp = (e: PointerEvent) => {
+    if (this.dragPointerId !== e.pointerId) return
+    this.dragPointerId = null
+    this.performDrop()
+  }
+
+  private onPointerCancel = (e: PointerEvent) => {
+    if (this.dragPointerId !== e.pointerId) return
+    this.dragPointerId = null
     this.endDrag()
   }
 
   private computeGaps(): DropGap[] {
-    if (!this.root) return []
+    const rootRect = this.dragRootRect
+    if (!rootRect) return []
     const { doc } = this.view.state
-    const rootRect = this.root.getBoundingClientRect()
     const contentRect = this.view.dom.getBoundingClientRect()
     const gaps: DropGap[] = []
     const src = this.source
@@ -229,13 +250,11 @@ class BlockDragHandleView {
     return gaps
   }
 
-  onDragOver(e: DragEvent): boolean {
-    if (!this.source || !this.root) return false
-    e.preventDefault()
-    if (e.dataTransfer) e.dataTransfer.dropEffect = 'move'
-    const rootRect = this.root.getBoundingClientRect()
-    const relY = e.clientY - rootRect.top
-    const relX = e.clientX - rootRect.left
+  private updateIndicator(clientX: number, clientY: number) {
+    const rootRect = this.dragRootRect
+    if (!rootRect) return
+    const relY = clientY - rootRect.top
+    const relX = clientX - rootRect.left
 
     let minDy = Infinity
     for (const g of this.gaps) {
@@ -260,17 +279,14 @@ class BlockDragHandleView {
     } else {
       this.indicator.style.display = 'none'
     }
-    return true
   }
 
-  onDrop(e: DragEvent): boolean {
+  private performDrop() {
     const source = this.source
     const gap = this.currentGap
-    if (!source) return false
-    e.preventDefault()
-    if (!gap) {
+    if (!source || !gap) {
       this.endDrag()
-      return true
+      return
     }
 
     const { state } = this.view
@@ -303,7 +319,7 @@ class BlockDragHandleView {
     } catch (error) {
       console.error('Block drop failed:', error)
       this.endDrag()
-      return true
+      return
     }
 
     const finalPos =
@@ -322,7 +338,6 @@ class BlockDragHandleView {
     })
 
     this.endDrag()
-    return true
   }
 
   private endDrag() {
@@ -330,6 +345,8 @@ class BlockDragHandleView {
     this.source = null
     this.currentGap = null
     this.gaps = []
+    this.dragRootRect = null
+    document.body.classList.remove('note-block-grabbing')
     this.indicator.style.display = 'none'
     this.clearHover()
   }
@@ -356,14 +373,11 @@ export const blockDragHandleExtension = Extension.create({
         },
         props: {
           handleDOMEvents: {
-            // the drag handle lives outside the editor DOM, so any dragstart
-            // from inside is native text dragging — block it entirely
+            // blocks are moved via the drag handle; native text dragging is disabled
             dragstart: (_view, event) => {
               event.preventDefault()
               return true
             },
-            dragover: (_view, event) => handleView?.onDragOver(event) ?? false,
-            drop: (_view, event) => handleView?.onDrop(event) ?? false,
           },
         },
       }),
