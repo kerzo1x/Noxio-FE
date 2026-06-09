@@ -46,7 +46,7 @@ const editor = useEditor({
   editorProps: {
     attributes: {
       class:
-        'note-tiptap-editor min-h-[200px] flex-1 pl-8 outline-none text-white/75 [&_.note-editor-block-selected]:rounded [&_.note-editor-block-selected]:bg-white/5',
+        'note-tiptap-editor min-h-[200px] flex-1 pr-10 outline-none text-white/75 [&_.note-editor-block-selected]:rounded [&_.note-editor-block-selected]:bg-white/5',
     },
     handleKeyDown(view, event) {
       if (event.key !== 'Enter' || event.shiftKey) return false
@@ -268,6 +268,24 @@ body.note-block-grabbing * {
 
 .note-tiptap-editor .note-block-drop-in {
   animation: note-block-drop-in 0.3s ease;
+}
+
+.note-drag-ghost {
+  position: absolute;
+  z-index: 40;
+  display: none;
+  max-width: 280px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  background: rgba(32, 32, 36, 0.95);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  padding: 4px 10px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.8);
+  pointer-events: none;
 }
 
 @keyframes note-block-drop-in {

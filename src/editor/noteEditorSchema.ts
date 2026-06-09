@@ -126,9 +126,13 @@ const BulletListInputRule = Extension.create({
           }
           if (blockDepth === null) return null
 
+          const blockNode = $from.node(blockDepth)
           const blockStart = $from.before(blockDepth)
           const blockEnd = $from.after(blockDepth)
-          const size = $from.node(blockDepth).attrs.size ?? 'medium'
+          const size = blockNode.attrs.size ?? 'medium'
+
+          // keep any text that follows the typed "- " instead of discarding it
+          const rest = blockNode.content.cut(range.to - $from.start(blockDepth))
 
           chain()
             .focus()
@@ -145,7 +149,11 @@ const BulletListInputRule = Extension.create({
                         itemId: createListItemId(),
                         size: size === 'large' ? 'medium' : size,
                       },
-                      content: [{ type: 'paragraph' }],
+                      content: [
+                        rest.size > 0
+                          ? { type: 'paragraph', content: rest.toJSON() }
+                          : { type: 'paragraph' },
+                      ],
                     },
                   ],
                 },
