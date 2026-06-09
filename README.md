@@ -26,13 +26,13 @@ OpenAPI spec for the backend: [`api-1.json`](./api-1.json).
 |------|--------|
 | **Auth** | Register, login, 2FA, password recovery |
 | **Workspaces** | Create/switch, members, invitations |
-| **Folders & notes** | Folder CRUD, note list, block-based editor with autosave |
+| **Folders & notes** | Folder CRUD, note list, TipTap block editor with autosave and conflict handling |
 | **Todo / Kanban** | Task lists, Kanban board with drag-and-drop (TODO / IN_PROGRESS / DONE) |
 | **EduPage** | Connect account, timetable sync, lesson display |
 | **Notifications** | Per-workspace notification list |
 | **Search** | Workspace-wide search |
-| **Media** | Backend ready; image upload UI not yet wired |
-| **Settings** | Route exists; UI not yet implemented |
+| **Media** | Avatar upload in Settings (profile + workspace); note attachments / cover not yet wired |
+| **Settings** | Profile, security (2FA, password, delete account), workspace management; EduPage tab is UI-only |
 | **Noxio AI** | Placeholder |
 
 ---
@@ -44,6 +44,7 @@ OpenAPI spec for the backend: [`api-1.json`](./api-1.json).
 - [Vue Router](https://router.vuejs.org/) 4
 - [Pinia](https://pinia.vuejs.org/) 3
 - [Axios](https://axios-http.com/) 1.x
+- [TipTap](https://tiptap.dev/) 3 (ProseMirror-based note editor)
 - [Tailwind CSS](https://tailwindcss.com/) 4 (`@tailwindcss/vite`)
 
 ---
@@ -64,27 +65,35 @@ flowchart TB
     Stores["user · workspace · folders · notes · todoLists · timetable · notifications"]
   end
 
+  subgraph Editor["Note editor"]
+    TipTap["NoteTiptapEditor"]
+    Schema["editor/noteEditorSchema"]
+    Adapter["utils/tiptapNoteAdapter"]
+  end
+
   subgraph Data["Data layer"]
-    API["api/index.ts"]
+    API["api/ (domain modules)"]
     Utils["utils/ · composables/"]
   end
 
   Pages --> Layouts --> Components
   Pages --> Stores
-  Components --> Utils --> Stores --> API
+  Components --> TipTap --> Schema
+  TipTap --> Adapter --> Utils --> Stores --> API
   API --> Backend["Noxio API"]
 ```
 
 | `src/` folder | Role |
 |---------------|------|
-| `pages/` | Route screens (auth, dashboard, edupage) |
+| `pages/` | Route screens (auth, dashboard, settings, edupage) |
 | `layouts/` | Dashboard shell, sidebar |
-| `components/` | Reusable UI (notes, sidebar, dashboard, todo) |
+| `components/` | Reusable UI (`ui/`, notes, sidebar, dashboard, settings, todo) |
 | `stores/` | API calls and cached entities |
-| `composables/` | Shared logic (e.g. editor draft, resizable split) |
-| `api/` | Axios client |
+| `composables/` | Shared logic (`useNoteEditorDraft`, `useResizableSplit`, …) |
+| `editor/` | TipTap schema, block drag handle, multi-block selection |
+| `api/` | Axios instance + domain modules (`auth`, `notes`, `media`, …) |
 | `config/api.ts` | `VITE_API_BASE_URL` |
-| `types/`, `utils/` | Models and helpers |
+| `types/`, `utils/` | Models, note content helpers, TipTap adapter |
 | `router/` | Route definitions |
 | `assets/` | Global styles and icons |
 
@@ -148,18 +157,55 @@ npm run preview
 | `/dashboard/todo` | Todo list overview |
 | `/dashboard/todo/:todoListId` | Kanban board for a todo list |
 | `/dashboard/noxio-ai` | Noxio AI (placeholder) |
-| `/dashboard/settings` | Settings (placeholder) |
+| `/dashboard/settings` | Settings shell → `/dashboard/settings/profile` |
+| `/dashboard/settings/profile` | Profile name and avatar |
+| `/dashboard/settings/security` | Password, 2FA toggle, delete account |
+| `/dashboard/settings/workspace` | Workspace name, avatar, members, invitations |
+| `/dashboard/settings/edupage` | EduPage credentials (UI placeholder) |
 
 ---
 
 ## Note editor
 
-Block-based editor on `/dashboard/folders/:folderId/notes/:noteId`:
+TipTap-based block editor on `/dashboard/folders/:folderId/notes/:noteId`. The UI model (`NoteBlock[]`) matches the API; TipTap is the editing surface and is bridged by `tiptapNoteAdapter.ts`.
 
-- **Block types:** paragraph, bulleted list (nested)
-- **Formatting:** bold, text size (small / medium / large)
-- **Autosave** with conflict detection via `contentVersion`
-- Split-panel layout: note list on the left, editor on the right
+### Block model
+
+| Type | API `type` | Notes |
+|------|------------|-------|
+| Paragraph | `paragraph` | `size`: `small` \| `medium` \| `large`; `spans[]` with inline marks |
+| Bulleted list | `bulleted-list` | Nested `items[]` with `id`, `size`, `spans`, optional `children` |
+
+### Editing features
+
+- **Inline formatting:** bold, underline, text color (preset palette)
+- **Block size:** small / medium / large via bottom toolbar
+- **Lists:** type `- ` at paragraph start to create a bullet; Enter on an empty item exits the list; Backspace at item start converts to paragraph
+- **Drag-and-drop:** reorder top-level blocks via right-side handle (pointer-based, preserves block type and size)
+- **Multi-block selection** and **undo/redo** (TipTap history)
+- **Limit:** max 500 top-level blocks per note
+
+### Save flow
+
+`useNoteEditorDraft` manages local draft state:
+
+1. Debounced autosave (**600 ms**) via `notes` store → `PATCH /notes/{id}`
+2. One automatic retry (**2 s**) on retriable errors (network / 5xx)
+3. **Conflict detection:** if `contentVersion` changes on the server while the draft is dirty, a banner offers *keep editing* or *accept remote version*
+4. Flush on note switch and component unmount
+
+### Key files
+
+| File | Role |
+|------|------|
+| `components/notes/NoteEditorPanel.vue` | Title field, editor, toolbar, conflict UI |
+| `components/notes/editor/NoteTiptapEditor.vue` | TipTap instance and toolbar state |
+| `editor/noteEditorSchema.ts` | Custom ProseMirror nodes + keyboard rules |
+| `editor/blockDragHandle.ts` | Block reorder plugin |
+| `utils/tiptapNoteAdapter.ts` | `NoteBlock[]` ↔ TipTap JSON |
+| `composables/useNoteEditorDraft.ts` | Draft, autosave, conflict handling |
+
+Split-panel layout: note list on the left, editor on the right (`NotesSplitLayout`, resizable via `useResizableSplit`).
 
 ---
 
@@ -184,9 +230,22 @@ Connect via `/auth/edupage` → `/auth/edupage/login`. After linking:
 
 ---
 
-## Images & media (planned UI)
+## Settings
 
-Backend endpoints already exist in `api-1.json`.
+Nested routes under `/dashboard/settings` with a left nav (`SettingsNav`):
+
+| Tab | Implemented |
+|-----|-------------|
+| **Profile** | Edit name/surname; upload avatar (`USER_AVATAR` via `api/media.ts`) |
+| **Security** | Change password, enable/disable 2FA (OTP popup), delete account |
+| **Workspace** | Rename workspace, upload icon (`WORKSPACE_AVATAR`), member list, role changes, invitations (admin only) |
+| **EduPage** | Static UI only — backend credential update not wired yet |
+
+---
+
+## Images & media
+
+Backend endpoints in `api-1.json`; frontend module: [`src/api/media.ts`](./src/api/media.ts).
 
 | Method | Route | Summary |
 |--------|-------|---------|
@@ -195,21 +254,31 @@ Backend endpoints already exist in `api-1.json`.
 | `GET` | `/media/{mediaId}` | Get media metadata + `fileUrl` |
 | `DELETE` | `/media/{mediaId}` | Delete media |
 
-`POST /media/upload` returns `data.id`, `data.fileUrl`, `data.type`. Media `type` values:
+`POST /media/upload` accepts `type`:
 
-- `NOTE_ATTACHMENT` — images for notes (attachments / cover)
-- `USER_AVATAR` — profile picture
-- `WORKSPACE_AVATAR` — workspace icon
+- `USER_AVATAR` — profile picture (**wired** in Settings → Profile)
+- `WORKSPACE_AVATAR` — workspace icon (**wired** in Settings → Workspace)
+- `NOTE_ATTACHMENT` — note attachments / cover (**not yet wired** in note editor)
 
-Notes expose `coverMediaId` on `GET /notes/{noteId}`; the upload + link flow is not yet wired in the UI.
+Notes expose `coverMediaId` on `GET /notes/{noteId}`; linking uploaded media to notes is still pending.
 
 ---
 
 ## API client
 
-- Module: [`src/api/index.ts`](./src/api/index.ts)
-- Base URL: `import.meta.env.VITE_API_BASE_URL`
-- Header: `Authorization: Bearer <token>`
+- Axios instance: [`src/api/index.ts`](./src/api/index.ts)
+- Base URL: `import.meta.env.VITE_API_BASE_URL` (see `src/config/api.ts`)
+- Auth header: `Authorization: Bearer <token>` from `localStorage` key `access_token`
+- **401 handling:** single in-flight refresh via `POST /auth/refresh`; failed refresh redirects to `/auth/login`
+- Domain modules: `auth`, `user`, `workspaces`, `folders`, `notes`, `todoLists`, `taskCategories`, `media`, `notifications`, `search`, `timetable`, `integrations/edupage`
+
+### UI kit
+
+Shared form primitives in `src/components/ui/`:
+
+- `BaseInput` — label, error state, password visibility toggle
+- `BaseButton` — loading/disabled state
+- `FormMessage` — inline success/error feedback
 
 ---
 
@@ -256,9 +325,21 @@ If Tailwind `@apply` triggers unknown-at-rule warnings:
 ```
 notion-fe/
 ├── src/
+│   ├── api/            # Axios client + domain API modules
+│   ├── assets/         # Global CSS, icons
+│   ├── components/     # ui/, notes/, dashboard/, settings/, sidebar/, …
+│   ├── composables/    # useNoteEditorDraft, useResizableSplit, …
+│   ├── config/         # API base URL
+│   ├── editor/         # TipTap schema, drag handle, selection
+│   ├── layouts/
+│   ├── pages/          # auth/, dashboard/, edupage/
+│   ├── router/
+│   ├── stores/         # Pinia stores
+│   ├── types/
+│   └── utils/          # noteContent, tiptapNoteAdapter, …
 ├── docker/
 ├── docs/               # README screenshots
-├── api-1.json
+├── api-1.json          # OpenAPI spec
 ├── .env.example
 └── package.json
 ```

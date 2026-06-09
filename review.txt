@@ -1,5 +1,5 @@
 # TODO Review — текущая ветка
-# Всего: 43 комментария в 28 файлах
+# Всего: 55 комментариев в 32 файлах + аудит memory leaks / race conditions + auth session (см. ниже)
 
 ================================================================================
 API
@@ -47,6 +47,76 @@ src/pages/auth/VerifyPassword.vue:28
 
 src/pages/auth/VerifyPassword.vue:100
   preco sa verification code uklada do local storage? lebo je to dost bezpecnostna chyba
+
+================================================================================
+AUTH SESSION — access token ~15 min, «вечно выкидывает на login»
+================================================================================
+# Аудит по симптому: бекенд отдаёт access token на ~15 мин, но при заходе на сайт
+# пользователя снова кидает на /auth/login. Ниже — что в коде может это вызывать
+# и что проверить/починить (решение — на усмотрение).
+
+src/api/index.ts:5-8
+  access token в localStorage, refresh token — httpOnly cookie (withCredentials: true).
+  Если фронт и API на разных origin (localhost:5173 vs api.*), cookie может не
+  сохраняться или не уходить на POST /auth/refresh → 401 → redirectToLogin().
+  Проверить в DevTools: Set-Cookie после login, cookie на refresh, CORS
+  (Allow-Credentials + конкретный Allow-Origin, не *), SameSite/Secure/Domain на беке.
+
+src/api/index.ts:12-24
+  refresh только реактивно — после первого 401 на любом axios-запросе. При открытии
+  /dashboard с уже протухшим access token сразу цепочка 401 → refresh → fail → login.
+  Нет проактивного refresh при старте приложения / перед первым запросом.
+
+src/api/index.ts:27-29
+  redirectToLogin() делает window.location.href = '/auth/login' (hard reload).
+  Любой провал refresh (нет cookie, неверный ответ, сеть) = мгновенный выход.
+
+src/api/index.ts:47-50
+  Если сам POST /auth/refresh вернул 401 — access_token удаляется и редирект на login
+  без повторной попытки. Ожидаемо, но при «мигающей» cookie выглядит как вечный logout.
+
+src/api/index.ts:52
+  originalRequest._retry без типизации — при ошибках в interceptor сложнее отлаживать
+  бесконечные retry (см. также комментарий выше про AxiosRequestConfig extends).
+
+src/utils/authTokens.ts:2-9
+  persistAuthTokensFromEnvelope ждёт data.accessToken или data.access_token.
+  Если бекенд на login/refresh отдаёт другое поле — токен не попадёт в localStorage,
+  первый же запрос на dashboard даст 401. Сверить формат с OpenAPI (api-1.json).
+
+src/utils/authFetch.ts:1-4
+  Логин/register/2FA идут через fetch + credentials, не через axios interceptor.
+  Cookie с refresh при login зависит только от ответа бекенда и браузера, не от FE-логики.
+  edupage/connect (см. api/integrations/edupage.ts) при 401 не получит auto-refresh.
+
+src/router/index.ts:114-121
+  path '/' и catch-all '/*' всегда redirect → /auth/login без проверки access_token.
+  Заход на корень сайта выглядит как «выкинуло», даже если токен в localStorage валиден.
+  Нужен guard: есть токен (или успешный silent refresh) → /dashboard, иначе → login.
+
+src/router/index.ts:124
+  (дублирует смысл) нет navigation guard на защищённые маршруты — только BE через 401.
+  UX: можно открыть /dashboard без токена, UI загрузится, потом axios interceptor кинет на login.
+
+src/layouts/DashboardLayout.vue:35-38
+  onMounted: fetchUser() fire-and-forget без await; параллельно fetchWorkspaces().
+  При протухшем токене несколько 401 почти одновременно — refreshInFlight спасает от
+  гонки, но при fail все запросы в итоге ведут на login. Нет «bootstrap» сессии до UI.
+
+src/stores/user.ts:36-39
+  fetchUser() при ошибке только user=null, loaded=false — редирект не здесь, а в axios.
+  Пользователь может кратко видеть dashboard shell до срабатывания interceptor.
+
+vite.config.ts:17-26
+  Нет dev proxy на API — при локальной разработке cross-origin cookie частая причина
+  «работает сразу после login, после F5 или через 15 мин — на login». Вариант: proxy
+  /api → бекенд, единый origin для cookie (или починить CORS+cookie на беке).
+
+# Чеклист диагностики (ручной):
+# 1. После login: localStorage access_token есть?
+# 2. Application → Cookies (домен API): refresh cookie есть?
+# 3. Network: POST /auth/refresh — cookie уходит? статус? тело data.accessToken?
+# 4. Сценарий: сразу после login / F5 на /dashboard / через 15+ мин / заход на /
 
 ================================================================================
 DASHBOARD
@@ -161,3 +231,168 @@ src/vite-env.d.ts:18
 
 vite.config.ts:14
   toto nerieši vite, ale typescript, cize to treba dat do tsconfig.json
+
+================================================================================
+MEMORY LEAKS & RACE CONDITIONS (аудит src/)
+================================================================================
+# WebSocket / EventSource в проекте нет.
+# TipTap: destroy() вызывается корректно (NoteTiptapEditor.vue).
+# Эталон защиты от гонок: useWorkspaceSearch.ts (AbortController + requestGeneration).
+
+--- КРИТИЧНО (подтверждено) ---
+
+src/composables/useNoteEditorDraft.ts:76-102 + 189-196
+  RACE / DATA LOSS: при смене note.id первый watcher сразу вызывает syncFromNote()
+  (сбрасывает local state, isDirty = false), второй watcher flushSave() для prevId
+  уже бесполезен — debounced-правки предыдущей заметки теряются.
+  ВАЖНО: если flushSave выполнить ДО syncFromNote, он отправит контент A на id B
+  (note.value уже новый) — риск порчи данных. Нужен snapshot { noteId, title, content }
+  и flush ДО syncFromNote, не через второй watcher.
+
+src/stores/notes.ts:122-195
+  RACE: fetchFolderNotes без stale guard — параллельные запросы могут перезаписать
+  notesById/noteIds от устаревшего folderId.
+
+src/stores/notes.ts:197-208
+  RACE: ensureNote без stale guard.
+
+src/stores/folders.ts:67-110
+  RACE: fetchFolders без stale guard (workspaceId).
+
+src/stores/todoLists.ts:115-158
+  RACE: fetchTodoLists без stale guard.
+
+src/stores/todoLists.ts:327-380
+  RACE: fetchTodoListTasks без stale guard.
+
+src/stores/notifications.ts:26-65
+  RACE: fetchNotifications без stale guard.
+
+src/stores/timetable.ts:48-69
+  RACE: fetchTimetable без stale guard.
+
+src/stores/workspace.ts:93-134
+  RACE: fetchWorkspaces без stale guard.
+
+src/stores/workspace.ts:141-175
+  RACE: loadWorkspaceContext (Promise.all) без stale guard при быстрой смене workspace.
+
+src/composables/useWorkspaceMembers.ts:76-107
+  RACE: fetchMembers без stale guard.
+
+src/pages/dashboard/NotesPage.vue:32-52, 64-98, 116-145
+  RACE: async watchers await store/router без mount guard — router.replace может
+  сработать после ухода со страницы.
+
+src/pages/dashboard/HomePage.vue:176-246, 255-272
+  RACE: fetchUpcomingDeadlines без cancellation/generation — медленный ответ workspace A
+  перезапишет upcomingRows workspace B.
+
+--- УТЕЧКИ ПАМЯТИ (подтверждено) ---
+
+src/editor/blockDragHandle.ts:133-147
+  LEAK: pointer listeners (pointerdown/move/up/cancel) на this.handle не снимаются
+  в destroy(). Также pending requestAnimationFrame / setTimeout (175, 304, 467-471)
+  могут трогать detached DOM после destroy.
+
+src/components/dashboard/HeaderComponent.vue:229-237, 294-322
+  LEAK: rAF-deferred addEventListener — если меню закрыли до срабатывания rAF,
+  removeEventListener уже прошёл, listener остаётся до onUnmounted.
+
+src/components/dashboard/FolderCardContextMenu.vue:47-55
+  LEAK: тот же rAF-паттерн с document click listener.
+
+src/components/settings/SettingsOtpPopup.vue:56-59
+  LEAK/WASTE: onMounted всегда стартует interval 59s и keydown на document, даже
+  когда open = false. Родитель (SettingsSecurityPage) держит компонент смонтированным.
+
+src/pages/auth/LoginPage.vue:44, 50-53
+  RACE: setTimeout redirect без cleanup в onUnmounted.
+
+src/pages/auth/RegisterPage.vue:52-55
+  RACE: setTimeout redirect без cleanup в onUnmounted.
+
+src/pages/auth/ResetPassword.vue:36
+  RACE: setTimeout redirect без cleanup в onUnmounted.
+
+src/pages/edupage/EdupageLogin.vue:42
+  RACE: setTimeout redirect без cleanup в onUnmounted.
+
+src/components/notes/editor/NoteTiptapEditor.vue:58-60
+  MINOR LEAK: setTimeout сброса limitToastShown без clearTimeout в onBeforeUnmount.
+
+src/components/notes/NoteEditorPanel.vue:68-70
+  MINOR LEAK: setTimeout сброса blockLimitMessage без clearTimeout в onBeforeUnmount.
+
+--- RACE CONDITIONS (средняя важность, подтверждено) ---
+
+src/composables/useNoteEditorDraft.ts:181-187 + src/components/notes/NoteEditorPanel.vue:73-75
+  Двойной flushSave() при unmount — два PATCH (второй обычно no-op).
+
+src/stores/notes.ts:210-231
+  updateNote использует глобальный isSaving/saveError на все заметки — гонки при
+  параллельных save разных заметок.
+
+src/composables/useNoteEditorDraft.ts:154
+  Retry delay (setTimeout 2000ms) в flushSave не отменяется при unmount.
+
+--- ПОДОЗРИТЕЛЬНО (проверить вручную) ---
+
+src/components/notes/editor/NoteTiptapEditor.vue:107-114
+  Deep watch на blocks + loadBlocks при !isFocused — возможна «борьба» editor ↔ props
+  при одновременном save и server sync.
+
+src/layouts/DashboardLayout.vue:21-38
+  fetchUser() fire-and-forget + loadWorkspaceContext при смене workspace — гонки
+  при быстрой навигации (частично смягчается force reset).
+
+src/pages/dashboard/TodoListPage.vue:218-226
+  fetchTodoListTasks(..., { force: true }) без stale-list guard при смене period/list.
+
+src/api/index.ts:10-25
+  Singleton refreshInFlight — edge case при logout во время refresh.
+
+src/api/integrations/edupage.ts:4-14
+  Raw authFetch вне axios interceptor — нет auto refresh (см. также секцию API выше).
+
+src/components/dashboard/AddFolderPopup.vue (и аналоги на FolderPage)
+  keydown на document с mount страницы, пока попап закрыт — не leak, но лишние слушатели.
+
+src/components/dashboard/WorkspacePopup.vue:98-105
+  То же — всегда смонтирован в DashboardLayout.
+
+src/composables/useDebouncedBlockInput.ts:5-9
+  Module-level Map с таймерами — leak при unmount; сейчас не в prod-пути (NoteBlockList
+  нигде не импортируется). См. также секцию NOTES выше.
+
+src/components/notes/editor/NoteBlockList.vue:38-40, 507-519
+  paragraphRefs/listRefs растут при удалении блоков (legacy, не в prod-пути).
+
+src/pages/auth/VerifyPassword.vue:24-28
+  intervalId не обнуляется при естественном истечении таймера (см. также секцию AUTH).
+
+src/composables/useResizableSplit.ts:52-55
+  localStorage на каждый drag frame — perf, не classic leak (см. также секцию NOTES).
+
+--- ПРИОРИТЕТ ИСПРАВЛЕНИЙ ---
+
+1. useNoteEditorDraft — сохранение при смене заметки (snapshot + flush до syncFromNote)
+2. Store fetch guards — requestGeneration или AbortController per resource id
+3. NotesPage / HomePage — mount/stale guard перед router.replace и записью в state
+4. blockDragHandle.destroy() — снять pointer listeners, отменить pending rAF/timeout
+5. rAF-паттерн в HeaderComponent / FolderCardContextMenu — sync add или cancel rAF
+6. Auth timers + SettingsOtpPopup — хранить id таймера, стартовать только при open === true
+
+--- ЧТО УЖЕ ОК ---
+
+src/composables/useWorkspaceSearch.ts
+  AbortController + requestGeneration + clearPending — эталон для остальных fetch.
+
+src/components/notes/editor/NoteTiptapEditor.vue:156-158
+  editor.destroy() в onBeforeUnmount.
+
+src/composables/useResizableSplit.ts, useDashboardContentAlign.ts, HeaderSearch.vue
+  ResizeObserver / pointer listeners — корректный cleanup.
+
+src/composables/useNoteEditorDraft.ts:38-42, 104-112, 119-131
+  saveTimer cleanup + saveGeneration в attemptSave (для одной заметки).
