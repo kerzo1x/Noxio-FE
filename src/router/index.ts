@@ -121,11 +121,31 @@ const routes: Array<RouteRecordRaw> = [
     }
 ]
 
-// TODO: ten router nema ziadny guard na FE. to ze to overuje BE (API) je super, ale aj frontend by mal mat guard, ktory ked napr. nemas access token a ides na dashboard, tak uz frontend by ta mal dat na login a nie az BE
-
 const router = createRouter({
     history: createWebHistory(),
     routes
+})
+
+function hasAccessToken(): boolean {
+    return localStorage.getItem('access_token') != null
+}
+
+router.beforeEach((to, _from, next) => {
+    const token = hasAccessToken()
+    const isDashboardRoute = to.path.startsWith('/dashboard')
+    const isLoginRoute = to.name === 'Login'
+
+    if (!token && isDashboardRoute) {
+        next({ name: 'Login' })
+        return
+    }
+
+    if (token && isLoginRoute) {
+        next({ path: '/dashboard' })
+        return
+    }
+
+    next()
 })
 
 export default router

@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { onMounted, provide, ref, watch } from 'vue'
-import { useDashboardContentAlign } from '@/composables/useDashboardContentAlign'
-import { dashboardLayoutMetricsKey } from '@/composables/useDashboardContentAlign' // TODO: preco importujes dve veci z toho isteho suboru oddelene??
+import {
+  useDashboardContentAlign,
+  dashboardLayoutMetricsKey,
+} from '@/composables/useDashboardContentAlign'
 import { useUserStore } from '@/stores/user'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useNotificationsStore } from '@/stores/notifications'
@@ -21,20 +23,15 @@ const { hasNotifications, items: notifications, isLoading: isNotificationsLoadin
 watch(
   () => workspaceStore.activeWorkspace?.id ?? null,
   async (workspaceId, previousWorkspaceId) => {
-    if (workspaceId !== previousWorkspaceId) { // TODO: toto je vzdy true v watch callbacku, lebo watch sa zavola iba ked sa zmeni hodnota ...
-      await workspaceStore.loadWorkspaceContext(workspaceId, {
-        force: workspaceId != null && previousWorkspaceId != null,
-      })
-      return
-    }
-     await workspaceStore.loadWorkspaceContext(workspaceId) // TODO: toto sa nikdy nevykona, malo by to volat --> loadWorkspaceContext(workspaceId, { force: true })
+    await workspaceStore.loadWorkspaceContext(workspaceId, {
+      force: workspaceId != null && previousWorkspaceId != null,
+    })
   },
   { immediate: true },
 )
 
-onMounted(async () => { // TODO: toto je doslova fire and forget ... treba pridat await Promise.all() alebo nieco podobne
-  userStore.fetchUser()
-  await workspaceStore.fetchWorkspaces()
+onMounted(async () => {
+  await Promise.all([userStore.fetchUser(), workspaceStore.fetchWorkspaces()])
 })
 
 function refreshNotifications() {

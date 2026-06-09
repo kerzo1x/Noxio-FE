@@ -6,72 +6,25 @@ import {
   listTodoListTasks,
   listTodoLists,
   updateTodoList as updateTodoListApi,
-  updateTodoTaskPosition,
   type CreateTodoTaskBody,
   type TodoListsQuery,
   type TodoTasksQuery,
 } from '@/api/todoLists'
-import { useWorkspaceStore } from '@/stores/workspace'
 import type { PaginationMeta } from '@/types/api'
-import { buildTaskPositionPayloadFromTasks } from '@/utils/todoTaskPosition'
+import type { TodoList, TodoTask, TodoTaskStatus } from '@/stores/types/todoLists.types'
+import { fetchAllTodoListTasks } from '@/utils/todoListTaskFetch'
+import { tryTaskPositionPayloads } from '@/utils/todoTaskMove'
+import {
+  buildTaskPositionFallbacks,
+  buildTaskPositionPayloadFromTasks,
+} from '@/utils/todoTaskPosition'
+import { isInvalidTaskPositionError, unwrapCaught } from '@/types/errors'
+import { getApiErrorMessage, resolveWorkspaceId } from '@/utils/storeHelpers'
 
-function resolveWorkspaceId(storeLoadedId: string | null): string | null {
-  const activeId = useWorkspaceStore().activeWorkspace?.id ?? null
-  return activeId ?? storeLoadedId
-}
+export type { TodoList, TodoTask, TodoTaskStatus } from '@/stores/types/todoLists.types'
 
-function getApiErrorMessage(error: unknown, fallback: string): string {
-  if (error && typeof error === 'object' && 'response' in error) {
-    const res = (error as { response?: { status?: number; data?: { message?: string } } })
-      .response
-    if (res?.data?.message) return res.data.message
-    if (res?.status === 404) {
-      return 'Todo list not found. It may have been deleted already.'
-    }
-  }
-  if (error instanceof Error) return error.message
-  return fallback
-}
-
-async function fetchAllTodoListTasks(todoListId: string): Promise<TodoTask[]> {
-  const response = await listTodoListTasks(todoListId, {
-    page: 1,
-    limit: 100,
-    sortBy: 'createdAt',
-    sortOrder: 'asc',
-  })
-  const payload = response.data
-  if (!payload?.success) {
-    throw new Error(payload?.message || 'Failed to fetch tasks')
-  }
-  return payload.data
-}
-
-export interface TodoList {
-  id: string
-  workspaceId: string
-  name: string
-  description: string | null
-  color: string | null
-  createdById: string
-  createdAt: string
-  updatedAt: string
-}
-
-export type TodoTaskStatus = 'TODO' | 'IN_PROGRESS' | 'DONE'
-
-export interface TodoTask {
-  id: string
-  todoListId: string
-  categoryId: string | null
-  title: string
-  description: string | null
-  status: TodoTaskStatus
-  deadlineAt: string | null
-  position: number
-  createdAt: string
-  updatedAt: string
-}
+const todoListNotFoundMessage =
+  'Todo list not found. It may have been deleted already.'
 
 const defaultQuery: Required<TodoListsQuery> = {
   page: 1,
@@ -92,6 +45,10 @@ export const useTodoListsStore = defineStore('todo-lists', {
     tasksLoading: false,
     tasksError: null as string | null,
     tasksDeadlineFilter: null as TodoTasksQuery['deadlineFilter'] | null,
+    taskMoveInFlight: false,
+    taskMoveError: null as string | null,
+    allTasksCache: [] as TodoTask[],
+    allTasksCacheTodoListId: null as string | null,
   }),
 
   actions: {
@@ -110,6 +67,39 @@ export const useTodoListsStore = defineStore('todo-lists', {
       this.tasksLoading = false
       this.tasksError = null
       this.tasksDeadlineFilter = null
+      this.taskMoveError = null
+      this.allTasksCache = []
+      this.allTasksCacheTodoListId = null
+    },
+
+    async ensureAllTasksCache(todoListId: string) {
+      if (!todoListId) return
+      if (this.allTasksCacheTodoListId === todoListId && this.allTasksCache.length > 0) {
+        return
+      }
+
+      const allTasks = await fetchAllTodoListTasks(todoListId)
+      this.allTasksCache = allTasks
+      this.allTasksCacheTodoListId = todoListId
+    },
+
+    resolveAllTasksForPosition(todoListId: string): TodoTask[] {
+      if (this.allTasksCacheTodoListId === todoListId && this.allTasksCache.length > 0) {
+        return this.allTasksCache.map((item) => ({ ...item }))
+      }
+      return []
+    },
+
+    syncMovedTaskInCache(updatedTask: TodoTask) {
+      if (this.allTasksCacheTodoListId !== updatedTask.todoListId) return
+
+      const index = this.allTasksCache.findIndex((item) => item.id === updatedTask.id)
+      if (index === -1) {
+        this.allTasksCache.push({ ...updatedTask })
+        return
+      }
+
+      this.allTasksCache[index] = { ...this.allTasksCache[index], ...updatedTask }
     },
 
     async fetchTodoLists(
@@ -189,7 +179,8 @@ export const useTodoListsStore = defineStore('todo-lists', {
           this.todoLists = [...this.todoLists, envelope.data]
         }
         return envelope.data
-      } catch (error: unknown) {
+      } catch (caught) {
+        const error = unwrapCaught(caught)
         if (error && typeof error === 'object' && 'response' in error) {
           const data = (error as { response?: { data?: { message?: string } } })
             .response?.data
@@ -268,8 +259,11 @@ export const useTodoListsStore = defineStore('todo-lists', {
           ]
         }
         return updated
-      } catch (error: unknown) {
-        throw new Error(getApiErrorMessage(error, 'Failed to update todo list'))
+      } catch (caught) {
+        const error = unwrapCaught(caught)
+        throw new Error(
+          getApiErrorMessage(error, 'Failed to update todo list', todoListNotFoundMessage),
+        )
       }
     },
 
@@ -309,7 +303,8 @@ export const useTodoListsStore = defineStore('todo-lists', {
         }
 
         this.todoLists = this.todoLists.filter((list) => list.id !== todoListId)
-      } catch (error: unknown) {
+      } catch (caught) {
+        const error = unwrapCaught(caught)
         const status =
           error &&
           typeof error === 'object' &&
@@ -320,7 +315,9 @@ export const useTodoListsStore = defineStore('todo-lists', {
           this.todoLists = this.todoLists.filter((list) => list.id !== todoListId)
         }
 
-        throw new Error(getApiErrorMessage(error, 'Failed to delete todo list'))
+        throw new Error(
+          getApiErrorMessage(error, 'Failed to delete todo list', todoListNotFoundMessage),
+        )
       }
     },
 
@@ -366,6 +363,8 @@ export const useTodoListsStore = defineStore('todo-lists', {
         this.tasks = payload.data
         this.tasksTodoListId = todoListId
         this.tasksDeadlineFilter = deadlineFilter
+
+        void this.ensureAllTasksCache(todoListId)
       } catch (error) {
         this.tasksError =
           error instanceof Error ? error.message : 'Failed to fetch tasks'
@@ -442,6 +441,8 @@ export const useTodoListsStore = defineStore('todo-lists', {
     },
 
     async moveTask(taskId: string, toStatus: TodoTaskStatus, toIndex: number) {
+      if (this.taskMoveInFlight) return
+
       const task = this.tasks.find((item) => item.id === taskId)
       if (!task) return
 
@@ -452,33 +453,73 @@ export const useTodoListsStore = defineStore('todo-lists', {
       const visibleSnapshot = this.tasks.map((item) => ({ ...item }))
 
       this.moveTaskLocally(taskId, toStatus, toIndex)
+      this.taskMoveInFlight = true
+      this.taskMoveError = null
+
+      const fromStatus = task.status
 
       try {
-        const allTasks = await fetchAllTodoListTasks(todoListId)
-        const positionBody = this.buildTaskPositionPayload(
+        const updatedTask = await this.commitTaskPositionUpdate(
           taskId,
-          task.status,
+          todoListId,
+          fromStatus,
           toStatus,
           toIndex,
-          allTasks,
           visibleSnapshot,
         )
+        this.syncMovedTaskInCache(updatedTask)
+      } catch (caught) {
+        this.tasks = previousTasks
+        const error = unwrapCaught(caught)
+        if (isInvalidTaskPositionError(error)) {
+          this.taskMoveError = `Could not move "${task.title}". This task likely has corrupted position data on the server — try recreating it or ask the backend team to fix its position.`
+        }
+      } finally {
+        this.taskMoveInFlight = false
+      }
+    },
 
-        const response = await updateTodoTaskPosition(taskId, positionBody)
-        const envelope = response.data
-        if (!envelope?.success) {
-          throw new Error(envelope?.message || 'Failed to move task.')
+    async commitTaskPositionUpdate(
+      taskId: string,
+      todoListId: string,
+      fromStatus: TodoTaskStatus,
+      toStatus: TodoTaskStatus,
+      toIndex: number,
+      visibleSnapshot: TodoTask[],
+    ): Promise<TodoTask> {
+      const runAttempt = async (allTasks: TodoTask[]) => {
+        const payloads = buildTaskPositionFallbacks(
+          allTasks,
+          visibleSnapshot,
+          taskId,
+          fromStatus,
+          toStatus,
+          toIndex,
+        )
+        return tryTaskPositionPayloads(taskId, payloads)
+      }
+
+      await this.ensureAllTasksCache(todoListId)
+      let allTasks = this.resolveAllTasksForPosition(todoListId)
+      if (allTasks.length === 0) {
+        allTasks = visibleSnapshot
+      }
+
+      try {
+        return await runAttempt(allTasks)
+      } catch (first) {
+        if (!isInvalidTaskPositionError(unwrapCaught(first))) {
+          throw first
         }
 
-        const query: TodoTasksQuery = this.tasksDeadlineFilter
-          ? { deadlineFilter: this.tasksDeadlineFilter }
-          : {}
-        await this.fetchTodoListTasks(todoListId, query, {
-          force: true,
-          silent: true,
-        })
-      } catch {
-        this.tasks = previousTasks
+        this.allTasksCache = []
+        this.allTasksCacheTodoListId = null
+        await this.ensureAllTasksCache(todoListId)
+        allTasks = this.resolveAllTasksForPosition(todoListId)
+        if (allTasks.length === 0) {
+          allTasks = visibleSnapshot
+        }
+        return runAttempt(allTasks)
       }
     },
 
@@ -531,7 +572,8 @@ export const useTodoListsStore = defineStore('todo-lists', {
           this.tasks = [...this.tasks, created]
         }
         return created
-      } catch (error: unknown) {
+      } catch (caught) {
+        const error = unwrapCaught(caught)
         throw new Error(getApiErrorMessage(error, 'Failed to create task.'))
       }
     },

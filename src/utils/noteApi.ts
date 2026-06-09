@@ -3,8 +3,16 @@ import {
   openNoteRequest,
   patchNoteRequest,
 } from '@/api/notes'
+import type { ApiSuccess } from '@/types/api'
+import { isAxiosLikeError, unwrapCaught } from '@/types/errors'
+import type { JsonObject, JsonValue } from '@/types/json'
+import { isJsonObject } from '@/types/json'
 import type { NoteDetail, NoteListItem, NotePatchBody } from '@/types/notes'
-import { createDefaultNoteContent, normalizeBlocksForApi } from '@/utils/noteContent'
+import {
+  coerceNoteBlocksFromJson,
+  createDefaultNoteContent,
+  normalizeBlocksForApi,
+} from '@/utils/noteContent'
 
 type NotePayload = Partial<NoteDetail> & { id: string }
 
@@ -43,42 +51,57 @@ export function normalizeNoteDetail(
   }
 }
 
-function isNonEmptyId(id: unknown): id is string {
+function isNonEmptyId(id: JsonValue | undefined): id is string {
   return typeof id === 'string' && id.length > 0
 }
 
-/** Deep search for GET /notes/:id payloads when the server returns 400 (response schema drift, e.g. missing coverMediaId) but embeds the real note under `found` or nested objects. */
+function extractFromApiSuccess(
+  envelope: ApiSuccess<Partial<NoteDetail> & { id: string }>,
+): NotePayload | null {
+  if (!envelope.success || !envelope.data?.id) return null
+  return { ...envelope.data, id: envelope.data.id }
+}
+
+function notePayloadFromObject(record: JsonObject): NotePayload | null {
+  if (!isNonEmptyId(record.id)) return null
+  if (typeof record.title !== 'string' && !Array.isArray(record.content)) return null
+
+  const payload: NotePayload = { id: record.id }
+  if (typeof record.title === 'string') payload.title = record.title
+  if (typeof record.folderId === 'string') payload.folderId = record.folderId
+  if (Array.isArray(record.content)) {
+    payload.content = coerceNoteBlocksFromJson(record.content)
+  }
+  if (typeof record.contentVersion === 'number') payload.contentVersion = record.contentVersion
+  if (record.coverMediaId === null || typeof record.coverMediaId === 'string') {
+    payload.coverMediaId = record.coverMediaId
+  }
+  return payload
+}
+
+/** Deep search for GET /notes/:id payloads when the server returns 400 but embeds the real note under `found` or nested objects. */
 function extractNoteFromResponseBodyDeep(
-  body: unknown,
+  body: JsonValue | undefined,
   depth = 0,
 ): NotePayload | null {
-  if (depth > 12 || body == null || typeof body !== 'object') return null
+  if (depth > 12 || !isJsonObject(body)) return null
 
-  const record = body as Record<string, unknown>
-
-  if (record.success === true && record.data && typeof record.data === 'object') {
-    const data = record.data as Record<string, unknown>
-    if (isNonEmptyId(data.id)) {
-      return record.data as NotePayload
-    }
+  if (body.success === true && isJsonObject(body.data)) {
+    const fromData = notePayloadFromObject(body.data)
+    if (fromData) return fromData
   }
 
-  if (
-    isNonEmptyId(record.id) &&
-    (typeof record.title === 'string' ||
-      Array.isArray(record.content))
-  ) {
-    return record as NotePayload
-  }
+  const direct = notePayloadFromObject(body)
+  if (direct) return direct
 
-  const found = record.found
-  if (found && typeof found === 'object') {
+  const found = body.found
+  if (isJsonObject(found)) {
     const nested = extractNoteFromResponseBodyDeep(found, depth + 1)
     if (nested) return nested
   }
 
-  for (const value of Object.values(record)) {
-    if (value && typeof value === 'object' && !Array.isArray(value)) {
+  for (const value of Object.values(body)) {
+    if (isJsonObject(value)) {
       const nested = extractNoteFromResponseBodyDeep(value, depth + 1)
       if (nested) return nested
     }
@@ -87,8 +110,23 @@ function extractNoteFromResponseBodyDeep(
   return null
 }
 
-export function extractNoteFromResponseBody(body: unknown): NotePayload | null {
-  return extractNoteFromResponseBodyDeep(body, 0)
+export function extractNoteFromResponseBody(
+  body: JsonValue | ApiSuccess<Partial<NoteDetail> & { id: string }> | undefined,
+): NotePayload | null {
+  if (body && typeof body === 'object' && 'success' in body) {
+    const fromEnvelope = extractFromApiSuccess(
+      body as ApiSuccess<Partial<NoteDetail> & { id: string }>,
+    )
+    if (fromEnvelope) return fromEnvelope
+  }
+  return extractNoteFromResponseBodyDeep(body as JsonValue | undefined, 0)
+}
+
+function responseDataFromCaught(caught: object | string | undefined): JsonValue | undefined {
+  if (!caught || typeof caught === 'string') return undefined
+  if (!isAxiosLikeError(caught)) return undefined
+  const data = caught.response?.data
+  return typeof data === 'object' && data !== null ? (data as JsonObject) : undefined
 }
 
 export async function fetchNoteDetailSafe(
@@ -97,13 +135,12 @@ export async function fetchNoteDetailSafe(
 ): Promise<NoteDetail> {
   try {
     const response = await getNote(noteId)
-
-    const extracted = extractNoteFromResponseBody(response.data)
+    const extracted = extractNoteFromResponseBody(response.data as JsonValue)
     if (extracted) {
       return normalizeNoteDetail(extracted, listFallback)
     }
-  } catch (error) {
-    const errData = (error as { response?: { data?: unknown } })?.response?.data
+  } catch (caught) {
+    const errData = responseDataFromCaught(unwrapCaught(caught))
     if (errData) {
       const extracted = extractNoteFromResponseBody(errData)
       if (extracted) {
@@ -144,22 +181,26 @@ export async function patchNote(
 
   try {
     const response = await patchNoteRequest(noteId, payload)
-    const extracted = extractNoteFromResponseBody(response.data)
+    const envelope = response.data
+    if (envelope?.success && envelope.data?.id) {
+      return normalizeNoteDetail(envelope.data)
+    }
+    const extracted = extractNoteFromResponseBody(envelope)
     if (extracted) {
       return normalizeNoteDetail(extracted)
     }
-    throw new Error(
-      (response.data as { message?: string })?.message || 'Failed to update note',
-    )
-  } catch (error) {
-    const errData = (error as { response?: { data?: unknown } })?.response?.data
+    throw new Error(envelope?.message || 'Failed to update note')
+  } catch (caught) {
+    const errData = responseDataFromCaught(unwrapCaught(caught))
     if (errData) {
       const extracted = extractNoteFromResponseBody(errData)
       if (extracted) {
         return normalizeNoteDetail(extracted)
       }
     }
-    throw error
+    const error = unwrapCaught(caught)
+    if (error instanceof Error) throw error
+    throw new Error('Failed to update note')
   }
 }
 

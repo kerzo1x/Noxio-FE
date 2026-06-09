@@ -38,7 +38,7 @@ const handleLogin = async () => {
 
     if (result.success) {
       if (result.data.requires2fa === false && result.data.accessToken) {
-        persistAuthTokensFromEnvelope(result as unknown as Record<string, unknown>) // TODO: preco tu je unknown?? to je doslova ze obchadzanie typescriptu a pouzivas typescript :D
+        persistAuthTokensFromEnvelope(result)
         isError.value = false
         message.value = result.message ?? ''
         setTimeout(() => router.push({ name: 'DashboardLayout' }), 1500)

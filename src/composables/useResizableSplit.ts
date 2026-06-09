@@ -48,10 +48,15 @@ export function useResizableSplit(containerRef: { value: HTMLElement | null }) {
     return { flex: `0 0 ${percent}%`, minWidth: '0' }
   })
 
-  // TODO: tu chyba debounce, lebo teraz ti to pri 60 fps da 60 callov localStorage a daj tam nejaky debounce, aby to nesekalo
+  let persistTimeout: ReturnType<typeof setTimeout> | null = null
+
   watch(listRatio, (value) => {
     if (typeof window === 'undefined') return
-    window.localStorage.setItem(STORAGE_KEY, String(value))
+    if (persistTimeout) clearTimeout(persistTimeout)
+    persistTimeout = setTimeout(() => {
+      window.localStorage.setItem(STORAGE_KEY, String(value))
+      persistTimeout = null
+    }, 150)
   })
 
   function setRatioFromPointer(clientX: number) {
@@ -134,6 +139,7 @@ export function useResizableSplit(containerRef: { value: HTMLElement | null }) {
   })
 
   onUnmounted(() => {
+    if (persistTimeout) clearTimeout(persistTimeout)
     stopDragging()
     resizeObserver?.disconnect()
     resizeObserver = null

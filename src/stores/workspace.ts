@@ -15,15 +15,20 @@ export type { Workspace }
 
 const ACTIVE_WORKSPACE_LS_KEY = 'notion_fe_active_workspace'
 
+interface CachedWorkspaceMeta {
+  id?: string
+  name?: string
+}
+
 function readCachedWorkspaceMeta(): { id: string; name: string } | null {
   try {
     const json = localStorage.getItem(ACTIVE_WORKSPACE_LS_KEY)
     if (json) {
-      const p = JSON.parse(json) as { id?: unknown; name?: unknown }
-      if (typeof p?.id === 'string' && p.id) {
+      const parsed = JSON.parse(json) as CachedWorkspaceMeta
+      if (typeof parsed.id === 'string' && parsed.id) {
         return {
-          id: p.id,
-          name: typeof p.name === 'string' ? p.name : '',
+          id: parsed.id,
+          name: typeof parsed.name === 'string' ? parsed.name : '',
         }
       }
     }
@@ -118,12 +123,8 @@ export const useWorkspaceStore = defineStore('workspace', {
             savedId != null
               ? this.workspaces.find((w) => w.id === savedId)
               : undefined
-          const byActive = // TODO: tu si doslova o 6 riadkov vyssie overil toto --> this.activeWorkspace?.id != null, takze toto je zarucene v non-null blocku
-            this.activeWorkspace?.id != null
-              ? this.workspaces.find((w) => w.id === this.activeWorkspace!.id)
-              : undefined
 
-          const next = bySaved ?? byActive ?? this.workspaces[0]
+          const next = bySaved ?? this.workspaces[0]
           this.selectWorkspace(next)
         }
       } catch (error) {

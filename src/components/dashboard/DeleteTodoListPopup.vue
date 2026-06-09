@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted } from 'vue'
+import { ref, watch } from 'vue'
+import { useEscapeKey } from '@/composables/useEscapeKey'
 import DeleteConfirmPopup from '@/components/dashboard/DeleteConfirmPopup.vue'
 import { useTodoListsStore, type TodoList } from '@/stores/todoLists'
 
@@ -32,12 +33,7 @@ watch(open, (isOpen) => {
   if (isOpen) resetForm()
 })
 
-function onKeydown(e: KeyboardEvent) {
-  if (e.key === 'Escape' && open.value) close()
-}
-
-onMounted(() => document.addEventListener('keydown', onKeydown))
-onUnmounted(() => document.removeEventListener('keydown', onKeydown))
+useEscapeKey(close, () => open.value)
 
 async function handleDelete() {
   if (isSubmitting.value || !props.todoList) return

@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted } from 'vue'
+import { ref, watch, onUnmounted } from 'vue'
+import { useEscapeKey } from '@/composables/useEscapeKey'
 import dotsIcon from '@/assets/img/dots.svg'
 import editIcon from '@/assets/img/edit.svg'
 import deleteIcon from '@/assets/img/delete.svg'
@@ -40,9 +41,7 @@ const onDocumentClick = (e: MouseEvent) => {
   closeMenu()
 }
 
-const onDocumentKeydown = (e: KeyboardEvent) => {
-  if (e.key === 'Escape' && open.value) closeMenu()
-}
+useEscapeKey(closeMenu, () => open.value)
 
 watch(open, (isOpen) => {
   if (isOpen) {
@@ -54,13 +53,8 @@ watch(open, (isOpen) => {
   document.removeEventListener('click', onDocumentClick)
 })
 
-onMounted(() => {
-  document.addEventListener('keydown', onDocumentKeydown)
-})
-
 onUnmounted(() => {
   document.removeEventListener('click', onDocumentClick)
-  document.removeEventListener('keydown', onDocumentKeydown)
 })
 </script>
 

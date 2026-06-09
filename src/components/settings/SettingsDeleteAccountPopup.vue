@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from 'vue'
+import { ref } from 'vue'
+import { useEscapeKey } from '@/composables/useEscapeKey'
 import PopupShell from '@/components/ui/PopupShell.vue'
 import { initiateAccountDeletion } from '@/api/user'
 
@@ -19,12 +20,7 @@ function onClose() {
   open.value = false
 }
 
-function onKeydown(e: KeyboardEvent) {
-  if (e.key === 'Escape' && open.value) onClose()
-}
-
-onMounted(() => document.addEventListener('keydown', onKeydown))
-onUnmounted(() => document.removeEventListener('keydown', onKeydown))
+useEscapeKey(onClose, () => open.value)
 
 async function handleConfirm() {
   if (isSubmitting.value) return

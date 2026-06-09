@@ -1,16 +1,12 @@
 <script setup lang="ts">
-import { computed, watch } from 'vue'
+import { computed, toRef } from 'vue'
 import { useRouter } from 'vue-router'
 import NotesSplitLayout from '@/components/notes/NotesSplitLayout.vue'
 import NotesListPanel from '@/components/notes/NotesListPanel.vue'
 import NoteEditorPanel from '@/components/notes/NoteEditorPanel.vue'
+import { useNotesRoute } from '@/composables/useNotesRoute'
 import { useNotesStore } from '@/stores/notes'
 import { useWorkspaceStore } from '@/stores/workspace'
-import {
-  getLastNotesContext,
-  rememberFolder,
-  rememberNote,
-} from '@/utils/lastNotesContext'
 
 const props = defineProps<{
   folderId: string
@@ -29,120 +25,13 @@ const selectedNote = computed(() => {
   return notesStore.getNote(id) ?? null
 })
 
-watch(
-  () => props.folderId,
-  async (folderId, previousFolderId) => {
-    if (!folderId) {
-      notesStore.reset()
-      return
-    }
-
-    if (previousFolderId && previousFolderId !== folderId && props.noteId) {
-      await router.replace({
-        name: 'DashboardFolderNotes',
-        params: { folderId },
-      })
-    }
-
-    if (notesStore.loadedFolderId !== folderId) {
-      await notesStore.fetchFolderNotes(folderId)
-    }
-  },
-  { immediate: true },
-)
-
-// TODO: naco je tento watch? Lebo doslova je prazdny
-watch(
-  () => [props.noteId, props.folderId, notesStore.noteIds] as const,
-  () => {
-    // If the current noteId isn't present in `noteIds` (because the list may be
-    // filtered), we rely on the `props.noteId` watcher below to call
-    // `notesStore.ensureNote(noteId)`.
-  },
-)
-
-watch(
-  () => props.noteId,
-  async (noteId) => {
-    if (!noteId) return
-    if (!notesStore.getNote(noteId)) {
-      try {
-        await notesStore.ensureNote(noteId)
-      } catch (error) {
-        console.error('Failed to load note:', error)
-      }
-    }
-
-    const note = notesStore.getNote(noteId)
-    if (!note) {
-      // If we couldn't load the note, fall back to the folder view.
-      await router.replace({
-        name: 'DashboardFolderNotes',
-        params: { folderId: props.folderId },
-      })
-      return
-    }
-
-    // Safety: if the note doesn't belong to the current folder, don't keep it selected.
-    if (note.folderId !== props.folderId) {
-      await router.replace({
-        name: 'DashboardFolderNotes',
-        params: { folderId: props.folderId },
-      })
-      return
-    }
-
-    void notesStore.openNote(noteId)
-  },
-  { immediate: true },
-)
-
-watch(
-  () => [props.folderId, props.noteId] as const,
-  ([folderId, noteId]) => {
-    const workspaceId = workspaceStore.activeWorkspace?.id
-    if (!workspaceId || !folderId) return
-
-    if (noteId) {
-      rememberNote(workspaceId, folderId, noteId)
-      return
-    }
-
-    rememberFolder(workspaceId, folderId)
-  },
-  { immediate: true },
-)
-
-watch(
-  () =>
-    [
-      props.folderId,
-      props.noteId,
-      notesStore.isLoading,
-      notesStore.loadedFolderId,
-      notesStore.noteIds.join(','),
-    ] as const,
-  ([folderId, noteId, isLoading, loadedFolderId, noteIdsKey]) => {
-    if (!folderId || noteId || isLoading || loadedFolderId !== folderId) return
-    if (!noteIdsKey) return
-
-    const workspaceId = workspaceStore.activeWorkspace?.id
-    const last = workspaceId ? getLastNotesContext(workspaceId) : null
-
-    const preferredNoteId =
-      last?.folderId === folderId &&
-      last.noteId
-        ? last.noteId
-        : notesStore.noteIds[0]
-
-    if (!preferredNoteId) return
-
-    void router.replace({
-      name: 'DashboardFolderNotes',
-      params: { folderId, noteId: preferredNoteId },
-    })
-  },
-)
+useNotesRoute({
+  folderId: toRef(props, 'folderId'),
+  noteId: toRef(props, 'noteId'),
+  router,
+  notesStore,
+  workspaceStore,
+})
 
 function handleSelectNote(noteId: string) {
   router.push({

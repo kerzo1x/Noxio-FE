@@ -101,7 +101,7 @@ const handleVerify = async () => {
                 router.push('/auth/reset-password')
             } else {
                 if (result.data.accessToken) {
-                    persistAuthTokensFromEnvelope(result as unknown as Record<string, unknown>)
+                    persistAuthTokensFromEnvelope(result)
                     localStorage.removeItem('session_token')
                     router.push(route.query.from === "register" ? '/auth/edupage' : '/dashboard')
                 }

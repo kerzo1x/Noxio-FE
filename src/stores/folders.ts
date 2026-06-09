@@ -6,8 +6,9 @@ import {
   updateFolder as updateFolderApi,
   type FoldersQuery,
 } from '@/api/folders'
-import { useWorkspaceStore } from '@/stores/workspace'
 import type { PaginationMeta } from '@/types/api'
+import { unwrapCaught } from '@/types/errors'
+import { getApiErrorMessage, resolveWorkspaceId } from '@/utils/storeHelpers'
 
 export interface Folder {
   id: string
@@ -29,22 +30,8 @@ const defaultQuery: Required<FoldersQuery> = {
   sortOrder: 'asc',
   filter: 'recentlyUpdated',
 }
-// TODO: resolveWorkspaceId aj getApiErrorMessage su tu a v src/stores/todoLists.ts zaroven a treba to dat do nejakeho shared suboru
-function resolveWorkspaceId(storeLoadedId: string | null): string | null {
-  const activeId = useWorkspaceStore().activeWorkspace?.id ?? null
-  return activeId ?? storeLoadedId
-}
 
-function getApiErrorMessage(error: unknown, fallback: string): string {
-  if (error && typeof error === 'object' && 'response' in error) {
-    const res = (error as { response?: { status?: number; data?: { message?: string } } })
-      .response
-    if (res?.data?.message) return res.data.message
-    if (res?.status === 404) return 'Folder not found. It may have been deleted already.'
-  }
-  if (error instanceof Error) return error.message
-  return fallback
-}
+const folderNotFoundMessage = 'Folder not found. It may have been deleted already.'
 
 export const useFoldersStore = defineStore('folders', {
   state: () => ({
@@ -129,8 +116,10 @@ export const useFoldersStore = defineStore('folders', {
           this.folders = [...this.folders, created]
         }
         return created
-      } catch (error: unknown) {
-        throw new Error(getApiErrorMessage(error, 'Failed to create folder'))
+      } catch (caught) {
+        throw new Error(
+          getApiErrorMessage(unwrapCaught(caught), 'Failed to create folder', folderNotFoundMessage),
+        )
       }
     },
 
@@ -182,8 +171,10 @@ export const useFoldersStore = defineStore('folders', {
           ]
         }
         return updated
-      } catch (error: unknown) {
-        throw new Error(getApiErrorMessage(error, 'Failed to update folder'))
+      } catch (caught) {
+        throw new Error(
+          getApiErrorMessage(unwrapCaught(caught), 'Failed to update folder', folderNotFoundMessage),
+        )
       }
     },
 
@@ -223,7 +214,8 @@ export const useFoldersStore = defineStore('folders', {
         }
 
         this.folders = this.folders.filter((f) => f.id !== folderId)
-      } catch (error: unknown) {
+      } catch (caught) {
+        const error = unwrapCaught(caught)
         const status =
           error &&
           typeof error === 'object' &&
@@ -234,7 +226,9 @@ export const useFoldersStore = defineStore('folders', {
           this.folders = this.folders.filter((f) => f.id !== folderId)
         }
 
-        throw new Error(getApiErrorMessage(error, 'Failed to delete folder'))
+        throw new Error(
+          getApiErrorMessage(error, 'Failed to delete folder', folderNotFoundMessage),
+        )
       }
     },
   },

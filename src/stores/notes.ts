@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia'
+import { unwrapCaught } from '@/types/errors'
 import { createNoteInFolder, listFolderNotes, type NotesQuery } from '@/api/notes'
 import type { PaginationMeta } from '@/types/api'
 import { createDefaultNoteContent } from '@/utils/noteContent'
@@ -104,7 +105,8 @@ export const useNotesStore = defineStore('notes', {
         }
         this.loadedFolderId = folderId
         return note
-      } catch (error: unknown) {
+      } catch (caught) {
+        const error = unwrapCaught(caught)
         if (error && typeof error === 'object' && 'response' in error) {
           const data = (error as { response?: { data?: { message?: string } } })
             .response?.data

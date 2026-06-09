@@ -1,18 +1,28 @@
-<script setup>
+<script setup lang="ts">
 // TODO: v script setup chyba typescript
 import { ref, onMounted, onUnmounted } from 'vue'
-import { useWorkspaceStore } from '@/stores/workspace'
+import { useEscapeKey } from '@/composables/useEscapeKey'
+import { useWorkspaceStore, type Workspace } from '@/stores/workspace'
 import selectorIcon from '@/assets/img/selector.svg'
 import addIcon from '@/assets/img/add.svg'
 
 const workspaceStore = useWorkspaceStore()
 
-const rootRef = ref(null)
+const rootRef = ref<HTMLElement | null>(null)
 const dropdownOpen = ref(false)
 
-const toggleDropdown = (e) => {
-  e.stopPropagation()
+const toggleDropdown = () => {
   dropdownOpen.value = !dropdownOpen.value
+}
+
+const onToggleClick = (e: MouseEvent) => {
+  e.stopPropagation()
+  toggleDropdown()
+}
+
+const onToggleKeydown = (e: KeyboardEvent) => {
+  e.preventDefault()
+  toggleDropdown()
 }
 
 const closeDropdown = () => {
@@ -24,26 +34,22 @@ const openCreateWorkspaceModal = () => {
   workspaceStore.openCreateWorkspacePopup()
 }
 
-const onDocumentClick = (e) => {
+const onDocumentClick = (e: MouseEvent) => {
   if (!rootRef.value) return
-  if (rootRef.value.contains(e.target)) return
+  if (rootRef.value.contains(e.target as Node)) return
   if (dropdownOpen.value) closeDropdown()
 }
 
-const onDocumentKeydown = (e) => {
-  if (e.key === 'Escape' && dropdownOpen.value) closeDropdown()
-}
+useEscapeKey(closeDropdown, () => dropdownOpen.value)
 
 onMounted(() => {
   document.addEventListener('click', onDocumentClick)
-  document.addEventListener('keydown', onDocumentKeydown)
 })
 onUnmounted(() => {
   document.removeEventListener('click', onDocumentClick)
-  document.removeEventListener('keydown', onDocumentKeydown)
 })
 
-const handlePickWorkspace = (workspace) => {
+const handlePickWorkspace = (workspace: Workspace) => {
   workspaceStore.selectWorkspace(workspace)
   closeDropdown()
 }
@@ -65,9 +71,9 @@ const handlePickWorkspace = (workspace) => {
         tabindex="0"
         :aria-expanded="dropdownOpen"
         aria-haspopup="listbox"
-        @click="toggleDropdown"
-        @keydown.enter.prevent="toggleDropdown"
-        @keydown.space.prevent="toggleDropdown"
+        @click="onToggleClick"
+        @keydown.enter="onToggleKeydown"
+        @keydown.space="onToggleKeydown"
       >
         <div class="w-8 h-8 bg-[#4a4a4a] rounded-md flex items-center justify-center text-white font-semibold shrink-0">
           {{ workspaceStore.activeWorkspace?.name?.charAt(0) || '?' }}

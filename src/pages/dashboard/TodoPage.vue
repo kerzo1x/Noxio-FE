@@ -7,6 +7,7 @@ import DashboardFolderCard from '@/components/dashboard/DashboardFolderCard.vue'
 import AddTodoListPopup from '@/components/dashboard/AddTodoListPopup.vue'
 import DeleteTodoListPopup from '@/components/dashboard/DeleteTodoListPopup.vue'
 import EditTodoListPopup from '@/components/dashboard/EditTodoListPopup.vue'
+import DashboardBottomFade from '@/components/dashboard/DashboardBottomFade.vue'
 import toDoFolder from '@/assets/img/ToDoFolder.svg'
 import { useTodoListsStore, type TodoList } from '@/stores/todoLists'
 
@@ -103,11 +104,7 @@ function getCardAccentStyle(color: string | null) {
       </div>
     </div>
 
-    <!-- TODO: preco je tu z-[1px]? to je nevalidna hodnota, daj tam cislo -->
-    <div
-      class="pointer-events-none sticky bottom-0 z-[1px] h-0.5 w-full bg-black dashboard-bottom-fade"
-      aria-hidden="true"
-    />
+    <DashboardBottomFade />
 
     <AddTodoListPopup v-model="showAddTodoListPopup" />
     <EditTodoListPopup v-model="showEditPopup" :todo-list="todoListToEdit" />

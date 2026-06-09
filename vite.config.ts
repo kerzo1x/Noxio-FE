@@ -11,9 +11,6 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url))
     }
   },
-  compilerOptions: { // TODO: toto nerieši vite, ale typescript, cize to treba dat do tsconfig.json
-    types: ["vite/client"]
-  },
   server: {
     host: true,
     port: 5173,

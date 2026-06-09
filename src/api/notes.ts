@@ -1,6 +1,6 @@
 import api from '@/api'
 import type { ApiSuccess } from '@/types/api'
-import type { NoteDetail, NoteListItem, NotePatchBody } from '@/types/notes'
+import type { NoteBlock, NoteDetail, NoteListItem, NotePatchBody } from '@/types/notes'
 import { normalizeBlocksForApi } from '@/utils/noteContent'
 
 export interface NotesQuery {
@@ -17,7 +17,7 @@ export function listFolderNotes(folderId: string, params: NotesQuery) {
 
 export function createNoteInFolder(
   folderId: string,
-  body: { title: string; content: unknown }, // TODO: preco tu je unknown
+  body: { title: string; content: NoteBlock[] },
 ) {
   return api.post<ApiSuccess<Partial<NoteDetail> & { id: string }>>(
     `/folders/${folderId}/notes`,

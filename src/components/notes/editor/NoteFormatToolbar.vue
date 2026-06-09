@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref } from 'vue'
+import { useEscapeKey } from '@/composables/useEscapeKey'
 import type { NoteBlockSize } from '@/types/notes'
 
 defineProps<{
@@ -54,20 +55,14 @@ function onDocumentClick(e: MouseEvent) {
   }
 }
 
-function onDocumentKeydown(e: KeyboardEvent) {
-  if (e.key === 'Escape') {
-    closeSizeDropdown()
-  }
-}
+useEscapeKey(closeSizeDropdown)
 
 onMounted(() => {
   document.addEventListener('click', onDocumentClick)
-  document.addEventListener('keydown', onDocumentKeydown)
 })
 
 onUnmounted(() => {
   document.removeEventListener('click', onDocumentClick)
-  document.removeEventListener('keydown', onDocumentKeydown)
 })
 </script>
 

@@ -27,7 +27,7 @@ export interface NoteBulletedListBlock {
   items: NoteListItemNode[]
 }
 
-export type NoteBlock = NoteParagraphBlock | NoteBulletedListBlock | Record<string, unknown>
+export type NoteBlock = NoteParagraphBlock | NoteBulletedListBlock
 
 export interface NoteEditor {
   userId: string

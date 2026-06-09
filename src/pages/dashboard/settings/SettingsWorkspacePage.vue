@@ -7,9 +7,9 @@ import { uploadMedia, listWorkspaceMedia } from '@/api/media'
 import { updateWorkspace, updateMemberRole, createInvitation } from '@/api/workspaces'
 import type { WorkspaceMemberRole } from '@/composables/useWorkspaceMembers'
 import SettingsAvatarBlock from '@/components/settings/SettingsAvatarBlock.vue'
-import SettingsField from '@/components/settings/SettingsField.vue'
-import SettingsMemberRow from '@/components/settings/SettingsMemberRow.vue'
 import SettingsSharePopup from '@/components/settings/SettingsSharePopup.vue'
+import SettingsWorkspaceNameForm from '@/components/settings/SettingsWorkspaceNameForm.vue'
+import SettingsWorkspaceMembersList from '@/components/settings/SettingsWorkspaceMembersList.vue'
 
 const workspaceStore = useWorkspaceStore()
 const { activeWorkspace } = storeToRefs(workspaceStore)
@@ -186,49 +186,22 @@ async function handleShare(payload: {
       />
 
       <div class="mt-12 flex max-w-[760px] flex-col gap-12">
-        <div class="flex flex-col gap-2">
-          <SettingsField
-            v-model="workspaceName"
-            label="Workspace name"
-            :disabled="!canManageWorkspace"
-          />
-          <button
-            v-if="canManageWorkspace"
-            type="button"
-            class="settings-btn settings-btn--primary settings-btn--save mt-2 self-start"
-            :disabled="isSavingName"
-            @click="handleSaveName"
-          >
-            {{ isSavingName ? 'Saving…' : 'Save workspace name' }}
-          </button>
-        </div>
+        <SettingsWorkspaceNameForm
+          v-model="workspaceName"
+          :disabled="!canManageWorkspace"
+          :is-saving="isSavingName"
+          @save="handleSaveName"
+        />
 
-        <div class="settings-row">
-          <p class="text-sm text-white">Workspace members</p>
-          <button
-            v-if="canManageWorkspace"
-            type="button"
-            class="settings-btn settings-btn--share"
-            @click="showSharePopup = true"
-          >
-            Share
-          </button>
-        </div>
-
-        <div v-if="membersLoading" class="text-sm text-white/50">
-          Loading members…
-        </div>
-        <div v-else class="flex flex-col gap-4">
-          <SettingsMemberRow
-            v-for="member in members"
-            :key="member.id"
-            :member="member"
-            :role-label="memberRoleLabel(member, ownerId)"
-            :is-owner="member.user.id === ownerId"
-            :can-edit-role="canManageWorkspace"
-            @role-change="(role) => handleRoleChange(member.id, role)"
-          />
-        </div>
+        <SettingsWorkspaceMembersList
+          :members="members"
+          :members-loading="membersLoading"
+          :owner-id="ownerId"
+          :can-manage-workspace="canManageWorkspace"
+          :member-role-label="memberRoleLabel"
+          @share="showSharePopup = true"
+          @role-change="handleRoleChange"
+        />
       </div>
 
       <p

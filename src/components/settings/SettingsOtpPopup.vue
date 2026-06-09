@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed, watch, nextTick } from 'vue'
+import { useEscapeKey } from '@/composables/useEscapeKey'
 import PopupShell from '@/components/ui/PopupShell.vue'
 import { resend2fa, verify2fa } from '@/api/auth'
 
@@ -49,17 +50,13 @@ function onClose() {
   open.value = false
 }
 
-function onKeydown(e: KeyboardEvent) {
-  if (e.key === 'Escape' && open.value) onClose()
-}
+useEscapeKey(onClose, () => open.value)
 
 onMounted(() => {
-  document.addEventListener('keydown', onKeydown)
   startTimer()
 })
 
 onUnmounted(() => {
-  document.removeEventListener('keydown', onKeydown)
   if (intervalId) clearInterval(intervalId)
 })
 

@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch } from 'vue'
+import { useEscapeKey } from '@/composables/useEscapeKey'
 import PopupShell from '@/components/ui/PopupShell.vue'
 import FolderFormFields from '@/components/dashboard/FolderFormFields.vue'
 import { useFoldersStore, type Folder } from '@/stores/folders'
@@ -70,12 +71,7 @@ watch(
   },
 )
 
-function onKeydown(e: KeyboardEvent) {
-  if (e.key === 'Escape' && open.value) close()
-}
-
-onMounted(() => document.addEventListener('keydown', onKeydown))
-onUnmounted(() => document.removeEventListener('keydown', onKeydown))
+useEscapeKey(close, () => open.value)
 
 function clearError() {
   isError.value = false

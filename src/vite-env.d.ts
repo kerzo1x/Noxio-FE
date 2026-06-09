@@ -15,6 +15,6 @@ declare module '*.svg' {
 
 declare module '*.vue' {
   import type { DefineComponent } from 'vue'
-  const component: DefineComponent<{}, {}, any> // TODO: any tu typuje celý component na any, treba pouzit @vitejs/plugin-vue s vue-tsc
+  const component: DefineComponent
   export default component
 }

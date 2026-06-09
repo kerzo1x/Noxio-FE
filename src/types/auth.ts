@@ -1,4 +1,4 @@
-export interface AuthApiEnvelope<T = Record<string, unknown>> {
+export interface AuthApiEnvelope<T = Record<string, never>> {
   success: boolean
   message?: string
   error?: string

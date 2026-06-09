@@ -1,26 +1,13 @@
 <script setup lang="ts">
 import { computed, reactive, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import SidebarWorkspaceTabs, {
+  type WorkspaceTab,
+} from '@/components/sidebar/SidebarWorkspaceTabs.vue'
 import { useFoldersStore } from '@/stores/folders'
 import { useTodoListsStore } from '@/stores/todoLists'
 import folderIcon from '@/assets/img/folder.svg'
 import todoIcon from '@/assets/img/todo.svg'
-import selectorIcon from '@/assets/img/selector.svg'
-
-type WorkspaceTab = 'folders' | 'todo'
-
-interface SubItem {
-  id: string
-  label: string
-}
-
-interface SectionMeta {
-  items: SubItem[]
-  isLoading: boolean
-  error: string | null
-  icon: string
-  emptyLabel: string
-}
 
 defineProps({
   active: {
@@ -55,7 +42,7 @@ const sectionItems = [
   { id: 'todo' as const, label: 'To do', icon: todoIcon },
 ]
 
-const sectionData = computed<Record<WorkspaceTab, SectionMeta>>(() => ({
+const sectionData = computed(() => ({
   folders: {
     items: foldersStore.folders.map((f) => ({ id: f.id, label: f.name })),
     isLoading: foldersStore.isLoading,
@@ -94,6 +81,7 @@ function readExpandedSections(): Record<WorkspaceTab, boolean> {
     return { folders: false, todo: false }
   }
 }
+
 const expandedSections = reactive<Record<WorkspaceTab, boolean>>(readExpandedSections())
 
 watch(
@@ -113,26 +101,20 @@ watch(
   { immediate: true },
 )
 
-const setActive = (id: WorkspaceTab) => {
+function setActive(id: WorkspaceTab) {
   emit('update:active', id)
 }
 
-const toggleExpanded = (id: WorkspaceTab) => {
+function toggleExpanded(id: WorkspaceTab) {
   expandedSections[id] = !expandedSections[id]
 }
 
 function openFolderNotes(folderId: string) {
-  router.push({
-    name: 'DashboardFolderNotes',
-    params: { folderId },
-  })
+  router.push({ name: 'DashboardFolderNotes', params: { folderId } })
 }
 
 function openTodoList(todoListId: string) {
-  router.push({
-    name: 'DashboardTodoList',
-    params: { todoListId },
-  })
+  router.push({ name: 'DashboardTodoList', params: { todoListId } })
 }
 </script>
 
@@ -147,88 +129,18 @@ function openTodoList(todoListId: string) {
       <div
         class="workspace-scroll-hide min-h-0 flex-1 overflow-y-auto overflow-x-hidden"
       >
-        <div class="space-y-0.5">
-          <div v-for="item in sectionItems" :key="item.id">
-            <div
-              class="sidebar-link group min-w-0 justify-between"
-              :class="{ active: active === item.id }"
-            >
-              <button
-                type="button"
-                class="flex min-w-0 flex-1 cursor-pointer items-center gap-3 px-3 py-2 text-left"
-                @click="setActive(item.id)"
-              >
-                <img :src="item.icon" :alt="item.label" class="sidebar-icon" />
-                <span class="whitespace-nowrap">{{ item.label }}</span>
-              </button>
-              <button
-                type="button"
-                class="mr-1.5 inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center"
-                :aria-label="`Toggle ${item.label} list`"
-                @click.stop="toggleExpanded(item.id)"
-              >
-                <img
-                  :src="selectorIcon"
-                  class="h-4 w-4 transition-all duration-300 group-hover:opacity-100"
-                  :class="[
-                    expandedSections[item.id] ? 'rotate-180' : '',
-                    active === item.id ? 'opacity-100' : 'opacity-50',
-                  ]"
-                  :alt="`${item.label} selector`"
-                />
-              </button>
-            </div>
-
-            <div
-              v-if="expandedSections[item.id]"
-              class="ml-5 mt-1 border-l border-white/10"
-            >
-              <div
-                v-if="sectionData[item.id].isLoading"
-                class="flex items-center gap-3 px-3 py-2 text-sm text-white/45"
-              >
-                Loading...
-              </div>
-              <div
-                v-else-if="sectionData[item.id].error"
-                class="flex items-center gap-3 px-3 py-2 text-sm text-red-400/70"
-              >
-                {{ sectionData[item.id].error }}
-              </div>
-              <div
-                v-else-if="sectionData[item.id].items.length === 0"
-                class="flex items-center gap-3 px-3 py-2 text-sm text-white/45"
-              >
-                {{ sectionData[item.id].emptyLabel }}
-              </div>
-              <template v-else>
-                <button
-                  v-for="sub in sectionData[item.id].items"
-                  :key="sub.id"
-                  type="button"
-                  class="sidebar-link w-full px-3 py-2 text-left"
-                  :class="{
-                    active:
-                      (item.id === 'folders' && activeFolderId === sub.id) ||
-                      (item.id === 'todo' && activeTodoListId === sub.id),
-                  }"
-                  @click="
-                    item.id === 'folders'
-                      ? openFolderNotes(sub.id)
-                      : openTodoList(sub.id)
-                  "
-                >
-                  <img
-                    :src="sectionData[item.id].icon"
-                    alt=""
-                    class="sidebar-icon scale-90"
-                  />
-                  <span>{{ sub.label }}</span>
-                </button>
-              </template>
-            </div>
-          </div>
-        </div>
+        <SidebarWorkspaceTabs
+          :items="sectionItems"
+          :active="active"
+          :expanded-sections="expandedSections"
+          :section-data="sectionData"
+          :active-folder-id="activeFolderId"
+          :active-todo-list-id="activeTodoListId"
+          @activate="setActive"
+          @toggle="toggleExpanded"
+          @open-folder="openFolderNotes"
+          @open-todo-list="openTodoList"
+        />
       </div>
     </div>
   </div>

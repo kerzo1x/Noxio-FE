@@ -1,6 +1,12 @@
-import axios from 'axios';
+import axios, { type InternalAxiosRequestConfig } from 'axios';
 import { apiBaseUrl } from '@/config/api';
+import type { AuthApiEnvelope } from '@/types/auth';
+import type { AuthTokenFields } from '@/utils/authTokens';
 import { persistAuthTokensFromEnvelope } from '@/utils/authTokens';
+
+interface AxiosRequestConfigWithRetry extends InternalAxiosRequestConfig {
+  _retry?: boolean;
+}
 
 const api = axios.create({
   baseURL: apiBaseUrl,
@@ -13,7 +19,7 @@ function runRefresh(): Promise<void> {
   if (!refreshInFlight) {
     refreshInFlight = (async () => {
       const res = await api.post('/auth/refresh');
-      persistAuthTokensFromEnvelope(res.data as Record<string, unknown>);
+      persistAuthTokensFromEnvelope(res.data as AuthApiEnvelope<AuthTokenFields>);
       if (!localStorage.getItem('access_token')) {
         throw new Error('refresh response had no access token');
       }
@@ -39,8 +45,8 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
-    const originalRequest = error.config;
-    if (error.response?.status !== 401 || originalRequest._retry) {
+    const originalRequest = error.config as AxiosRequestConfigWithRetry | undefined;
+    if (!originalRequest || error.response?.status !== 401 || originalRequest._retry) {
       return Promise.reject(error);
     }
     const url = String(originalRequest.url ?? '');
@@ -49,7 +55,7 @@ api.interceptors.response.use(
       redirectToLogin();
       return Promise.reject(error);
     }
-    originalRequest._retry = true; // TODO: retry nie je type AxiosRequestConfig, takze treba dat extends na ten AxiosRequestConfig a tam das ten retry
+    originalRequest._retry = true;
     try {
       await runRefresh();
       return api(originalRequest);

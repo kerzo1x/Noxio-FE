@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted } from 'vue'
+import { ref, watch } from 'vue'
+import { useEscapeKey } from '@/composables/useEscapeKey'
 import PopupShell from '@/components/ui/PopupShell.vue'
 import ColorSwatchRow from '@/components/ui/color/ColorSwatchRow.vue'
 import { useWorkspaceStore } from '@/stores/workspace'
@@ -48,20 +49,13 @@ watch(open, (isOpen) => {
   if (isOpen) resetForm()
 })
 
-function onKeydown(e: KeyboardEvent) {
-  if (!open.value) return
-  if (e.key === 'Escape') {
-    if (pickerOpen.value) {
-      pickerOpen.value = false
-      e.stopPropagation()
-      return
-    }
-    close()
+useEscapeKey(() => {
+  if (pickerOpen.value) {
+    pickerOpen.value = false
+    return
   }
-}
-
-onMounted(() => document.addEventListener('keydown', onKeydown))
-onUnmounted(() => document.removeEventListener('keydown', onKeydown))
+  close()
+}, () => open.value)
 
 function clearError() {
   isError.value = false

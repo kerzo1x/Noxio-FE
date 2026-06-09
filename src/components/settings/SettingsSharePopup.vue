@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from 'vue'
+import { ref } from 'vue'
+import { useEscapeKey } from '@/composables/useEscapeKey'
 import PopupShell from '@/components/ui/PopupShell.vue'
 import SettingsField from '@/components/settings/SettingsField.vue'
 import type { WorkspaceMemberRole } from '@/composables/useWorkspaceMembers'
@@ -30,12 +31,7 @@ function onClose() {
   open.value = false
 }
 
-function onKeydown(e: KeyboardEvent) {
-  if (e.key === 'Escape' && open.value) onClose()
-}
-
-onMounted(() => document.addEventListener('keydown', onKeydown))
-onUnmounted(() => document.removeEventListener('keydown', onKeydown))
+useEscapeKey(onClose, () => open.value)
 
 function handleShare() {
   const trimmed = email.value.trim().toLowerCase()

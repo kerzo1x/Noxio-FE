@@ -8,6 +8,7 @@ import DashboardFolderCard from '@/components/dashboard/DashboardFolderCard.vue'
 import AddFolderPopup from '@/components/dashboard/AddFolderPopup.vue'
 import EditFolderPopup from '@/components/dashboard/EditFolderPopup.vue'
 import DeleteFolderPopup from '@/components/dashboard/DeleteFolderPopup.vue'
+import DashboardBottomFade from '@/components/dashboard/DashboardBottomFade.vue'
 import bigFolder from '@/assets/img/big-folder.svg'
 
 const router = useRouter()
@@ -78,11 +79,7 @@ function handleDelete(folder: Folder) {
       </div>
     </div>
 
-    <!-- TODO: preco je tu z-[1px]? to je nevalidna hodnota, daj tam cislo -->
-    <div
-      class="pointer-events-none sticky bottom-0 z-[1px] h-0.5 w-full bg-black dashboard-bottom-fade"
-      aria-hidden="true"
-    />
+    <DashboardBottomFade />
 
     <AddFolderPopup v-model="showAddFolderPopup" />
     <EditFolderPopup v-model="showEditPopup" :folder="folderToEdit" />

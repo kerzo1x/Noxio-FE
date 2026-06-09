@@ -1,11 +1,8 @@
 <script setup lang="ts">
-import type { Editor } from '@tiptap/core'
-import { EditorContent, useEditor } from '@tiptap/vue-3'
-import { onBeforeUnmount, ref, watch } from 'vue'
-import { createNoteEditorExtensions } from '@/editor/noteEditorSchema'
+import { EditorContent } from '@tiptap/vue-3'
+import { toRef } from 'vue'
+import { useTiptapNoteEditor } from '@/composables/useTiptapNoteEditor'
 import type { NoteBlock } from '@/types/notes'
-import { noteBlocksToTiptap, tiptapJsonToNoteBlocksWithWarnings } from '@/utils/tiptapNoteAdapter'
-import { canInsertTopLevelBlock } from '@/utils/validateNoteBlocks'
 
 const props = defineProps<{
   blocks: NoteBlock[]
@@ -18,148 +15,24 @@ const emit = defineEmits<{
   blockLimitReached: []
 }>()
 
-const limitToastShown = ref(false)
-const blockSizeForToolbar = ref<'small' | 'medium' | 'large'>('medium')
-const boldActive = ref(false)
-const underlineActive = ref(false)
-
-function updateMarkState(ed: Editor) {
-  boldActive.value = ed.isActive('bold')
-  underlineActive.value = ed.isActive('underline')
-}
-
-function updateBlockSizeFromSelection(ed: Editor) {
-  const { $from } = ed.state.selection
-  for (let depth = $from.depth; depth > 0; depth--) {
-    const node = $from.node(depth)
-    if (node.type.name === 'backendParagraph' || node.type.name === 'listItem') {
-      blockSizeForToolbar.value = (node.attrs.size as 'small' | 'medium' | 'large') || 'medium'
-      return
-    }
-  }
-  blockSizeForToolbar.value = 'medium'
-}
-
-const editor = useEditor({
-  extensions: createNoteEditorExtensions(),
-  content: noteBlocksToTiptap(props.blocks),
-  editorProps: {
-    attributes: {
-      class:
-        'note-tiptap-editor min-h-[200px] flex-1 pr-10 outline-none text-white/75 [&_.note-editor-block-selected]:rounded [&_.note-editor-block-selected]:bg-white/5',
-    },
-    handleKeyDown(view, event) {
-      if (event.key !== 'Enter' || event.shiftKey) return false
-      const topLevelCount = view.state.doc.childCount
-      if (!canInsertTopLevelBlock(topLevelCount)) {
-        if (!limitToastShown.value) {
-          limitToastShown.value = true
-          emit('blockLimitReached')
-          setTimeout(() => {
-            limitToastShown.value = false
-          }, 3000)
-        }
-        return true
-      }
-      return false
-    },
-  },
-  onUpdate: ({ editor: ed }) => {
-    const result = tiptapJsonToNoteBlocksWithWarnings(ed.getJSON())
-    emit('update:blocks', result.blocks, result.warnings)
-  },
-  onSelectionUpdate: ({ editor: ed }) => {
-    updateBlockSizeFromSelection(ed)
-  },
-  onTransaction: ({ editor: ed }) => {
-    updateMarkState(ed)
-  },
-  onCreate: ({ editor: ed }) => {
-    updateBlockSizeFromSelection(ed)
-    loadBlocks(props.blocks)
-  },
+const {
+  editor,
+  boldActive,
+  underlineActive,
+  getBlockSize,
+  applyBlockSize,
+  toggleBold,
+  toggleUnderline,
+  setTextColor,
+  getBlocks,
+  loadBlocks,
+} = useTiptapNoteEditor({
+  blocks: toRef(props, 'blocks'),
+  noteId: toRef(props, 'noteId'),
+  serverSyncGeneration: toRef(props, 'serverSyncGeneration'),
+  onUpdateBlocks: (blocks, warnings) => emit('update:blocks', blocks, warnings),
+  onBlockLimitReached: () => emit('blockLimitReached'),
 })
-
-function loadBlocks(blocks: NoteBlock[]) {
-  if (!editor.value) return
-  try {
-    const doc = noteBlocksToTiptap(blocks)
-    editor.value.commands.setContent(doc, { emitUpdate: false })
-  } catch (error) {
-    console.error('Failed to load note content into editor:', error)
-  }
-}
-
-watch(
-  () => props.noteId,
-  () => {
-    loadBlocks(props.blocks)
-  },
-)
-
-watch(
-  () => props.serverSyncGeneration,
-  () => {
-    loadBlocks(props.blocks)
-  },
-)
-
-watch(
-  () => props.blocks,
-  (next) => {
-    if (!props.noteId || editor.value?.isFocused) return
-    loadBlocks(next)
-  },
-  { deep: true },
-)
-
-function applyBlockSize(size: 'small' | 'medium' | 'large') {
-  if (!editor.value) return
-  const { $from } = editor.value.state.selection
-  for (let depth = $from.depth; depth > 0; depth--) {
-    const node = $from.node(depth)
-    if (node.type.name === 'backendParagraph') {
-      const pos = $from.before(depth)
-      editor.value
-        .chain()
-        .focus()
-        .setNodeSelection(pos)
-        .updateAttributes('backendParagraph', { size })
-        .run()
-      return
-    }
-    if (node.type.name === 'listItem') {
-      const pos = $from.before(depth)
-      editor.value.chain().focus().setNodeSelection(pos).updateAttributes('listItem', { size }).run()
-      return
-    }
-  }
-}
-
-function toggleBold() {
-  editor.value?.chain().focus().toggleBold().run()
-}
-
-function toggleUnderline() {
-  editor.value?.chain().focus().toggleUnderline().run()
-}
-
-function setTextColor(color: string) {
-  editor.value?.chain().focus().setColor(color).run()
-}
-
-function getBlocks(): NoteBlock[] {
-  if (!editor.value) return props.blocks
-  return tiptapJsonToNoteBlocksWithWarnings(editor.value.getJSON()).blocks
-}
-
-onBeforeUnmount(() => {
-  editor.value?.destroy()
-})
-
-function getBlockSize(): 'small' | 'medium' | 'large' {
-  return blockSizeForToolbar.value
-}
 
 defineExpose({
   editor,

@@ -1,18 +1,19 @@
 import type { TodoTask, TodoTaskStatus } from '@/stores/todoLists'
 
-function sortTasksByPosition(tasks: TodoTask[]): TodoTask[] {
-  const sorted: TodoTask[] = []
-  for (let i = 0; i < tasks.length; i++) {
-    sorted.push(tasks[i]) // TODO: toto je manualna kopia a vies to cele fixnut funkciou pod tym
+function compareTasksByPosition(a: TodoTask, b: TodoTask): number {
+  if (a.position !== b.position) {
+    return a.position - b.position
   }
-  sorted.sort((a, b) => a.position - b.position)
-  return sorted
+  const createdAtCompare = a.createdAt.localeCompare(b.createdAt)
+  if (createdAtCompare !== 0) {
+    return createdAtCompare
+  }
+  return a.id.localeCompare(b.id)
 }
-/**
- * function sortTasksByPosition(tasks: TodoTask[]): TodoTask[] {
- *   return [...tasks].sort((a, b) => a.position - b.position)
- * }
- */
+
+function sortTasksByPosition(tasks: TodoTask[]): TodoTask[] {
+  return [...tasks].sort(compareTasksByPosition)
+}
 
 function columnTasksForStatus(
   tasks: TodoTask[],
@@ -29,35 +30,15 @@ function columnTasksForStatus(
   return sortTasksByPosition(filtered)
 }
 
-function areGloballyAdjacent(
-  allTasks: TodoTask[],
-  afterId: string,
-  beforeId: string,
-): boolean {
-  const after = allTasks.find((item) => item.id === afterId)
-  const before = allTasks.find((item) => item.id === beforeId)
-  if (!after || !before) return false
-
-  const minPos = Math.min(after.position, before.position)
-  const maxPos = Math.max(after.position, before.position)
-
-  for (let i = 0; i < allTasks.length; i++) {
-    const item = allTasks[i]
-    if (item.id === afterId || item.id === beforeId) continue
-    if (item.position > minPos && item.position < maxPos) return false
+/** Backend accepts only one anchor unless both tasks are column-adjacent; prefer a single id. */
+function toSingleAnchorPayload(payload: {
+  afterId: string | null
+  beforeId: string | null
+}): { afterId: string | null; beforeId: string | null } {
+  if (payload.afterId && payload.beforeId) {
+    return { afterId: payload.afterId, beforeId: null }
   }
-  return true
-}
-
-function collapseNonAdjacentNeighbors(
-  allTasks: TodoTask[],
-  payload: { afterId: string | null; beforeId: string | null },
-): { afterId: string | null; beforeId: string | null } {
-  if (!payload.afterId || !payload.beforeId) return payload
-  if (areGloballyAdjacent(allTasks, payload.afterId, payload.beforeId)) {
-    return payload
-  }
-  return { afterId: payload.afterId, beforeId: null }
+  return payload
 }
 
 function resolveServerInsertIndex(
@@ -119,10 +100,11 @@ export function buildTaskPositionPayloadFromTasks(
     afterId: string | null
     beforeId: string | null
   }): { afterId: string | null; beforeId: string | null; status?: TodoTaskStatus } {
+    const anchored = toSingleAnchorPayload(payload)
     if (toStatus !== fromStatus) {
-      return { ...payload, status: toStatus }
+      return { ...anchored, status: toStatus }
     }
-    return payload
+    return anchored
   }
 
   if (columnTasks.length === 0) {
@@ -139,27 +121,76 @@ export function buildTaskPositionPayloadFromTasks(
   )
 
   if (insertIndex <= 0) {
-    return withStatus(
-      collapseNonAdjacentNeighbors(allTasks, {
-        afterId: null,
-        beforeId: columnTasks[0].id,
-      }),
-    )
+    return withStatus({
+      afterId: null,
+      beforeId: columnTasks[0].id,
+    })
   }
 
   if (insertIndex >= columnTasks.length) {
-    return withStatus(
-      collapseNonAdjacentNeighbors(allTasks, {
-        afterId: columnTasks[columnTasks.length - 1].id,
-        beforeId: null,
-      }),
-    )
+    return withStatus({
+      afterId: columnTasks[columnTasks.length - 1].id,
+      beforeId: null,
+    })
   }
 
-  return withStatus(
-    collapseNonAdjacentNeighbors(allTasks, {
-      afterId: columnTasks[insertIndex - 1].id,
-      beforeId: columnTasks[insertIndex].id,
-    }),
+  return withStatus({
+    afterId: columnTasks[insertIndex - 1].id,
+    beforeId: null,
+  })
+}
+
+export interface TaskPositionPayload {
+  afterId: string | null
+  beforeId: string | null
+  status?: TodoTaskStatus
+}
+
+function payloadSignature(payload: TaskPositionPayload): string {
+  return `${payload.afterId ?? ''}:${payload.beforeId ?? ''}:${payload.status ?? ''}`
+}
+
+export function buildTaskPositionFallbacks(
+  allTasks: TodoTask[],
+  visibleTasks: TodoTask[],
+  taskId: string,
+  fromStatus: TodoTaskStatus,
+  toStatus: TodoTaskStatus,
+  toIndex: number,
+): TaskPositionPayload[] {
+  const primary = buildTaskPositionPayloadFromTasks(
+    allTasks,
+    visibleTasks,
+    taskId,
+    fromStatus,
+    toStatus,
+    toIndex,
   )
+  const variants: TaskPositionPayload[] = [primary]
+  const status = primary.status
+  const columnTasks = columnTasksForStatus(allTasks, toStatus, taskId)
+  const insertIndex = resolveServerInsertIndex(
+    allTasks,
+    visibleTasks,
+    taskId,
+    fromStatus,
+    toStatus,
+    toIndex,
+  )
+
+  if (insertIndex > 0 && insertIndex < columnTasks.length) {
+    variants.push({ afterId: null, beforeId: columnTasks[insertIndex].id, status })
+  }
+
+  if (primary.afterId || primary.beforeId) {
+    variants.push({ afterId: null, beforeId: null, status })
+  }
+
+  const seen = new Set<string>()
+  return variants.filter((payload) => {
+    const key = payloadSignature(payload)
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
 }

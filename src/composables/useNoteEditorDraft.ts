@@ -1,4 +1,5 @@
 import { computed, onBeforeUnmount, ref, watch, type Ref } from 'vue'
+import { isRetriableApiError, toError, unwrapCaught } from '@/types/errors'
 import { useNotesStore } from '@/stores/notes'
 import type { NoteBlock, NoteDetail } from '@/types/notes'
 import {
@@ -11,15 +12,6 @@ import { validateNoteBlocks } from '@/utils/validateNoteBlocks'
 
 const SAVE_DEBOUNCE_MS = 600
 const SAVE_RETRY_MS = 2000
-
-function isRetriableError(error: unknown): boolean {
-  if (!error || typeof error !== 'object') return true
-  if ('response' in error) {
-    const status = (error as { response?: { status?: number } }).response?.status
-    if (status && status >= 400 && status < 500) return false
-  }
-  return true
-}
 
 export function useNoteEditorDraft(note: Ref<NoteDetail | null | undefined>) {
   const notesStore = useNotesStore()
@@ -112,7 +104,7 @@ export function useNoteEditorDraft(note: Ref<NoteDetail | null | undefined>) {
     }, SAVE_DEBOUNCE_MS)
   }
 
-  async function attemptSave(): Promise<{ ok: boolean; error?: unknown }> {
+  async function attemptSave(): Promise<{ ok: boolean; error?: Error }> {
     const noteId = note.value?.id
     if (!noteId || !isDirty.value) return { ok: true }
 
@@ -135,7 +127,8 @@ export function useNoteEditorDraft(note: Ref<NoteDetail | null | undefined>) {
       content.value = cloneBlocks(payloadContent)
       remoteConflict.value = false
       return { ok: true }
-    } catch (error) {
+    } catch (caught) {
+      const error = toError(unwrapCaught(caught))
       console.error('Failed to save note:', error)
       return { ok: false, error }
     }
@@ -149,7 +142,7 @@ export function useNoteEditorDraft(note: Ref<NoteDetail | null | undefined>) {
 
     const first = await attemptSave()
     if (first.ok) return true
-    if (!isRetriableError(first.error)) return false
+    if (!isRetriableApiError(first.error)) return false
 
     await new Promise((resolve) => setTimeout(resolve, SAVE_RETRY_MS))
     const second = await attemptSave()
