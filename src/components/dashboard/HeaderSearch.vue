@@ -17,6 +17,7 @@ const emit = defineEmits<{
   select: [item: WorkspaceSearchResult]
 }>()
 
+const inputRef = ref<HTMLInputElement | null>(null)
 const resultsContentRef = ref<HTMLElement | null>(null)
 const resultsHeight = ref(0)
 
@@ -81,6 +82,7 @@ function onInput(event: Event) {
 }
 
 function onSelect(item: WorkspaceSearchResult) {
+  inputRef.value?.blur()
   emit('select', item)
 }
 </script>
@@ -107,6 +109,7 @@ function onSelect(item: WorkspaceSearchResult) {
         <path d="m21 21-4.3-4.3" />
       </svg>
       <input
+        ref="inputRef"
         id="header-search"
         name="header-search"
         :value="modelValue"
