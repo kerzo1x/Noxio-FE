@@ -32,12 +32,12 @@ class BlockDragHandleView {
   private hoverOverlay: HTMLElement
   private ghost: HTMLElement
   private hoveredEl: HTMLElement | null = null
-  private hoveredRect: DOMRect | null = null
   private currentGap: DropGap | null = null
   private gaps: DropGap[] = []
   private dragRootRect: DOMRect | null = null
   private dragPointerId: number | null = null
   private rafPending = false
+  private hoverRafPending = false
   private source: DragSource | null = null
 
   constructor(view: EditorView) {
@@ -95,21 +95,49 @@ class BlockDragHandleView {
     if (this.source) return
     // never touch hover state while a mouse button is down — it would
     // interfere with native text selection inside the editor
-    if (e.buttons !== 0) return
+    if (e.buttons !== 0 || this.hoverRafPending) return
     if (!this.ensureAttached()) return
-    const target = e.target as HTMLElement | null
-    const block = (target?.closest?.('li, p[data-type="backend-paragraph"]') ??
-      null) as HTMLElement | null
-    if (!block || !this.view.dom.contains(block)) {
-      // keep the handle while the pointer is in the gutter next to the hovered block
-      if (this.hoveredRect && e.clientY >= this.hoveredRect.top && e.clientY <= this.hoveredRect.bottom) {
-        return
-      }
+    const x = e.clientX
+    const y = e.clientY
+    this.hoverRafPending = true
+    requestAnimationFrame(() => {
+      this.hoverRafPending = false
+      if (!this.source) this.updateHover(x, y)
+    })
+  }
+
+  // highlight the block nearest to the pointer, even when the pointer is in
+  // the gutters — no need to be exactly over the text
+  private updateHover(x: number, y: number) {
+    const contentRect = this.view.dom.getBoundingClientRect()
+    const left = Math.min(Math.max(x, contentRect.left + 2), contentRect.right - 2)
+    const top = Math.min(Math.max(y, contentRect.top + 2), contentRect.bottom - 2)
+    const coords = this.view.posAtCoords({ left, top })
+    if (!coords) {
       this.clearHover()
       return
     }
-    if (block === this.hoveredEl) return
-    this.setHover(block)
+    const $pos = this.view.state.doc.resolve(coords.pos)
+    let blockPos: number | null = null
+    for (let d = $pos.depth; d > 0; d--) {
+      if ($pos.node(d).type.name === 'listItem') {
+        blockPos = $pos.before(d)
+        break
+      }
+    }
+    if (blockPos === null && $pos.depth >= 1 && $pos.node(1).type.name === 'backendParagraph') {
+      blockPos = $pos.before(1)
+    }
+    if (blockPos === null) {
+      this.clearHover()
+      return
+    }
+    const el = this.view.nodeDOM(blockPos)
+    if (!(el instanceof HTMLElement)) {
+      this.clearHover()
+      return
+    }
+    if (el !== this.hoveredEl) this.setHover(el)
   }
 
   private onRootLeave = () => {
@@ -121,7 +149,6 @@ class BlockDragHandleView {
     this.hoveredEl = el
     const rootRect = this.root.getBoundingClientRect()
     const r = el.getBoundingClientRect()
-    this.hoveredRect = r
     const lineHeight = parseFloat(getComputedStyle(el).lineHeight) || 24
     this.handle.style.top = `${r.top - rootRect.top + Math.max(0, (lineHeight - 22) / 2)}px`
     // handle sits in the right gutter of the editor (pr-10 on the content)
@@ -136,7 +163,6 @@ class BlockDragHandleView {
 
   private clearHover() {
     this.hoveredEl = null
-    this.hoveredRect = null
     this.handle.classList.remove('visible')
     this.hoverOverlay.style.display = 'none'
   }
@@ -187,7 +213,10 @@ class BlockDragHandleView {
     info.el.classList.add('note-block-dragging')
     document.body.classList.add('note-block-grabbing')
     this.hoverOverlay.style.display = 'none'
-    this.ghost.textContent = info.node.textContent.trim() || 'Empty block'
+    // Notion-style ghost: a translucent clone of the block follows the cursor
+    this.ghost.innerHTML = ''
+    this.ghost.appendChild(info.el.cloneNode(true))
+    this.ghost.style.width = `${info.el.getBoundingClientRect().width}px`
     this.moveGhost(e.clientX, e.clientY)
     this.ghost.style.display = 'block'
   }

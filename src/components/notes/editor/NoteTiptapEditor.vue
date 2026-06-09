@@ -241,7 +241,7 @@ body.note-block-grabbing * {
   position: absolute;
   z-index: 10;
   display: none;
-  border-radius: 4px;
+  border-radius: 8px;
   background: rgba(255, 255, 255, 0.06);
   pointer-events: none;
 }
@@ -274,18 +274,13 @@ body.note-block-grabbing * {
   position: absolute;
   z-index: 40;
   display: none;
-  max-width: 280px;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 6px;
-  background: rgba(32, 32, 36, 0.95);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
-  padding: 4px 10px;
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.8);
+  opacity: 0.4;
+  color: rgba(255, 255, 255, 0.9);
   pointer-events: none;
+}
+
+.note-drag-ghost li {
+  list-style: none;
 }
 
 @keyframes note-block-drop-in {
