@@ -1,7 +1,6 @@
 node_modules
 .vscode
 dist/
-.cursor/
 .env
 .claude/
 discord-report.ps1

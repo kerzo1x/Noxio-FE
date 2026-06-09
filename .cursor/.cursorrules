@@ -1,0 +1,53 @@
+# Cursor Rules
+
+## Git
+- Never add "Co-authored-by: Cursor" or any AI attribution to git commits
+- Write clean, descriptive commit messages in imperative mood (e.g. "Add dashboard screen")
+- Stage only relevant files, never commit .env or secrets
+
+## Figma → Vue (UI from mockups)
+
+### Before writing markup
+- Call Figma MCP (`get_design_context` or `get_metadata`) for the **exact frame** the user linked (`node-id`), not the whole file.
+- Read the design **structure first**: outer padding, inner content width, gaps between sections, fixed field heights, border radius.
+- Distinguish **final screens** vs wireframes — only implement what the user marked as final.
+- Check `api-1.json` / OpenAPI before adding form fields (e.g. do not send `description` if the endpoint only accepts `name`).
+
+### Tailwind must actually apply (critical)
+- **Never** put Tailwind class strings only in `<script>` variables (e.g. `const fieldClass = 'bg-neutral-800 ...'`). The compiler will not generate CSS for them → inputs stay browser-default.
+- **Do** use one of:
+  - literal `class="..."` on elements in `<template>`, or
+  - scoped `<style>` with `@reference '@/assets/styles/main.css'` and `@apply ...` (project pattern, same as `field-input` / `BaseInput.vue`).
+- Reuse existing tokens when they match: `.field-input`, `btn-base`, CSS variables from `variables.css`.
+
+### Sizes & proportions (no “convenient” substitutes)
+- Never hardcode arbitrary pixels: no `w-[539px]`, `gap-[81px]`, `h-[52px]`.
+- **Do** map each Figma value to the **nearest standard Tailwind token** and prefer that token consistently:
+  - Example: content 539px + horizontal padding 72px each → card ≈ 683px → `max-w-2xl` + `px-18`, not `max-w-xl`.
+  - Gaps: 44px → `gap-11`, 19px → `gap-5`, 81px → `gap-20`, 72px → `px-18`, 52px field → `h-13`, 133px textarea → `h-33`.
+- “No hardcode” ≠ “pick any Tailwind class” — wrong token breaks layout as much as wrong pixels.
+- For **fixed heights** from Figma, use `h-*` / `min-h-*`, not only `py-*` (padding alone will not match frame height).
+- Mirror Figma **nested groups** in flex layout: separate `gap-*` for header→fields vs fields→button; do not collapse unrelated spacings into one parent gap.
+
+### Layout & components
+- Center modals with `fixed inset-0 flex items-center justify-center`; card uses `w-full max-w-* shrink-0 box-border`.
+- Use `flex`, `items-center`, `justify-between`, `gap-*`; avoid inline styles.
+- Do not import libraries (e.g. `motion`, UI kits) unless they already exist in `package.json`.
+- Reuse project components (`BaseInput`, `BaseButton`) when behavior matches; custom `@apply` blocks only when the mockup diverges.
+
+### Workflow per user request
+- User provides: Figma link with `node-id`, target `.vue` file, task (layout / API / both), final vs wireframe.
+- Implement **one screen or component** per iteration; confirm proportions against Figma screenshot before moving on.
+
+## General Code Style
+- Reuse existing components from the project before creating new ones
+- Follow the existing folder structure and naming conventions
+- Use TypeScript types, never use `any`
+- Keep components small and single-responsibility
+
+## API / Backend Integration
+- Read OpenAPI/Swagger docs before writing any fetch logic
+- Generate TypeScript types from the schema
+- Follow the existing pattern for API calls in the project (axios/fetch/react-query)
+- Never hardcode API URLs, use environment variables
+- Handle loading and error states for every request

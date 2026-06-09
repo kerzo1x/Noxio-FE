@@ -1,8 +1,86 @@
 import { Extension } from '@tiptap/core'
-import type { Node as PMNode } from '@tiptap/pm/model'
+import type { Node as PMNode, Schema } from '@tiptap/pm/model'
 import { Plugin, PluginKey, TextSelection } from '@tiptap/pm/state'
 import type { EditorView } from '@tiptap/pm/view'
-import { createListItemId } from '@/utils/noteContent'
+
+function copyParagraphNode(schema: Schema, source: PMNode): PMNode {
+  return schema.nodes.backendParagraph.create(source.attrs, source.content)
+}
+
+function copyListItemNode(schema: Schema, source: PMNode): PMNode {
+  return schema.nodes.listItem.create(source.attrs, source.content)
+}
+
+function findListContext(
+  doc: PMNode,
+  insertPos: number,
+): { list: PMNode; listDepth: number; wrapperStart: number; wrapperEnd: number; itemIndex: number } | null {
+  const $pos = doc.resolve(insertPos)
+  let listDepth: number | null = null
+  let wrapperDepth: number | null = null
+  for (let d = $pos.depth; d > 0; d--) {
+    const name = $pos.node(d).type.name
+    if (name === 'bulletList') listDepth = d
+    if (name === 'backendBulletedList') wrapperDepth = d
+  }
+  if (listDepth === null || wrapperDepth === null) return null
+
+  const list = $pos.node(listDepth)
+  let itemIndex = $pos.index(listDepth)
+  if (itemIndex > list.childCount) itemIndex = list.childCount
+
+  return {
+    list,
+    listDepth,
+    wrapperStart: $pos.before(wrapperDepth),
+    wrapperEnd: $pos.after(wrapperDepth),
+    itemIndex,
+  }
+}
+
+function isInsideBulletList(doc: PMNode, pos: number): boolean {
+  return findListContext(doc, pos) !== null
+}
+
+/** Splits a top-level bulleted list and inserts a paragraph at the drop position. */
+function buildListSplitWithParagraph(
+  doc: PMNode,
+  insertPos: number,
+  paragraph: PMNode,
+  schema: Schema,
+): { from: number; to: number; nodes: PMNode[] } | null {
+  const ctx = findListContext(doc, insertPos)
+  if (!ctx) return null
+
+  const { list, wrapperStart, wrapperEnd, itemIndex } = ctx
+  const itemsBefore: PMNode[] = []
+  const itemsAfter: PMNode[] = []
+  list.forEach((child, _offset, index) => {
+    if (index < itemIndex) itemsBefore.push(child)
+    else itemsAfter.push(child)
+  })
+
+  const { backendBulletedList, bulletList } = schema.nodes
+  const nodes: PMNode[] = []
+  if (itemsBefore.length) {
+    nodes.push(backendBulletedList.create(null, bulletList.create(list.attrs, itemsBefore)))
+  }
+  nodes.push(paragraph)
+  if (itemsAfter.length) {
+    nodes.push(backendBulletedList.create(null, bulletList.create(list.attrs, itemsAfter)))
+  }
+
+  return { from: wrapperStart, to: wrapperEnd, nodes }
+}
+
+function paragraphPosInSplit(from: number, nodes: PMNode[]): number {
+  let pos = from
+  for (const node of nodes) {
+    if (node.type.name === 'backendParagraph') return pos
+    pos += node.nodeSize
+  }
+  return from
+}
 
 interface DragSource {
   node: PMNode
@@ -325,45 +403,64 @@ class BlockDragHandleView {
 
     const { state } = this.view
     const schema = state.schema
-    const sizeAttr = (source.node.attrs.size as string) || (source.isListItem ? 'small' : 'medium')
-
-    let insertNode: PMNode
-    if (gap.inList && source.isListItem) {
-      insertNode = source.node
-    } else if (gap.inList) {
-      insertNode = schema.nodes.listItem.create(
-        { itemId: createListItemId(), size: sizeAttr === 'large' ? 'medium' : sizeAttr },
-        schema.nodes.paragraph.create(null, source.node.content),
-      )
-    } else if (source.isListItem) {
-      // a bullet dropped between paragraphs stays a bullet (Notion-style):
-      // it becomes its own standalone single-item list
-      insertNode = schema.nodes.backendBulletedList.create(
-        null,
-        schema.nodes.bulletList.create(null, source.node),
-      )
-    } else {
-      insertNode = source.node
-    }
 
     const tr = state.tr
+    let finalPos: number
     try {
-      // insert first so the doc never becomes empty when the source is its only block
-      tr.insert(gap.insertPos, insertNode)
-      const assoc = gap.insertPos <= source.deleteFrom ? 1 : -1
-      const delFrom = tr.mapping.map(source.deleteFrom, assoc)
-      const delTo = tr.mapping.map(source.deleteTo, assoc)
-      tr.delete(delFrom, delTo)
+      if (!source.isListItem) {
+        const paragraph = copyParagraphNode(schema, source.node)
+        const listDrop = gap.inList && isInsideBulletList(state.doc, gap.insertPos)
+
+        if (listDrop) {
+          const split = buildListSplitWithParagraph(state.doc, gap.insertPos, paragraph, schema)
+          if (!split) throw new Error('Could not resolve list drop position')
+          tr.replaceWith(split.from, split.to, split.nodes)
+          finalPos = paragraphPosInSplit(split.from, split.nodes)
+          const delFrom = tr.mapping.map(source.deleteFrom, -1)
+          const delTo = tr.mapping.map(source.deleteTo, -1)
+          tr.delete(delFrom, delTo)
+          if (source.deleteFrom < finalPos) {
+            finalPos -= source.deleteTo - source.deleteFrom
+          }
+        } else {
+          tr.insert(gap.insertPos, paragraph)
+          finalPos =
+            gap.insertPos > source.deleteFrom
+              ? gap.insertPos - (source.deleteTo - source.deleteFrom)
+              : gap.insertPos
+          const assoc = gap.insertPos <= source.deleteFrom ? 1 : -1
+          const delFrom = tr.mapping.map(source.deleteFrom, assoc)
+          const delTo = tr.mapping.map(source.deleteTo, assoc)
+          tr.delete(delFrom, delTo)
+        }
+      } else {
+        const listItem = copyListItemNode(schema, source.node)
+        if (!gap.inList) {
+          // bullet between top-level blocks: stays a bullet as its own list
+          tr.insert(
+            gap.insertPos,
+            schema.nodes.backendBulletedList.create(
+              null,
+              schema.nodes.bulletList.create(null, listItem),
+            ),
+          )
+        } else {
+          tr.insert(gap.insertPos, listItem)
+        }
+        finalPos =
+          gap.insertPos > source.deleteFrom
+            ? gap.insertPos - (source.deleteTo - source.deleteFrom)
+            : gap.insertPos
+        const assoc = gap.insertPos <= source.deleteFrom ? 1 : -1
+        const delFrom = tr.mapping.map(source.deleteFrom, assoc)
+        const delTo = tr.mapping.map(source.deleteTo, assoc)
+        tr.delete(delFrom, delTo)
+      }
     } catch (error) {
       console.error('Block drop failed:', error)
       this.endDrag()
       return
     }
-
-    const finalPos =
-      gap.insertPos > source.deleteFrom
-        ? gap.insertPos - (source.deleteTo - source.deleteFrom)
-        : gap.insertPos
     tr.setSelection(TextSelection.near(tr.doc.resolve(Math.min(finalPos + 1, tr.doc.content.size))))
     this.view.dispatch(tr)
 
