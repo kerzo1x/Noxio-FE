@@ -166,64 +166,111 @@ const BulletListInputRule = Extension.create({
   },
 })
 
-// Enter on an empty list item exits the list (Notion-style): the item is
-// removed and replaced with a top-level paragraph, splitting the list if needed.
+interface TopLevelListItemContext {
+  item: PMNode
+  itemDepth: number
+  wrapper: PMNode
+  list: PMNode
+  itemIndex: number
+  wrapperStart: number
+  wrapperEnd: number
+}
+
+function getTopLevelListItemContext(
+  state: import('@tiptap/pm/state').EditorState,
+): TopLevelListItemContext | null {
+  const { $from, empty } = state.selection
+  if (!empty) return null
+  let itemDepth: number | null = null
+  for (let d = $from.depth; d > 0; d--) {
+    if ($from.node(d).type.name === 'listItem') {
+      itemDepth = d
+      break
+    }
+  }
+  // only handle items of a top-level list (doc > wrapper > bulletList > listItem)
+  if (itemDepth !== 3) return null
+  const wrapper = $from.node(1)
+  if (wrapper.type.name !== 'backendBulletedList') return null
+  return {
+    item: $from.node(3),
+    itemDepth,
+    wrapper,
+    list: $from.node(2),
+    itemIndex: $from.index(2),
+    wrapperStart: $from.before(1),
+    wrapperEnd: $from.after(1),
+  }
+}
+
+// Turns the current list item into top-level paragraph(s), keeping its content
+// and splitting the list in two when the item is in the middle.
+function liftListItemToParagraph(
+  editor: import('@tiptap/core').Editor,
+  ctx: TopLevelListItemContext,
+): boolean {
+  const { state } = editor
+  const { item, wrapper, list, itemIndex, wrapperStart, wrapperEnd } = ctx
+  const { backendParagraph, backendBulletedList, bulletList } = state.schema.nodes
+
+  const itemsBefore: PMNode[] = []
+  const itemsAfter: PMNode[] = []
+  list.forEach((child, _offset, index) => {
+    if (index < itemIndex) itemsBefore.push(child)
+    else if (index > itemIndex) itemsAfter.push(child)
+  })
+
+  const size = item.attrs.size || 'medium'
+  const paragraphs: PMNode[] = []
+  item.forEach((child) => {
+    if (child.isTextblock) {
+      paragraphs.push(backendParagraph.create({ size }, child.content))
+    }
+  })
+  if (!paragraphs.length) {
+    paragraphs.push(backendParagraph.create({ size }))
+  }
+
+  const nodes: PMNode[] = []
+  if (itemsBefore.length) {
+    nodes.push(backendBulletedList.create(wrapper.attrs, bulletList.create(list.attrs, itemsBefore)))
+  }
+  nodes.push(...paragraphs)
+  if (itemsAfter.length) {
+    nodes.push(backendBulletedList.create(wrapper.attrs, bulletList.create(list.attrs, itemsAfter)))
+  }
+
+  return editor.commands.command(({ tr, dispatch }) => {
+    if (dispatch) {
+      tr.replaceWith(wrapperStart, wrapperEnd, nodes)
+      const paraPos = wrapperStart + (itemsBefore.length ? nodes[0].nodeSize : 0)
+      tr.setSelection(TextSelection.create(tr.doc, paraPos + 1))
+      dispatch(tr)
+    }
+    return true
+  })
+}
+
+// Notion-style list exits: Enter on an empty item leaves the list; Backspace
+// at the start of an item converts it to a paragraph instead of merging it
+// into the previous bullet (merged items lose content on save).
 const ListExitOnEmptyEnter = Extension.create({
   name: 'listExitOnEmptyEnter',
   priority: 1000,
   addKeyboardShortcuts() {
     return {
       Enter: ({ editor }) => {
-        const { state } = editor
-        const { $from, empty } = state.selection
-        if (!empty) return false
-
-        let itemDepth: number | null = null
-        for (let d = $from.depth; d > 0; d--) {
-          if ($from.node(d).type.name === 'listItem') {
-            itemDepth = d
-            break
-          }
-        }
-        if (itemDepth === null) return false
-
-        const item = $from.node(itemDepth)
-        if (item.textContent.length > 0) return false
-
-        const wrapper = $from.node(1)
-        if (wrapper.type.name !== 'backendBulletedList') return false
-
-        const list = $from.node(2)
-        const itemIndex = $from.index(2)
-        const wrapperStart = $from.before(1)
-        const wrapperEnd = $from.after(1)
-        const { backendParagraph, backendBulletedList, bulletList } = state.schema.nodes
-
-        const itemsBefore: PMNode[] = []
-        const itemsAfter: PMNode[] = []
-        list.forEach((child, _offset, index) => {
-          if (index < itemIndex) itemsBefore.push(child)
-          else if (index > itemIndex) itemsAfter.push(child)
-        })
-
-        const nodes: PMNode[] = []
-        if (itemsBefore.length) {
-          nodes.push(backendBulletedList.create(wrapper.attrs, bulletList.create(list.attrs, itemsBefore)))
-        }
-        nodes.push(backendParagraph.create({ size: item.attrs.size || 'medium' }))
-        if (itemsAfter.length) {
-          nodes.push(backendBulletedList.create(wrapper.attrs, bulletList.create(list.attrs, itemsAfter)))
-        }
-
-        return editor.commands.command(({ tr, dispatch }) => {
-          if (dispatch) {
-            tr.replaceWith(wrapperStart, wrapperEnd, nodes)
-            const paraPos = wrapperStart + (itemsBefore.length ? nodes[0].nodeSize : 0)
-            tr.setSelection(TextSelection.create(tr.doc, paraPos + 1))
-            dispatch(tr)
-          }
-          return true
-        })
+        const ctx = getTopLevelListItemContext(editor.state)
+        if (!ctx || ctx.item.textContent.length > 0) return false
+        return liftListItemToParagraph(editor, ctx)
+      },
+      Backspace: ({ editor }) => {
+        const ctx = getTopLevelListItemContext(editor.state)
+        if (!ctx) return false
+        const { $from } = editor.state.selection
+        // only when the caret is at the very start of the item's first block
+        if ($from.parentOffset !== 0 || $from.index(ctx.itemDepth) !== 0) return false
+        return liftListItemToParagraph(editor, ctx)
       },
     }
   },
