@@ -231,9 +231,13 @@ defineExpose({
   cursor: grabbing;
 }
 
-.note-tiptap-editor .note-block-hover {
-  background: rgba(255, 255, 255, 0.06);
+.note-block-hover-overlay {
+  position: absolute;
+  z-index: 10;
+  display: none;
   border-radius: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  pointer-events: none;
 }
 
 .note-tiptap-editor .note-block-dragging {

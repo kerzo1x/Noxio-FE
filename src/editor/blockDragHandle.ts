@@ -26,9 +26,10 @@ const HANDLE_DOTS_SVG =
 
 class BlockDragHandleView {
   private view: EditorView
-  private root: HTMLElement
+  private root: HTMLElement | null = null
   private handle: HTMLElement
   private indicator: HTMLElement
+  private hoverOverlay: HTMLElement
   private hoveredEl: HTMLElement | null = null
   private currentGap: DropGap | null = null
   private gaps: DropGap[] = []
@@ -36,9 +37,6 @@ class BlockDragHandleView {
 
   constructor(view: EditorView) {
     this.view = view
-    this.root =
-      (view.dom.closest('.note-tiptap-root') as HTMLElement | null) ??
-      (view.dom.parentElement as HTMLElement)
 
     this.handle = document.createElement('div')
     this.handle.className = 'note-drag-handle'
@@ -48,27 +46,47 @@ class BlockDragHandleView {
     this.indicator = document.createElement('div')
     this.indicator.className = 'note-drop-indicator'
 
-    this.root.appendChild(this.handle)
-    this.root.appendChild(this.indicator)
+    this.hoverOverlay = document.createElement('div')
+    this.hoverOverlay.className = 'note-block-hover-overlay'
 
     this.view.dom.addEventListener('mousemove', this.onMouseMove)
-    this.root.addEventListener('mouseleave', this.onRootLeave)
     this.handle.addEventListener('dragstart', this.onHandleDragStart)
     this.handle.addEventListener('dragend', this.onHandleDragEnd)
   }
 
   destroy() {
     this.view.dom.removeEventListener('mousemove', this.onMouseMove)
-    this.root.removeEventListener('mouseleave', this.onRootLeave)
+    this.root?.removeEventListener('mouseleave', this.onRootLeave)
     this.handle.removeEventListener('dragstart', this.onHandleDragStart)
     this.handle.removeEventListener('dragend', this.onHandleDragEnd)
     this.handle.remove()
     this.indicator.remove()
-    this.clearHover()
+    this.hoverOverlay.remove()
+  }
+
+  // The editor DOM is attached to the page after the plugin view is created,
+  // so the overlay elements have to be (re)mounted lazily.
+  private ensureAttached(): boolean {
+    if (!this.view.dom.isConnected) return false
+    const root = this.view.dom.closest('.note-tiptap-root') as HTMLElement | null
+    if (!root) return false
+    if (this.root !== root) {
+      this.root?.removeEventListener('mouseleave', this.onRootLeave)
+      this.root = root
+      root.appendChild(this.hoverOverlay)
+      root.appendChild(this.handle)
+      root.appendChild(this.indicator)
+      root.addEventListener('mouseleave', this.onRootLeave)
+    }
+    return true
   }
 
   private onMouseMove = (e: MouseEvent) => {
     if (this.source) return
+    // never touch hover state while a mouse button is down — it would
+    // interfere with native text selection inside the editor
+    if (e.buttons !== 0) return
+    if (!this.ensureAttached()) return
     const target = e.target as HTMLElement | null
     const block = (target?.closest?.('li, p[data-type="backend-paragraph"]') ??
       null) as HTMLElement | null
@@ -90,20 +108,24 @@ class BlockDragHandleView {
   }
 
   private setHover(el: HTMLElement) {
-    this.clearHover()
+    if (!this.root) return
     this.hoveredEl = el
-    el.classList.add('note-block-hover')
     const rootRect = this.root.getBoundingClientRect()
     const r = el.getBoundingClientRect()
     this.handle.style.top = `${r.top - rootRect.top + 4}px`
     this.handle.style.left = `${r.left - rootRect.left - 26}px`
     this.handle.classList.add('visible')
+    this.hoverOverlay.style.top = `${r.top - rootRect.top - 2}px`
+    this.hoverOverlay.style.left = `${r.left - rootRect.left - 4}px`
+    this.hoverOverlay.style.width = `${r.width + 8}px`
+    this.hoverOverlay.style.height = `${r.height + 4}px`
+    this.hoverOverlay.style.display = 'block'
   }
 
   private clearHover() {
-    this.hoveredEl?.classList.remove('note-block-hover')
     this.hoveredEl = null
     this.handle.classList.remove('visible')
+    this.hoverOverlay.style.display = 'none'
   }
 
   private resolveBlock(el: HTMLElement): DragSource | null {
@@ -157,6 +179,7 @@ class BlockDragHandleView {
     // defer so the browser captures the drag image before the block turns transparent
     requestAnimationFrame(() => el.classList.add('note-block-dragging'))
     this.handle.classList.remove('visible')
+    this.hoverOverlay.style.display = 'none'
   }
 
   private onHandleDragEnd = () => {
@@ -164,6 +187,7 @@ class BlockDragHandleView {
   }
 
   private computeGaps(): DropGap[] {
+    if (!this.root) return []
     const { doc } = this.view.state
     const rootRect = this.root.getBoundingClientRect()
     const contentRect = this.view.dom.getBoundingClientRect()
@@ -206,7 +230,7 @@ class BlockDragHandleView {
   }
 
   onDragOver(e: DragEvent): boolean {
-    if (!this.source) return false
+    if (!this.source || !this.root) return false
     e.preventDefault()
     if (e.dataTransfer) e.dataTransfer.dropEffect = 'move'
     const rootRect = this.root.getBoundingClientRect()
