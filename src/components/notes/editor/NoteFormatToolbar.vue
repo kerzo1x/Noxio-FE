@@ -4,11 +4,27 @@ import type { NoteBlockSize } from '@/types/notes'
 
 defineProps<{
   size: NoteBlockSize
+  boldActive?: boolean
+  underlineActive?: boolean
 }>()
 
 const emit = defineEmits<{
   'update:size': [NoteBlockSize]
+  toggleBold: []
+  toggleUnderline: []
+  setColor: [string]
 }>()
+
+const COLOR_PRESETS = [
+  '#ffffff',
+  '#ef4444',
+  '#f97316',
+  '#eab308',
+  '#22c55e',
+  '#3b82f6',
+  '#a855f7',
+  '#71717a',
+] as const
 
 const sizeOptions: { value: NoteBlockSize; label: string }[] = [
   { value: 'small', label: 'small' },
@@ -58,9 +74,9 @@ onUnmounted(() => {
 <template>
   <div
     ref="rootRef"
-    class="flex h-[46px] w-full max-w-[22.0625rem] items-center justify-center rounded-[10px] bg-[#fafafa] px-8"
+    class="flex h-[46px] items-center gap-3 rounded-[10px] bg-[#fafafa] px-4"
     role="toolbar"
-    aria-label="Block size"
+    aria-label="Text formatting"
   >
     <div class="relative shrink-0">
       <button
@@ -99,6 +115,59 @@ onUnmounted(() => {
           {{ option.label }}
         </button>
       </div>
+    </div>
+
+    <div
+      class="h-6 w-px shrink-0 bg-black/10"
+      aria-hidden="true"
+    />
+
+    <button
+      type="button"
+      class="flex size-8 shrink-0 items-center justify-center rounded-md text-base font-bold text-black transition-colors hover:bg-black/5"
+      :class="boldActive ? 'bg-black/10' : ''"
+      title="Bold"
+      :aria-pressed="boldActive"
+      @mousedown.prevent
+      @click="emit('toggleBold')"
+    >
+      B
+    </button>
+    <button
+      type="button"
+      class="flex size-8 shrink-0 items-center justify-center rounded-md text-base font-medium text-black underline transition-colors hover:bg-black/5"
+      :class="underlineActive ? 'bg-black/10' : ''"
+      title="Underline"
+      :aria-pressed="underlineActive"
+      @mousedown.prevent
+      @click="emit('toggleUnderline')"
+    >
+      U
+    </button>
+
+    <div
+      class="h-6 w-px shrink-0 bg-black/10"
+      aria-hidden="true"
+    />
+
+    <div class="flex shrink-0 items-center gap-1.5">
+      <button
+        v-for="color in COLOR_PRESETS"
+        :key="color"
+        type="button"
+        class="size-5 rounded-full border border-black/15 transition-transform hover:scale-110"
+        :style="{ backgroundColor: color }"
+        :title="color"
+        @mousedown.prevent
+        @click="emit('setColor', color)"
+      />
+      <input
+        type="color"
+        class="size-5 cursor-pointer rounded border-0 bg-transparent p-0"
+        title="Custom color"
+        @mousedown.prevent
+        @input="emit('setColor', ($event.target as HTMLInputElement).value)"
+      >
     </div>
   </div>
 </template>

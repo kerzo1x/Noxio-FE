@@ -1,4 +1,6 @@
 import { Extension, InputRule, Node, mergeAttributes } from '@tiptap/core'
+import type { Node as PMNode } from '@tiptap/pm/model'
+import { TextSelection } from '@tiptap/pm/state'
 import Bold from '@tiptap/extension-bold'
 import BulletList from '@tiptap/extension-bullet-list'
 import Color from '@tiptap/extension-color'
@@ -12,6 +14,7 @@ import Underline from '@tiptap/extension-underline'
 import { blockSizeClass, createListItemId } from '@/utils/noteContent'
 import type { NoteBlockSize } from '@/types/notes'
 import { multiBlockSelectExtension } from '@/editor/multiBlockSelect'
+import { blockDragHandleExtension } from '@/editor/blockDragHandle'
 
 export const MAX_TOP_LEVEL_BLOCKS = 500
 
@@ -155,6 +158,69 @@ const BulletListInputRule = Extension.create({
   },
 })
 
+// Enter on an empty list item exits the list (Notion-style): the item is
+// removed and replaced with a top-level paragraph, splitting the list if needed.
+const ListExitOnEmptyEnter = Extension.create({
+  name: 'listExitOnEmptyEnter',
+  priority: 1000,
+  addKeyboardShortcuts() {
+    return {
+      Enter: ({ editor }) => {
+        const { state } = editor
+        const { $from, empty } = state.selection
+        if (!empty) return false
+
+        let itemDepth: number | null = null
+        for (let d = $from.depth; d > 0; d--) {
+          if ($from.node(d).type.name === 'listItem') {
+            itemDepth = d
+            break
+          }
+        }
+        if (itemDepth === null) return false
+
+        const item = $from.node(itemDepth)
+        if (item.textContent.length > 0) return false
+
+        const wrapper = $from.node(1)
+        if (wrapper.type.name !== 'backendBulletedList') return false
+
+        const list = $from.node(2)
+        const itemIndex = $from.index(2)
+        const wrapperStart = $from.before(1)
+        const wrapperEnd = $from.after(1)
+        const { backendParagraph, backendBulletedList, bulletList } = state.schema.nodes
+
+        const itemsBefore: PMNode[] = []
+        const itemsAfter: PMNode[] = []
+        list.forEach((child, _offset, index) => {
+          if (index < itemIndex) itemsBefore.push(child)
+          else if (index > itemIndex) itemsAfter.push(child)
+        })
+
+        const nodes: PMNode[] = []
+        if (itemsBefore.length) {
+          nodes.push(backendBulletedList.create(wrapper.attrs, bulletList.create(list.attrs, itemsBefore)))
+        }
+        nodes.push(backendParagraph.create({ size: item.attrs.size || 'medium' }))
+        if (itemsAfter.length) {
+          nodes.push(backendBulletedList.create(wrapper.attrs, bulletList.create(list.attrs, itemsAfter)))
+        }
+
+        return editor.commands.command(({ tr, dispatch }) => {
+          if (dispatch) {
+            tr.replaceWith(wrapperStart, wrapperEnd, nodes)
+            const paraPos = wrapperStart + (itemsBefore.length ? nodes[0].nodeSize : 0)
+            tr.setSelection(TextSelection.create(tr.doc, paraPos + 1))
+            dispatch(tr)
+          }
+          return true
+        })
+      },
+    }
+  },
+})
+
 export function createNoteEditorExtensions() {
   return [
     BackendDocument,
@@ -173,6 +239,8 @@ export function createNoteEditorExtensions() {
     Gapcursor,
     History,
     multiBlockSelectExtension,
+    blockDragHandleExtension,
+    ListExitOnEmptyEnter,
     BulletListInputRule,
   ]
 }

@@ -35,12 +35,27 @@ const currentBlockSize = computed<NoteBlockSize>(() => {
   return editorRef.value?.getBlockSize() ?? 'medium'
 })
 
+const boldActive = computed(() => editorRef.value?.boldActive ?? false)
+const underlineActive = computed(() => editorRef.value?.underlineActive ?? false)
+
 function onBlocksUpdate(blocks: typeof content.value, warnings: string[]) {
   setContent(blocks, warnings)
 }
 
 function onToolbarSize(size: NoteBlockSize) {
   editorRef.value?.applyBlockSize(size)
+}
+
+function onToolbarBold() {
+  editorRef.value?.toggleBold()
+}
+
+function onToolbarUnderline() {
+  editorRef.value?.toggleUnderline()
+}
+
+function onToolbarColor(color: string) {
+  editorRef.value?.setTextColor(color)
 }
 
 function onAcceptRemote() {
@@ -151,7 +166,12 @@ defineExpose({ flushSave })
       >
         <NoteFormatToolbar
           :size="currentBlockSize"
+          :bold-active="boldActive"
+          :underline-active="underlineActive"
           @update:size="onToolbarSize"
+          @toggle-bold="onToolbarBold"
+          @toggle-underline="onToolbarUnderline"
+          @set-color="onToolbarColor"
         />
       </div>
     </div>

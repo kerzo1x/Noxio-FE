@@ -1,5 +1,5 @@
 import { Extension } from '@tiptap/core'
-import { NodeSelection, Plugin, PluginKey } from '@tiptap/pm/state'
+import { Plugin, PluginKey } from '@tiptap/pm/state'
 
 const multiBlockSelectKey = new PluginKey<{ positions: number[] }>('multiBlockSelect')
 
@@ -36,27 +36,20 @@ export const multiBlockSelectExtension = Extension.create({
         },
         props: {
           handleClick(view, pos, event) {
+            if (!event.shiftKey) return false
+
             const blockPos = findTopLevelBlockPos(view.state.doc, pos)
             if (blockPos === null) return false
 
             const pluginState = multiBlockSelectKey.getState(view.state)
-
-            if (event.shiftKey) {
-              const current = [...(pluginState?.positions ?? [])]
-              const index = current.indexOf(blockPos)
-              if (index >= 0) {
-                current.splice(index, 1)
-              } else {
-                current.push(blockPos)
-              }
-              const tr = view.state.tr.setMeta(multiBlockSelectKey, { positions: current })
-              view.dispatch(tr)
-              return true
+            const current = [...(pluginState?.positions ?? [])]
+            const index = current.indexOf(blockPos)
+            if (index >= 0) {
+              current.splice(index, 1)
+            } else {
+              current.push(blockPos)
             }
-
-            const tr = view.state.tr
-              .setSelection(NodeSelection.create(view.state.doc, blockPos))
-              .setMeta(multiBlockSelectKey, { positions: [] })
+            const tr = view.state.tr.setMeta(multiBlockSelectKey, { positions: current })
             view.dispatch(tr)
             return true
           },

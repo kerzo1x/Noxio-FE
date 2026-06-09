@@ -1,23 +1,11 @@
 <script setup lang="ts">
 import type { Editor } from '@tiptap/core'
 import { EditorContent, useEditor } from '@tiptap/vue-3'
-import { BubbleMenu } from '@tiptap/vue-3/menus'
 import { onBeforeUnmount, ref, watch } from 'vue'
 import { createNoteEditorExtensions } from '@/editor/noteEditorSchema'
 import type { NoteBlock } from '@/types/notes'
 import { noteBlocksToTiptap, tiptapJsonToNoteBlocksWithWarnings } from '@/utils/tiptapNoteAdapter'
 import { canInsertTopLevelBlock } from '@/utils/validateNoteBlocks'
-
-const COLOR_PRESETS = [
-  '#ffffff',
-  '#ef4444',
-  '#f97316',
-  '#eab308',
-  '#22c55e',
-  '#3b82f6',
-  '#a855f7',
-  '#71717a',
-] as const
 
 const props = defineProps<{
   blocks: NoteBlock[]
@@ -32,6 +20,13 @@ const emit = defineEmits<{
 
 const limitToastShown = ref(false)
 const blockSizeForToolbar = ref<'small' | 'medium' | 'large'>('medium')
+const boldActive = ref(false)
+const underlineActive = ref(false)
+
+function updateMarkState(ed: Editor) {
+  boldActive.value = ed.isActive('bold')
+  underlineActive.value = ed.isActive('underline')
+}
 
 function updateBlockSizeFromSelection(ed: Editor) {
   const { $from } = ed.state.selection
@@ -51,7 +46,7 @@ const editor = useEditor({
   editorProps: {
     attributes: {
       class:
-        'note-tiptap-editor min-h-[200px] flex-1 outline-none text-white/75 [&_.note-editor-block-selected]:rounded [&_.note-editor-block-selected]:bg-white/5',
+        'note-tiptap-editor min-h-[200px] flex-1 pl-8 outline-none text-white/75 [&_.note-editor-block-selected]:rounded [&_.note-editor-block-selected]:bg-white/5',
     },
     handleKeyDown(view, event) {
       if (event.key !== 'Enter' || event.shiftKey) return false
@@ -75,6 +70,9 @@ const editor = useEditor({
   },
   onSelectionUpdate: ({ editor: ed }) => {
     updateBlockSizeFromSelection(ed)
+  },
+  onTransaction: ({ editor: ed }) => {
+    updateMarkState(ed)
   },
   onCreate: ({ editor: ed }) => {
     updateBlockSizeFromSelection(ed)
@@ -165,6 +163,8 @@ function getBlockSize(): 'small' | 'medium' | 'large' {
 
 defineExpose({
   editor,
+  boldActive,
+  underlineActive,
   getBlockSize,
   applyBlockSize,
   toggleBold,
@@ -182,49 +182,6 @@ defineExpose({
       :editor="editor"
       class="flex flex-1 flex-col"
     />
-
-    <BubbleMenu
-      v-if="editor"
-      :editor="editor"
-      :tippy-options="{ duration: 100 }"
-      class="flex items-center gap-2 rounded-lg border border-black/10 bg-[#fafafa] px-3 py-2 shadow-lg"
-    >
-      <button
-        type="button"
-        class="text-sm font-bold text-black hover:opacity-70"
-        @mousedown.prevent
-        @click="toggleBold"
-      >
-        B
-      </button>
-      <button
-        type="button"
-        class="text-sm text-black underline hover:opacity-70"
-        @mousedown.prevent
-        @click="toggleUnderline"
-      >
-        U
-      </button>
-      <div class="flex items-center gap-1 border-l border-black/10 pl-2">
-        <button
-          v-for="color in COLOR_PRESETS"
-          :key="color"
-          type="button"
-          class="size-5 rounded-full border border-black/10"
-          :style="{ backgroundColor: color }"
-          :title="color"
-          @mousedown.prevent
-          @click="setTextColor(color)"
-        />
-        <input
-          type="color"
-          class="size-5 cursor-pointer rounded border-0 bg-transparent p-0"
-          title="Custom color"
-          @mousedown.prevent
-          @input="setTextColor(($event.target as HTMLInputElement).value)"
-        >
-      </div>
-    </BubbleMenu>
   </div>
 </template>
 
@@ -245,5 +202,72 @@ defineExpose({
 
 .note-tiptap-editor li {
   margin: 0.125rem 0;
+}
+
+.note-drag-handle {
+  position: absolute;
+  z-index: 20;
+  display: none;
+  width: 20px;
+  height: 22px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  color: rgba(255, 255, 255, 0.35);
+  cursor: grab;
+  user-select: none;
+}
+
+.note-drag-handle.visible {
+  display: flex;
+}
+
+.note-drag-handle:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.note-drag-handle:active {
+  cursor: grabbing;
+}
+
+.note-tiptap-editor .note-block-hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 4px;
+}
+
+.note-tiptap-editor .note-block-dragging {
+  opacity: 0.3;
+  transition: opacity 0.15s ease;
+}
+
+.note-drop-indicator {
+  position: absolute;
+  z-index: 30;
+  display: none;
+  height: 2px;
+  border-radius: 1px;
+  background: #3b82f6;
+  box-shadow: 0 0 4px rgba(59, 130, 246, 0.6);
+  pointer-events: none;
+  transition:
+    top 0.12s ease,
+    left 0.12s ease,
+    width 0.12s ease;
+}
+
+.note-tiptap-editor .note-block-drop-in {
+  animation: note-block-drop-in 0.3s ease;
+}
+
+@keyframes note-block-drop-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 </style>
