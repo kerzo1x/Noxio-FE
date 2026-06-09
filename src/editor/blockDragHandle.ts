@@ -336,8 +336,12 @@ class BlockDragHandleView {
         schema.nodes.paragraph.create(null, source.node.content),
       )
     } else if (source.isListItem) {
-      const para = source.node.firstChild
-      insertNode = schema.nodes.backendParagraph.create({ size: sizeAttr }, para ? para.content : null)
+      // a bullet dropped between paragraphs stays a bullet (Notion-style):
+      // it becomes its own standalone single-item list
+      insertNode = schema.nodes.backendBulletedList.create(
+        null,
+        schema.nodes.bulletList.create(null, source.node),
+      )
     } else {
       insertNode = source.node
     }
