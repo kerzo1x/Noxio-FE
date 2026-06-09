@@ -208,14 +208,18 @@ defineExpose({
   position: absolute;
   z-index: 20;
   display: none;
-  width: 20px;
-  height: 22px;
+  width: 26px;
+  height: 26px;
   align-items: center;
   justify-content: center;
-  border-radius: 4px;
+  border-radius: 6px;
   color: rgba(255, 255, 255, 0.35);
   cursor: grab;
   user-select: none;
+  touch-action: none;
+  transition:
+    top 0.1s ease,
+    left 0.1s ease;
 }
 
 .note-drag-handle.visible {

@@ -104,6 +104,9 @@ class BlockDragHandleView {
   // the gutters — no need to be exactly over the text
   private updateHover(x: number, y: number) {
     const contentRect = this.view.dom.getBoundingClientRect()
+    // sticky zone: while the pointer travels through the right gutter towards
+    // the handle, keep the current block so the dots stay catchable
+    if (this.hoveredEl && x >= contentRect.right - 52) return
     const left = Math.min(Math.max(x, contentRect.left + 2), contentRect.right - 2)
     const top = Math.min(Math.max(y, contentRect.top + 2), contentRect.bottom - 2)
     const coords = this.view.posAtCoords({ left, top })
@@ -144,7 +147,7 @@ class BlockDragHandleView {
     const rootRect = this.root.getBoundingClientRect()
     const r = el.getBoundingClientRect()
     const lineHeight = parseFloat(getComputedStyle(el).lineHeight) || 24
-    this.handle.style.top = `${r.top - rootRect.top + Math.max(0, (lineHeight - 22) / 2)}px`
+    this.handle.style.top = `${r.top - rootRect.top + Math.max(0, (lineHeight - 26) / 2)}px`
     // handle sits in the right gutter of the editor (pr-10 on the content)
     this.handle.style.left = `${r.right - rootRect.left + 8}px`
     this.handle.classList.add('visible')
