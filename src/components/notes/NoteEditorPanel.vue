@@ -162,7 +162,7 @@ defineExpose({ flushSave })
 
       <div
         v-if="showToolbar"
-        class="flex shrink-0 justify-center pb-6 pt-2"
+        class="flex shrink-0 items-center justify-center gap-3 pb-6 pt-2"
       >
         <NoteFormatToolbar
           :size="currentBlockSize"
@@ -173,6 +173,7 @@ defineExpose({ flushSave })
           @toggle-underline="onToolbarUnderline"
           @set-color="onToolbarColor"
         />
+        <slot name="toolbar-extra" />
       </div>
     </div>
   </section>

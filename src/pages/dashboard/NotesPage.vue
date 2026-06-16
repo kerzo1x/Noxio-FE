@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import NotesSplitLayout from '@/components/notes/NotesSplitLayout.vue'
 import NotesListPanel from '@/components/notes/NotesListPanel.vue'
 import NoteEditorPanel from '@/components/notes/NoteEditorPanel.vue'
+import NotesaiAgent from '@/components/notes/NotesaiAgent.vue'
 import { useNotesRoute } from '@/composables/useNotesRoute'
 import { useNotesStore } from '@/stores/notes'
 import { useWorkspaceStore } from '@/stores/workspace'
@@ -79,7 +80,11 @@ async function handleCreateNote() {
       </template>
 
       <template #editor>
-        <NoteEditorPanel :note="selectedNote" />
+        <NoteEditorPanel :note="selectedNote">
+          <template #toolbar-extra>
+            <NotesaiAgent />
+          </template>
+        </NoteEditorPanel>
       </template>
     </NotesSplitLayout>
   </section>
