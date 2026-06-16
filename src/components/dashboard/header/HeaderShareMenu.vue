@@ -9,15 +9,20 @@ defineProps<{
   ownerId: string
   isLoading: boolean
   loadError: string
-  searchQuery: string
-  filteredMembers: WorkspaceMember[]
+  inviteEmail: string
+  inviteMessage: string
+  isInviteError: boolean
+  isInviting: boolean
+  members: WorkspaceMember[]
   memberDisplayName: (member: WorkspaceMember) => string
   memberRoleLabel: (member: WorkspaceMember, ownerId: string) => string
 }>()
 
 const emit = defineEmits<{
   toggle: []
-  'update:searchQuery': [value: string]
+  'update:inviteEmail': [value: string]
+  invite: []
+  'clear-invite-feedback': []
 }>()
 
 const placeholderAvatars = [1, 2, 3]
@@ -64,11 +69,16 @@ const placeholderAvatars = [1, 2, 3]
       :owner-id="ownerId"
       :is-loading="isLoading"
       :load-error="loadError"
-      :search-query="searchQuery"
-      :filtered-members="filteredMembers"
+      :invite-email="inviteEmail"
+      :invite-message="inviteMessage"
+      :is-invite-error="isInviteError"
+      :is-inviting="isInviting"
+      :members="members"
       :member-display-name="memberDisplayName"
       :member-role-label="memberRoleLabel"
-      @update:search-query="emit('update:searchQuery', $event)"
+      @update:invite-email="emit('update:inviteEmail', $event)"
+      @invite="emit('invite')"
+      @clear-invite-feedback="emit('clear-invite-feedback')"
     />
   </div>
 </template>

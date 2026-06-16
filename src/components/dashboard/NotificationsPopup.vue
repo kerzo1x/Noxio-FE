@@ -8,14 +8,19 @@ const props = defineProps<{
   ownerId: string
   isLoading: boolean
   loadError: string
-  searchQuery: string
-  filteredMembers: WorkspaceMember[]
+  inviteEmail: string
+  inviteMessage: string
+  isInviteError: boolean
+  isInviting: boolean
+  members: WorkspaceMember[]
   memberDisplayName: (member: WorkspaceMember) => string
   memberRoleLabel: (member: WorkspaceMember, ownerId: string) => string
 }>()
 
 const emit = defineEmits<{
-  'update:searchQuery': [value: string]
+  'update:inviteEmail': [value: string]
+  invite: []
+  'clear-invite-feedback': []
 }>()
 
 const sectionTitle = computed(() => {
@@ -23,8 +28,9 @@ const sectionTitle = computed(() => {
   return `People in ${name}`
 })
 
-function onSearchInput(event: Event) {
-  emit('update:searchQuery', (event.target as HTMLInputElement).value)
+function onEmailInput(event: Event) {
+  emit('update:inviteEmail', (event.target as HTMLInputElement).value)
+  emit('clear-invite-feedback')
 }
 </script>
 
@@ -35,38 +41,36 @@ function onSearchInput(event: Event) {
     aria-label="Workspace members"
   >
     <div class="notifications-popup__inner">
-      <div class="notifications-popup__search-row">
-        <svg
-          class="notifications-popup__search-icon"
-          xmlns="http://www.w3.org/2000/svg"
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          aria-hidden="true"
-        >
-          <circle cx="11" cy="11" r="8" />
-          <path d="m21 21-4.3-4.3" />
-        </svg>
+      <div class="notifications-popup__invite-row">
         <input
-          id="notifications-member-search"
-          name="notifications-member-search"
-          :value="searchQuery"
-          type="text"
-          placeholder="Search items"
-          class="notifications-popup__search-input"
+          id="notifications-invite-email"
+          name="notifications-invite-email"
+          :value="inviteEmail"
+          type="email"
+          placeholder="Email"
+          class="notifications-popup__email-input"
           autocomplete="off"
-          aria-label="Search workspace members"
-          @input="onSearchInput"
+          aria-label="Member email"
+          @input="onEmailInput"
+          @keydown.enter.prevent="emit('invite')"
         />
-        <button type="button" class="notifications-popup__share-btn">
-          Share
+        <button
+          type="button"
+          class="notifications-popup__share-btn"
+          :disabled="!inviteEmail.trim() || isInviting"
+          @click="emit('invite')"
+        >
+          {{ isInviting ? 'Sending...' : 'Share' }}
         </button>
       </div>
+
+      <p
+        v-if="inviteMessage"
+        class="notifications-popup__invite-feedback"
+        :class="{ 'notifications-popup__invite-feedback--error': isInviteError }"
+      >
+        {{ inviteMessage }}
+      </p>
 
       <p class="notifications-popup__section-title">
         {{ sectionTitle }}
@@ -81,12 +85,12 @@ function onSearchInput(event: Event) {
       >
         {{ loadError }}
       </p>
-      <p v-else-if="filteredMembers.length === 0" class="notifications-popup__status">
-        {{ searchQuery.trim() ? 'No matching members' : 'No members yet' }}
+      <p v-else-if="members.length === 0" class="notifications-popup__status">
+        No members yet
       </p>
       <ul v-else class="notifications-popup__list">
         <li
-          v-for="member in filteredMembers"
+          v-for="member in members"
           :key="member.id"
           class="notifications-popup__item"
         >
@@ -127,20 +131,24 @@ function onSearchInput(event: Event) {
   @apply flex w-full flex-col gap-6;
 }
 
-.notifications-popup__search-row {
-  @apply relative flex h-10 w-full items-center rounded-lg border border-neutral-800 bg-neutral-900;
+.notifications-popup__invite-row {
+  @apply flex h-10 w-full items-center gap-2 rounded-lg border border-neutral-800 bg-neutral-900 pl-2 pr-1;
 }
 
-.notifications-popup__search-icon {
-  @apply pointer-events-none absolute left-3 top-1/2 shrink-0 -translate-y-1/2 text-panel-label;
-}
-
-.notifications-popup__search-input {
-  @apply h-full min-w-0 flex-1 border-0 bg-transparent pl-9 pr-20 text-xs font-medium tracking-tight text-panel-text outline-none placeholder:text-panel-placeholder;
+.notifications-popup__email-input {
+  @apply h-full min-w-0 flex-1 border-0 bg-transparent px-1 text-xs font-medium tracking-tight text-panel-text outline-none placeholder:text-panel-placeholder;
 }
 
 .notifications-popup__share-btn {
-  @apply absolute right-1 top-1/2 flex h-8 -translate-y-1/2 items-center justify-center rounded-md bg-blue-500 px-4 text-xs font-medium tracking-tight text-white transition-opacity hover:opacity-90;
+  @apply flex h-8 shrink-0 cursor-pointer items-center justify-center rounded-md bg-blue-500 px-4 text-xs font-medium tracking-tight text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40;
+}
+
+.notifications-popup__invite-feedback {
+  @apply -mt-3 text-center text-xs font-medium text-panel-text/70;
+}
+
+.notifications-popup__invite-feedback--error {
+  @apply text-error;
 }
 
 .notifications-popup__section-title {

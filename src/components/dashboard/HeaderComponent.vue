@@ -46,16 +46,19 @@ const {
 } = headerMenus
 
 const {
+  members,
   isLoading: isMembersLoading,
   loadError: membersLoadError,
-  searchQuery: membersSearchQuery,
-  filteredMembers,
   memberDisplayName,
   memberRoleLabel,
-  resetSearch: resetMembersSearch,
   invalidateCache: invalidateMembersCache,
   fetchMembers,
 } = useWorkspaceMembers()
+
+const inviteEmail = ref('')
+const inviteMessage = ref('')
+const isInviteError = ref(false)
+const isInviting = ref(false)
 const headerSearchQuery = ref('')
 const headerSidebarRef = ref<HTMLElement | null>(null)
 const isLoggingOut = ref(false)
@@ -103,10 +106,56 @@ async function handleLogout() {
   }
 }
 
+function resetInviteForm() {
+  inviteEmail.value = ''
+  inviteMessage.value = ''
+  isInviteError.value = false
+  isInviting.value = false
+}
+
+function clearInviteFeedback() {
+  isInviteError.value = false
+  inviteMessage.value = ''
+}
+
+async function handleInvite() {
+  const email = inviteEmail.value.trim().toLowerCase()
+  if (!email || isInviting.value) return
+
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    isInviteError.value = true
+    inviteMessage.value = 'Enter a valid email address.'
+    return
+  }
+
+  const workspaceId = activeWorkspaceId.value
+  if (!workspaceId) {
+    isInviteError.value = true
+    inviteMessage.value = 'No workspace selected.'
+    return
+  }
+
+  isInviting.value = true
+  isInviteError.value = false
+  inviteMessage.value = ''
+
+  try {
+    await workspaceStore.createInvitation(workspaceId, email, 'EDITOR')
+    inviteEmail.value = ''
+    inviteMessage.value = 'Invitation sent.'
+  } catch (err) {
+    isInviteError.value = true
+    inviteMessage.value =
+      err instanceof Error ? err.message : 'Failed to send invitation.'
+  } finally {
+    isInviting.value = false
+  }
+}
+
 async function handleShareMenuToggle() {
   if (isShareMenuOpen.value) {
     closeShareMenu()
-    resetMembersSearch()
+    resetInviteForm()
     return
   }
   openShareMenu()
@@ -119,7 +168,7 @@ async function handleShareMenuToggle() {
 }
 
 watch(isShareMenuOpen, (open) => {
-  if (!open) resetMembersSearch()
+  if (!open) resetInviteForm()
 })
 
 function closeHeaderSearch() {
@@ -199,12 +248,17 @@ onUnmounted(() => clearHeaderSearchPending())
           :owner-id="activeWorkspaceOwnerId"
           :is-loading="isMembersLoading"
           :load-error="membersLoadError ?? ''"
-          :search-query="membersSearchQuery"
-          :filtered-members="filteredMembers"
+          :invite-email="inviteEmail"
+          :invite-message="inviteMessage"
+          :is-invite-error="isInviteError"
+          :is-inviting="isInviting"
+          :members="members"
           :member-display-name="memberDisplayName"
           :member-role-label="memberRoleLabel"
           @toggle="handleShareMenuToggle"
-          @update:search-query="membersSearchQuery = $event"
+          @update:invite-email="inviteEmail = $event"
+          @invite="handleInvite"
+          @clear-invite-feedback="clearInviteFeedback"
         />
       </div>
 
