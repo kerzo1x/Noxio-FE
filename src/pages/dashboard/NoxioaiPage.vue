@@ -62,13 +62,40 @@ type ChatMessage = {
   isStreaming?: boolean
 }
 
-const prompts = [
-  { name: 'prompt name', active: true },
-  { name: 'prompt name', active: false },
-  { name: 'prompt name', active: false },
-  { name: 'prompt name', active: false },
-  { name: 'prompt name', active: false },
+const CHAT_HISTORY_POOL = [
+  'Math explaining',
+  'Essay draft help',
+  'Chemistry homework',
+  'Meeting notes',
+  'Research outline',
+  'Resume feedback',
+  'Presentation prep',
+  'Study plan',
+  'Code review',
+  'Lab report draft',
+  'Literature analysis',
+  'Project timeline',
+  'Lecture recap',
+  'Team standup',
+  'Budget proposal',
+  'History essay',
+  'Physics problem set',
+  'Internship cover letter',
+  'Thesis chapter draft',
+  'Weekly report',
 ]
+
+function pickRandomChats(historyCount: number) {
+  const shuffled = [...CHAT_HISTORY_POOL].sort(() => Math.random() - 0.5)
+  const history = shuffled.slice(0, historyCount).map((name) => ({
+    name,
+    active: false,
+  }))
+
+  return [{ name: 'New chat', active: true }, ...history]
+}
+
+const prompts = ref(pickRandomChats(4))
 
 const inputText = ref('')
 const messages = ref<ChatMessage[]>([])
