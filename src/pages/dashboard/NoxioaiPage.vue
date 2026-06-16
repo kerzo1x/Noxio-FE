@@ -203,7 +203,7 @@ function sendMessage() {
             class="flex h-full min-h-[200px] items-center justify-center"
           >
             <p class="text-center text-2xl leading-[1.4]">
-              <span class="text-white/50">type prompt to start chat with </span>
+              <span class="text-white/50">Type prompt to start chat with </span>
               <span class="text-white">Noxio AI</span>
               <svg
                 class="relative -top-[10px] ml-1 inline-block size-4"

@@ -90,7 +90,7 @@ defineExpose({ flushSave })
 
     <div
       v-else
-      class="flex min-h-0 flex-1 flex-col"
+      class="relative flex min-h-0 flex-1 flex-col"
     >
       <div
         v-if="remoteConflict"
@@ -162,18 +162,28 @@ defineExpose({ flushSave })
 
       <div
         v-if="showToolbar"
-        class="flex shrink-0 items-center justify-center gap-3 pb-6 pt-2"
+        class="relative shrink-0 pb-6 pt-2"
       >
-        <NoteFormatToolbar
-          :size="currentBlockSize"
-          :bold-active="boldActive"
-          :underline-active="underlineActive"
-          @update:size="onToolbarSize"
-          @toggle-bold="onToolbarBold"
-          @toggle-underline="onToolbarUnderline"
-          @set-color="onToolbarColor"
-        />
-        <slot name="toolbar-extra" />
+        <div class="flex justify-center">
+          <NoteFormatToolbar
+            :size="currentBlockSize"
+            :bold-active="boldActive"
+            :underline-active="underlineActive"
+            @update:size="onToolbarSize"
+            @toggle-bold="onToolbarBold"
+            @toggle-underline="onToolbarUnderline"
+            @set-color="onToolbarColor"
+          />
+        </div>
+      </div>
+
+      <div
+        v-if="showToolbar"
+        class="pointer-events-none absolute bottom-6 -right-3 z-10"
+      >
+        <div class="pointer-events-auto">
+          <slot name="toolbar-extra" />
+        </div>
       </div>
     </div>
   </section>

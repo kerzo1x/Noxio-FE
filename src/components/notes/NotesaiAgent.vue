@@ -165,7 +165,7 @@ function sendMessage() {
   <div ref="root" class="relative shrink-0">
     <button
       type="button"
-      class="flex size-[53px] items-center justify-center rounded-full bg-[#fafafa] transition-opacity hover:opacity-90"
+      class="flex size-[53px] cursor-pointer items-center justify-center rounded-full bg-[#fafafa] transition-opacity hover:opacity-90"
       :aria-expanded="isOpen"
       aria-label="Open Noxio AI"
       @click.stop="togglePanel"
